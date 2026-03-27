@@ -1,0 +1,1185 @@
+[
+  {
+    "bio": "VP Eng @charthop. Previously @Cisco, @OpenDNS, and @EveryDNS.",
+    "builder_score": {
+      "last_calculated_at": "2026-02-05T03:04:36Z",
+      "points": 12,
+      "rank_position": null,
+      "slug": "builder_score"
+    },
+    "calculating_score": false,
+    "created_at": "2025-07-18T13:06:02Z",
+    "display_name": "Brian Hartvigsen",
+    "id": "eb17b211-2504-4973-ad21-43c4649530e2",
+    "image_url": "https://avatars.githubusercontent.com/u/210250?v=4",
+    "location": "Boise, Idaho",
+    "name": "tresni",
+    "profile_refreshed_at": "2025-07-18T13:12:09Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/eb17b211-2504-4973-ad21-43c4649530e2",
+    "scores": [
+      {
+        "last_calculated_at": "2026-02-05T03:04:36Z",
+        "points": 12,
+        "rank_position": null,
+        "slug": "builder_score"
+      },
+      {
+        "last_calculated_at": "2025-08-12T14:00:02Z",
+        "points": 61,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      }
+    ],
+    "standardized_location": "United States",
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": {
+      "last_calculated_at": "2026-02-04T23:17:09Z",
+      "points": 12,
+      "rank_position": null,
+      "slug": "builder_score"
+    },
+    "calculating_score": false,
+    "created_at": "2025-07-18T13:05:52Z",
+    "display_name": "Daniel Wozniak",
+    "id": "453ddfee-f9a7-436b-aad6-c31d31ac3c29",
+    "image_url": "https://avatars.githubusercontent.com/u/1527763?v=4",
+    "location": null,
+    "name": "dwoz",
+    "profile_refreshed_at": "2025-07-18T13:12:09Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/453ddfee-f9a7-436b-aad6-c31d31ac3c29",
+    "scores": [
+      {
+        "last_calculated_at": "2026-02-04T23:17:09Z",
+        "points": 12,
+        "rank_position": null,
+        "slug": "builder_score"
+      },
+      {
+        "last_calculated_at": "2025-08-12T14:00:02Z",
+        "points": 62,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "plans that either come to naught or half a page of scribbled lines",
+    "builder_score": {
+      "last_calculated_at": "2026-02-05T04:10:33Z",
+      "points": 12,
+      "rank_position": null,
+      "slug": "builder_score"
+    },
+    "calculating_score": false,
+    "created_at": "2025-07-18T13:05:16Z",
+    "display_name": "jack kuperman",
+    "id": "22cf831e-301a-4fed-bd10-ec87ac2b8d7a",
+    "image_url": "https://avatars.githubusercontent.com/u/2138274?v=4",
+    "location": null,
+    "name": "mostfunkyduck",
+    "profile_refreshed_at": "2025-08-20T07:16:35Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/22cf831e-301a-4fed-bd10-ec87ac2b8d7a",
+    "scores": [
+      {
+        "last_calculated_at": "2026-02-05T04:10:33Z",
+        "points": 12,
+        "rank_position": null,
+        "slug": "builder_score"
+      },
+      {
+        "last_calculated_at": "2025-08-20T07:16:38Z",
+        "points": 38,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:49:41Z",
+    "display_name": "aicat.eth",
+    "id": "7e1adab2-a953-4cb8-af45-7371fa95b5ea",
+    "image_url": "https://scontent-iad4-1.choicecdn.com/-/rs:fit:1200:1200/f:best/aHR0cHM6Ly9ldWMubGkvYWljYXQuZXRo",
+    "location": null,
+    "name": "aicat.eth",
+    "profile_refreshed_at": "2025-10-14T12:38:12Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/7e1adab2-a953-4cb8-af45-7371fa95b5ea",
+    "scores": [
+      {
+        "last_calculated_at": "2025-08-12T13:59:24Z",
+        "points": 11,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-10-14T12:38:55Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:36:09Z",
+    "display_name": "kzchen.eth",
+    "id": "4663c2c3-58d8-4b0e-b9cd-010ee6453f06",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmZqLmrpBBhkG9U9BY44oaGWDX4hL9fvrqGrRqdqhHKcnz?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "zchn",
+    "profile_refreshed_at": "2025-09-21T06:17:20Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/zchn",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-21T06:19:52Z",
+        "points": 16,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-08-22T21:24:31Z",
+        "points": 9,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "Mechatronics Engineer with a career in Software Development and Machine Learning. Made in Mexico. 🇲🇽",
+    "builder_score": {
+      "last_calculated_at": "2026-02-05T08:48:58Z",
+      "points": 12,
+      "rank_position": null,
+      "slug": "builder_score"
+    },
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:35:44Z",
+    "display_name": "Jaime Tenorio",
+    "id": "9395b1af-55b6-420c-8ba6-4f4c1c7acc6e",
+    "image_url": "https://avatars.githubusercontent.com/u/17936011?v=4",
+    "location": "Mexico City",
+    "name": "jaimeteb",
+    "profile_refreshed_at": "2025-08-20T03:01:00Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/9395b1af-55b6-420c-8ba6-4f4c1c7acc6e",
+    "scores": [
+      {
+        "last_calculated_at": "2026-02-05T08:48:58Z",
+        "points": 12,
+        "rank_position": null,
+        "slug": "builder_score"
+      },
+      {
+        "last_calculated_at": "2025-08-20T03:01:04Z",
+        "points": 39,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      }
+    ],
+    "standardized_location": "Mexico",
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:33:22Z",
+    "display_name": "hectorium.eth",
+    "id": "72a43b8a-32ba-47a9-950f-132712ae726e",
+    "image_url": null,
+    "location": null,
+    "name": "hectorium.eth",
+    "profile_refreshed_at": "2025-09-29T01:43:06Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/72a43b8a-32ba-47a9-950f-132712ae726e",
+    "scores": [
+      {
+        "last_calculated_at": "2025-08-12T13:58:54Z",
+        "points": 12,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-09-29T01:43:46Z",
+        "points": 4,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:46Z",
+    "display_name": "Editta",
+    "id": "d045305a-4c79-4d98-a8f4-25112821aac0",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmWoHfBDJ6JBzDJisJuCY1vfP1ZgRPDa3kGBfBwJefYaj5?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "editta.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:18Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/editta.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:50Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:42Z",
+    "display_name": "Tatang",
+    "id": "bcc5c856-8618-45b4-a232-34d6bdb5a994",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmQMSPuCGMAhWNHGDLnLRL9rAbAU4xHJe8y2N2VQk8FTwJ?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "tatang.base.eth",
+    "profile_refreshed_at": "2025-07-29T19:44:44Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/tatang.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-29T19:45:00Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-11-01T22:01:39Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:38Z",
+    "display_name": "chexr.base.eth",
+    "id": "d0a71ad5-fca7-40aa-bbbe-4721c91fe4cf",
+    "image_url": null,
+    "location": null,
+    "name": "!1127538",
+    "profile_refreshed_at": "2025-07-22T21:20:17Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/d0a71ad5-fca7-40aa-bbbe-4721c91fe4cf",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:50Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:34Z",
+    "display_name": "daya",
+    "id": "1472d4c8-fb46-42dc-bf9e-42e62adb2d0a",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmdHx9DfDFmBwbgrcNxbqNDzrG5RekaYGfhZ1bnjHxki6P?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "dayadzn.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:17Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/dayadzn.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:31Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "$BASE to the moon🚀",
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:30Z",
+    "display_name": "Rally_Base",
+    "id": "e7f259ff-a6f4-45d3-ad22-038f50b4cc81",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/Qmc8YEejaDcYA4oKD9pon5Tt4P2CrDxC7UKhjEzg16XMLN?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "masyoga.base.eth",
+    "profile_refreshed_at": "2025-09-22T18:31:23Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/masyoga.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-10-22T02:01:25Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:25Z",
+    "display_name": "Sami",
+    "id": "374e7f0f-b8d0-4775-986e-99e49122a997",
+    "image_url": null,
+    "location": null,
+    "name": "samiulsami.base.eth",
+    "profile_refreshed_at": "2025-09-22T20:28:05Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/samiulsami.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:50Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:22Z",
+    "display_name": "rrrjb.base.eth",
+    "id": "26874eb6-33a2-4e0e-9adf-519fcdf997db",
+    "image_url": null,
+    "location": null,
+    "name": "!1127530",
+    "profile_refreshed_at": "2025-09-22T17:40:06Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/26874eb6-33a2-4e0e-9adf-519fcdf997db",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:50Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:19Z",
+    "display_name": "Antonio Junior",
+    "id": "1caa41f3-b07f-4a26-acb0-2edc61104e1c",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmNe3CLYN1gcU1AwVtgVD7H1vXUjK6rTwrwpZqCpj2Z63S?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "narutujunior.base.eth",
+    "profile_refreshed_at": "2025-09-22T10:20:27Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/narutujunior.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2026-03-03T17:14:29Z",
+        "points": 4,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:16Z",
+    "display_name": "Varun MM",
+    "id": "af54332e-02d4-46dc-9209-d03707c6c161",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmRN8kNe8mX5e1VxMpnwYfoinLam3M974kWuSvGMAqtVpJ?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "baseera07.base.eth",
+    "profile_refreshed_at": "2025-09-22T16:50:28Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/baseera07.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-11-02T05:01:19Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:13Z",
+    "display_name": "ANTOR",
+    "id": "7a005455-76a9-4033-bc4f-7172f3cfb9d7",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmZm26RsPcdNkE4ySLyBJK1pb4V9Rf8nB22D2uzTL33fim?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "antor95.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:11Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/antor95.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:25Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:08Z",
+    "display_name": "Faw",
+    "id": "69e84098-36e8-4753-a1e4-485e2e62aa2d",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmVmM2FXSv69qYKDiuv7uDKLbRA9a9obJkb3L1RPjpKsTg?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "faeez.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:11Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/faeez.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:50Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:32:03Z",
+    "display_name": "Sunny",
+    "id": "8ddca56b-cb29-48be-8d73-f9080b58c118",
+    "image_url": null,
+    "location": null,
+    "name": "sunny148.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:10Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/sunny148.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:24Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "Happy to learning something new",
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:59Z",
+    "display_name": "Asifur",
+    "id": "eee549b6-36f5-43dc-8a2f-c51ccc18eb18",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmaXtZn2s5zXgSGsHZncttnsEwjY1Ed7XAWSTR2XqBpjUM?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "skkayes.base.eth",
+    "profile_refreshed_at": "2025-09-17T07:27:33Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/skkayes.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-17T07:28:10Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-10-04T18:01:19Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:56Z",
+    "display_name": "Niaznr",
+    "id": "dfd093ca-822e-4420-b6c2-dee23d247d56",
+    "image_url": null,
+    "location": null,
+    "name": "arifin15.base.eth",
+    "profile_refreshed_at": "2025-09-22T18:11:54Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/arifin15.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-20T00:08:50Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:52Z",
+    "display_name": "Tongater",
+    "id": "559ae5ac-7d98-4762-851f-69f853cd07a2",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmWamAXQp4rNJ3Gi95kAesFca9EiYjbM5xoKzk2tcF2o2a?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "!1127520",
+    "profile_refreshed_at": "2025-09-22T18:16:41Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/559ae5ac-7d98-4762-851f-69f853cd07a2",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:50Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:48Z",
+    "display_name": "deprof",
+    "id": "f1361665-8709-419e-b738-9f84043ad482",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmSxWm1Jie9a2cASmqh5bFktstScNv3o9cyMAqrMKZia9B?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "deprof.base.eth",
+    "profile_refreshed_at": "2025-09-20T23:21:05Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/deprof.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-20T23:21:28Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-09-21T10:08:26Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:45Z",
+    "display_name": "Top Realme",
+    "id": "ab95ec2a-4707-403b-a418-1335fd0ec6db",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/Qma6E7zTppUAEjq27vneZsQGyorjLGeRqieWXf1EhnsXwu?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "toprealmem.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:08Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/toprealmem.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-11-06T18:01:16Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:41Z",
+    "display_name": "MyatPhoo",
+    "id": "0f352c72-a695-461a-bdeb-5e2866239730",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmQYqX1oB66eFRp7GfQBuEbqjZSmFD1SWzMLwqZocs76XS?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "myatphoo.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:08Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/myatphoo.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 3,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:38Z",
+    "display_name": "Gyn",
+    "id": "240669dc-703c-4fa9-a98d-641b9c759cd9",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmVmM2FXSv69qYKDiuv7uDKLbRA9a9obJkb3L1RPjpKsTg?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "gynaz.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:07Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/gynaz.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:34Z",
+    "display_name": "MD Jakariya",
+    "id": "d9fdb84b-4874-4e70-be29-d58b371876da",
+    "image_url": null,
+    "location": null,
+    "name": "jakariyaa636.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:06Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/jakariyaa636.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:19Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:30Z",
+    "display_name": "gfjbv.base.eth",
+    "id": "f3c42f26-69ff-4f9e-ad4c-1d54e068e4ea",
+    "image_url": null,
+    "location": null,
+    "name": "!1127506",
+    "profile_refreshed_at": "2025-07-22T21:20:06Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/f3c42f26-69ff-4f9e-ad4c-1d54e068e4ea",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 1,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:26Z",
+    "display_name": "Rafiamy",
+    "id": "516951ef-dafd-455a-8a1c-0a8bea63e6bf",
+    "image_url": null,
+    "location": null,
+    "name": "rafiamy.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:07Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/rafiamy.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 1,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "lordfunds",
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:23Z",
+    "display_name": "Lordfunds 💼",
+    "id": "cf602cfc-ad95-4ed7-9995-5826aa87ac46",
+    "image_url": "https://res.cloudinary.com/base-app/image/upload/f_m3u8,f_png/v1757604655/video_uploads/60e7fe5a-4ee3-47b1-93cd-14dc342dc59a.png",
+    "location": null,
+    "name": "lordfunds.base.eth",
+    "profile_refreshed_at": "2025-09-22T18:04:35Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/lordfunds.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-10-22T06:01:23Z",
+        "points": 1,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:18Z",
+    "display_name": "vfhbj",
+    "id": "ee4796f5-11d1-4211-8ac2-21c89c85688e",
+    "image_url": null,
+    "location": null,
+    "name": "jggvn.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:04Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/jggvn.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 1,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:15Z",
+    "display_name": "Fellicia",
+    "id": "758702f4-d5e0-4888-9686-b064110b7b27",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmZ2JUs4ULXEPSVRxwShn5FbFFSdYuz9CcbxoHs1qGkDxq?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "fellicia.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:03Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/fellicia.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:12Z",
+    "display_name": "Shivam Sharma",
+    "id": "cc71bd8a-6f72-4313-99d9-4cbb0f3599ad",
+    "image_url": null,
+    "location": null,
+    "name": "shivam999.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:03Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/shivam999.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:15Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:09Z",
+    "display_name": "Mdsolly",
+    "id": "72de8611-0f27-478f-b785-b7222d827beb",
+    "image_url": null,
+    "location": null,
+    "name": "mdsollybase.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:03Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/mdsollybase.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 1,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:06Z",
+    "display_name": "Arie Prabowo",
+    "id": "691c41de-571a-4d12-818b-77e6f7e9d351",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmVRhKSZNXwAp1uVuJFdFtFyTGRB46Zi9U7j2wV7F9ZpTm?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "arieesc.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:03Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/arieesc.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:15Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:31:01Z",
+    "display_name": "Kamak",
+    "id": "c66903b9-56a5-43c5-a2b0-f0d141f94916",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmSFaRzd1J5nreCR57BE9iuFWYYABouPrtxthFyxcMvqx7?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "kamalk.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:02Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/kamalk.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-11-07T11:42:29Z",
+        "points": 1,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:30:57Z",
+    "display_name": "Maruf",
+    "id": "ce705b2b-8266-4ba3-a29b-ce655ca08dae",
+    "image_url": null,
+    "location": null,
+    "name": "marufverse.base.eth",
+    "profile_refreshed_at": "2025-09-16T19:03:09Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/marufverse.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-16T19:03:58Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "builder_score_2025"
+      },
+      {
+        "last_calculated_at": "2025-09-16T19:04:15Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:30:53Z",
+    "display_name": "Fitriaisyah",
+    "id": "c03144d5-3b82-4ace-9b9c-a0b4c02eefc1",
+    "image_url": null,
+    "location": null,
+    "name": "fitriaisyah.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:01Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/fitriaisyah.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-08-05T22:51:52Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "Civil engineer🏗, designing/simulating steel structures🌉, crypto/blockchain enthusiast💎👐🏼",
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:30:50Z",
+    "display_name": "THO",
+    "id": "96224915-caa0-42d8-a86f-e6fcb8d054d8",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmaPE1qtoVLNqdnkQHB68yNnoQGKwjhYc7zhe5G5yzeu5n?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "tho1010.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:20:00Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/tho1010.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-08-22T21:45:15Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:30:46Z",
+    "display_name": "Basenood",
+    "id": "1a4db72c-291a-43f2-8b17-ab5cda2d6ab7",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmZkz5Jz4KxJGADgSBNAq5J4MV3k2RDiGYMvEQEWE7pPqH?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "basenood.base.eth",
+    "profile_refreshed_at": "2025-09-22T17:44:05Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/basenood.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-09-14T20:05:49Z",
+        "points": 2,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": null,
+    "builder_score": null,
+    "calculating_score": false,
+    "created_at": "2025-07-18T12:30:41Z",
+    "display_name": "Maskintuk",
+    "id": "7bcaf2ca-bedc-41cb-95c8-cfc4b74a5fee",
+    "image_url": "https://tba-mobile.mypinata.cloud/ipfs/QmdMcFLb6V9e4HYnzy5Eqayojk69piyfVFpEJ1haJrgJCV?pinataGatewayToken=3nq0UVhtd3rYmgYDdb1I9qv7rHsw-_DzwdWkZPRQ-QW1avFI9dCS8knaSfq_R5_q",
+    "location": null,
+    "name": "maskintuk.base.eth",
+    "profile_refreshed_at": "2025-07-22T21:19:59Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/maskintuk.base.eth",
+    "scores": [
+      {
+        "last_calculated_at": "2025-07-22T21:20:15Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "creator_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  },
+  {
+    "bio": "💰 https://t.co/HuOy5ERwK3 : $300/m\n⏳ https://t.co/msgXILyt34 : WIP",
+    "builder_score": {
+      "last_calculated_at": "2026-03-12T13:16:23Z",
+      "points": 0,
+      "rank_position": null,
+      "slug": "builder_score"
+    },
+    "calculating_score": false,
+    "created_at": "2026-03-12T11:57:16Z",
+    "display_name": "Rémi Buchaillat",
+    "id": "1f8ecd2c-4b9b-4976-8cf2-3fb6854cf972",
+    "image_url": "https://pbs.twimg.com/profile_images/2019531354254311424/2wygvsed_400x400.jpg",
+    "location": null,
+    "name": "remibuchaillat",
+    "profile_refreshed_at": "2026-03-12T13:16:23Z",
+    "refreshing_profile_enqueued_at": null,
+    "relative_path": "/1f8ecd2c-4b9b-4976-8cf2-3fb6854cf972",
+    "scores": [
+      {
+        "last_calculated_at": "2026-03-12T13:16:23Z",
+        "points": 0,
+        "rank_position": null,
+        "slug": "builder_score"
+      }
+    ],
+    "standardized_location": null,
+    "tags": [],
+    "talent_protocol_id": null,
+    "verified_nationality": false
+  }
+]

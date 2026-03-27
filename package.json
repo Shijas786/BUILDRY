@@ -1,0 +1,50 @@
+{
+  "name": "buildry",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@bagsfm/bags-sdk": "^1.3.4",
+    "@farcaster/auth-kit": "^0.8.2",
+    "@metamask/connect-evm": "^0.1.1",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@reown/appkit": "^1.8.19",
+    "@reown/appkit-adapter-solana": "^1.8.19",
+    "@reown/appkit-adapter-wagmi": "^1.8.19",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-phantom": "^0.9.24",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
+    "@solana/web3.js": "^1.95.3",
+    "@supabase/supabase-js": "^2.78.0",
+    "@tanstack/react-query": "^5.95.2",
+    "@wagmi/connectors": "^5.1.7",
+    "@wagmi/core": "^2.22.1",
+    "axios": "^1.7.2",
+    "next": "14.2.3",
+    "next-auth": "^4.24.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socialfi": "^0.1.14",
+    "viem": "^2.47.6",
+    "wagmi": "^2.19.5",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.4.5"
+  }
+}
