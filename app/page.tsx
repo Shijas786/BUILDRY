@@ -5,7 +5,6 @@ import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { useAuth } from '@/context/AuthProvider'
 import { useRouter } from 'next/navigation'
-import HomepageBuilderShowcase from '@/components/HomepageBuilderShowcase'
 import { openAuthModal } from '@/lib/openAuthModal'
 import TokenTicker from '@/components/TokenTicker'
 import BuildryWordmark from '@/components/BuildryWordmark'
@@ -90,8 +89,6 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
-
-      <HomepageBuilderShowcase />
 
       {/* How it works */}
       <section className="max-w-5xl mx-auto px-8 py-24">

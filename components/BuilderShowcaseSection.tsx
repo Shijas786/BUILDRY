@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import BuilderCards from './BuilderCards'
 import mockProfiles from '@/lib/mockProfiles.json'
 
@@ -91,18 +92,32 @@ function RightRail() {
   )
 }
 
-export default function HomepageBuilderShowcase() {
+export type BuilderShowcaseSectionProps = {
+  title?: string
+  subtitle?: string
+  showRightRail?: boolean
+  cta?: { href: string; label: string } | null
+}
+
+export default function BuilderShowcaseSection({
+  title = 'Top Builders Right Now',
+  subtitle = 'Ranked by onchain reputation — not followers',
+  showRightRail = true,
+  cta = { href: '/explore', label: 'Explore Map' },
+}: BuilderShowcaseSectionProps) {
   return (
     <section className="max-w-[1600px] mx-auto px-8 lg:px-12 pb-24">
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr,320px] gap-14 items-start">
+      <div
+        className={`grid grid-cols-1 gap-14 items-start ${showRightRail ? 'xl:grid-cols-[1fr,320px]' : ''}`}
+      >
         <div className="space-y-14">
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between px-6 border-l-4 border-slate-900 py-2 gap-6">
             <div>
               <h2 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
-                Top Builders Right Now
+                {title}
               </h2>
               <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.28rem] font-mono">
-                Ranked by onchain reputation — not followers
+                {subtitle}
               </p>
             </div>
             <div className="flex items-center gap-6">
@@ -112,36 +127,39 @@ export default function HomepageBuilderShowcase() {
                   Live Feed Active
                 </p>
               </div>
-              <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.24em] hover:bg-blue-600 transition-all shadow-2xl shadow-slate-900/10 active:scale-95">
-                Explore Map
-              </button>
+              {cta ? (
+                <Link
+                  href={cta.href}
+                  className="inline-flex items-center justify-center bg-slate-900 text-white px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.24em] hover:bg-blue-600 transition-all shadow-2xl shadow-slate-900/10 active:scale-95"
+                >
+                  {cta.label}
+                </Link>
+              ) : null}
             </div>
           </div>
 
           <div className="px-1">
             <div className="flex gap-4 mb-8 overflow-x-auto pb-2">
-              {['All Builders', 'Top Score', 'New Launches', 'Open for Work', 'Trending Tokens'].map(
-                (tab, i) => (
-                  <button
-                    key={tab}
-                    className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg border transition-all whitespace-nowrap ${
-                      i === 0
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10'
-                        : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                )
-              )}
+              {['All Builders', 'Top Score', 'New Launches', 'Open for Work', 'Trending Tokens'].map((tab, i) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg border transition-all whitespace-nowrap ${
+                    i === 0
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10'
+                      : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
             <BuilderCards />
           </div>
         </div>
 
-        <RightRail />
+        {showRightRail ? <RightRail /> : null}
       </div>
     </section>
   )
 }
-
