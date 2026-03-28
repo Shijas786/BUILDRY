@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
+import { FS } from '@/lib/firestoreCollections'
 
 export async function GET(
   _req: NextRequest,
@@ -14,7 +15,7 @@ export async function GET(
   const comments = await Promise.all(
     commentDocs.docs.map(async (commentDoc) => {
       const base = { id: commentDoc.id, ...commentDoc.data() } as any
-      const userDoc = await db.collection('users').doc(base.author_id).get()
+      const userDoc = await db.collection(FS.USERS).doc(base.author_id).get()
       return {
         ...base,
         users: userDoc.exists
@@ -46,8 +47,8 @@ export async function POST(
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
-  const postRef = db.collection('posts').doc(params.id)
-  const commentRef = await db.collection('post_comments').add({
+  const postRef = db.collection(FS.POSTS).doc(params.id)
+  const commentRef = await db.collection(FS.POST_COMMENTS).add({
     post_id: params.id,
     author_id: authorId,
     content,

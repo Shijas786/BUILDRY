@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Client SDK is used for: AuthProvider + settings (users, builder_profiles, projects).
+    // All other data (posts, follows, jobs, …) is read/written only via Next.js API routes (Admin SDK bypasses rules).
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Public read: username availability checks query by `username`; public profiles are also served via API.
+    match /builder_profiles/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /projects/{projectId} {
+      allow read: if request.auth != null && resource.data.builder_id == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['builder_id', 'title', 'created_at'])
+        && request.resource.data.builder_id == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && resource.data.builder_id == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

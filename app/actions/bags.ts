@@ -2,7 +2,8 @@
 
 import { Connection, PublicKey } from '@solana/web3.js'
 import { BagsSDK } from '@bagsfm/bags-sdk'
-import { getServiceSupabase } from '@/lib/supabaseService'
+import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
+import { FS } from '@/lib/firestoreCollections'
 
 export async function prepareLaunchTransaction(
   name: string,
@@ -63,18 +64,22 @@ export async function prepareLaunchTransaction(
     // Serialize to pass to the client securely
     const serializedTx = Buffer.from(launchTx.serialize()).toString('base64')
 
-    if (userId) {
+    if (userId && isFirebaseAdminConfigured && adminDb) {
       try {
-        const supabase = getServiceSupabase()
-        if (supabase) {
-          await supabase.from('posts').insert({
-            author_id: userId,
-            content: `Just launched $${symbol} — ${name}! ${description}`,
-            post_type: 'launch',
-            milestone_title: `Launched $${symbol}`,
-            milestone_category: 'launch',
-          })
-        }
+        const now = Date.now()
+        await adminDb.collection(FS.POSTS).add({
+          author_id: userId,
+          content: `Just launched $${symbol} — ${name}! ${description}`,
+          post_type: 'launch',
+          images: [],
+          milestone_title: `Launched $${symbol}`,
+          milestone_category: 'launch',
+          project_id: null,
+          link_url: null,
+          likes_count: 0,
+          comments_count: 0,
+          created_at: now,
+        })
       } catch (postErr) {
         console.error('Auto-post on launch failed:', postErr)
       }

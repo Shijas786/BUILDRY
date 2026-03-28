@@ -1,4 +1,5 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -18,3 +19,4 @@ if (isFirebaseAdminConfigured && getApps().length === 0) {
 }
 
 export const adminDb = isFirebaseAdminConfigured ? getFirestore() : null
+export const adminAuth = isFirebaseAdminConfigured ? getAuth() : null

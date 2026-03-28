@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { FS } from '@/lib/firestoreCollections'
 
 export const isSupabaseConfigured = isFirebaseConfigured
 
@@ -30,7 +31,7 @@ export async function getSession() {
 export async function getUser(): Promise<AppUser | null> {
   if (!firebaseDb || !firebaseAuth?.currentUser) return null
   const uid = firebaseAuth.currentUser.uid
-  const userRef = doc(firebaseDb, 'users', uid)
+  const userRef = doc(firebaseDb, FS.USERS, uid)
   const userSnap = await getDoc(userRef)
   if (!userSnap.exists()) return null
   return userSnap.data() as AppUser
@@ -41,7 +42,7 @@ export async function signUpWithEmail(email: string, password: string) {
   try {
     const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password)
     await setDoc(
-      doc(firebaseDb, 'users', credential.user.uid),
+      doc(firebaseDb, FS.USERS, credential.user.uid),
       {
         id: credential.user.uid,
         email: credential.user.email,
@@ -64,7 +65,7 @@ export async function signInWithEmail(email: string, password: string) {
   try {
     const credential = await signInWithEmailAndPassword(firebaseAuth, email, password)
     await setDoc(
-      doc(firebaseDb, 'users', credential.user.uid),
+      doc(firebaseDb, FS.USERS, credential.user.uid),
       {
         id: credential.user.uid,
         email: credential.user.email,
@@ -86,7 +87,7 @@ export async function signInWithGoogle() {
     const provider = new GoogleAuthProvider()
     const credential = await signInWithPopup(firebaseAuth, provider)
     await setDoc(
-      doc(firebaseDb, 'users', credential.user.uid),
+      doc(firebaseDb, FS.USERS, credential.user.uid),
       {
         id: credential.user.uid,
         email: credential.user.email,
@@ -115,7 +116,7 @@ export async function signOut() {
 export async function updateUserRole(userId: string, role: UserRole) {
   if (!firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
   try {
-    await updateDoc(doc(firebaseDb, 'users', userId), { account_type: role })
+    await updateDoc(doc(firebaseDb, FS.USERS, userId), { account_type: role })
     return { data: true, error: null }
   } catch (error: any) {
     return { data: null, error: { message: error?.message || 'Failed to update role' } }

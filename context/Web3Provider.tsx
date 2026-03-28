@@ -8,8 +8,9 @@ import { mainnet, base, solana } from '@reown/appkit/networks'
 import { WagmiProvider, cookieStorage, createStorage, http } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// 1. Get projectId from https://cloud.reown.com
-const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || '0170555811e9d12886ffcdc426714a4a'
+// 1. Project ID from https://cloud.reown.com — set NEXT_PUBLIC_REOWN_PROJECT_ID in .env
+const projectId =
+  process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || 'fe34153f6b31c344d6cbcc7008c37144'
 
 // 2. Set up Wagmi Adapter
 export const networks = [mainnet, base]

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import HomepageBuilderShowcase from '@/components/HomepageBuilderShowcase'
 import { openAuthModal } from '@/lib/openAuthModal'
 import TokenTicker from '@/components/TokenTicker'
+import BuildryWordmark from '@/components/BuildryWordmark'
 
 export default function LandingPage() {
   const { user, loading } = useAuth()
@@ -19,8 +20,22 @@ export default function LandingPage() {
     }
   }, [user, loading, router])
 
-  if (loading) return null
-  if (user) return null
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white text-slate-400 text-sm font-medium">
+        Loading…
+      </div>
+    )
+  }
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-white text-slate-500 text-sm font-medium px-6">
+        <span className="inline-block h-8 w-8 rounded-full border-2 border-slate-200 border-t-slate-600 animate-spin" aria-hidden />
+        <p>Signing you in…</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white text-slate-900 overflow-x-hidden">
@@ -152,8 +167,7 @@ export default function LandingPage() {
       <footer className="border-t border-slate-100 py-16 px-8">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-base">B</div>
-            <span className="text-sm font-black text-slate-900 tracking-widest">BUILDRY</span>
+            <BuildryWordmark tone="dark" variant="full" />
           </div>
           <div className="flex items-center gap-8 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
             <Link href="#" className="hover:text-slate-900 transition-colors">Twitter</Link>

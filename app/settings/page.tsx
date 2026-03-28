@@ -3,16 +3,18 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore, type UserRole } from '@/store/role'
-import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { FS } from '@/lib/firestoreCollections'
 import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import FarcasterConnect from '@/components/FarcasterConnect'
+import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
 
 type SettingsTab = 'profile' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'profile', label: 'Profile' },
-  { id: 'skills', label: 'Skills & Stack' },
+  { id: 'skills', label: 'Skills & stack' },
   { id: 'socials', label: 'Socials' },
   { id: 'projects', label: 'Projects' },
   { id: 'availability', label: 'Availability' },
@@ -49,11 +51,17 @@ export default function SettingsPage() {
     twitter_handle: '',
     farcaster_handle: '',
     linkedin_url: '',
+    linkedin_data: null as Record<string, unknown> | null,
+    github_data: null as Record<string, unknown> | null,
+    farcaster_data: null as Record<string, unknown> | null,
     telegram_handle: '',
     skills: [] as string[],
     open_for_work: false,
     hourly_rate_usd: '',
     availability: 'full_time',
+    sol_wallet: '',
+    evm_wallet: '',
+    verified_wallets: [] as { chain: 'sol' | 'evm'; address: string; verified_at?: number }[],
   })
   const [projects, setProjects] = useState<any[]>([])
   const [showAddProject, setShowAddProject] = useState(false)
@@ -71,7 +79,7 @@ export default function SettingsPage() {
     const db = firebaseDb
 
     const loadData = async () => {
-      const profileSnap = await getDoc(doc(db, 'builder_profiles', user.id))
+      const profileSnap = await getDoc(doc(db, FS.BUILDER_PROFILES, user.id))
       if (profileSnap.exists()) {
         const data = profileSnap.data() as any
         const normalized = normalizeUsername(data.username || '')
@@ -89,16 +97,22 @@ export default function SettingsPage() {
           twitter_handle: data.twitter_handle || '',
           farcaster_handle: data.farcaster_handle || '',
           linkedin_url: data.linkedin_url || '',
+          linkedin_data: data.linkedin_data || null,
+          github_data: data.github_data || null,
+          farcaster_data: data.farcaster_data || null,
           telegram_handle: data.telegram_handle || '',
           skills: data.skills || [],
           open_for_work: data.open_for_work || false,
           hourly_rate_usd: data.hourly_rate_usd?.toString() || '',
           availability: data.availability || 'full_time',
+          sol_wallet: data.sol_wallet || '',
+          evm_wallet: data.evm_wallet || '',
+          verified_wallets: Array.isArray(data.verified_wallets) ? data.verified_wallets : [],
         }))
         setInitialUsername(normalized)
       }
 
-      const projectsSnap = await getDocs(query(collection(db, 'projects'), where('builder_id', '==', user.id)))
+      const projectsSnap = await getDocs(query(collection(db, FS.PROJECTS), where('builder_id', '==', user.id)))
       const docs = projectsSnap.docs
         .map((projectDoc) => ({ id: projectDoc.id, ...projectDoc.data() }))
         .sort((a: any, b: any) => {
@@ -111,6 +125,50 @@ export default function SettingsPage() {
 
     void loadData()
   }, [user])
+
+  const [linkedinBanner, setLinkedinBanner] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
+
+  useEffect(() => {
+    if (!user?.id || !firebaseDb) return
+    let cancelled = false
+    ;(async () => {
+      const { completeLinkedInLinkFromRedirect } = await import('@/lib/socialLink')
+      const r = await completeLinkedInLinkFromRedirect()
+      if (cancelled) return
+      if (r.error) {
+        setLinkedinBanner({ kind: 'err', msg: r.error })
+        return
+      }
+      if (!r.handled) return
+
+      const patch: Record<string, unknown> = { updated_at: Date.now() }
+      if (r.linkedinUrl) patch.linkedin_url = r.linkedinUrl
+      if (r.linkedinData && Object.keys(r.linkedinData).length > 0) patch.linkedin_data = r.linkedinData
+      try {
+        await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
+        setProfile((p: any) => ({
+          ...p,
+          ...(r.linkedinUrl ? { linkedin_url: r.linkedinUrl } : {}),
+          ...(r.linkedinData ? { linkedin_data: r.linkedinData } : {}),
+        }))
+        setActiveTab('socials')
+        setLinkedinBanner({
+          kind: 'ok',
+          msg: r.linkedinUrl
+            ? 'LinkedIn connected.'
+            : 'LinkedIn linked. Add your profile URL under Socials if needed.',
+        })
+      } catch {
+        setLinkedinBanner({
+          kind: 'err',
+          msg: 'Could not save LinkedIn to your profile. Check Firestore rules and your connection.',
+        })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   useEffect(() => {
     if (!user?.id) return
@@ -152,7 +210,7 @@ export default function SettingsPage() {
 
     const timer = setTimeout(async () => {
       const result = await getDocs(
-        query(collection(db, 'builder_profiles'), where('username', '==', username))
+        query(collection(db, FS.BUILDER_PROFILES), where('username', '==', username))
       )
       const data = result.docs.map((item) => item.data())
 
@@ -189,7 +247,7 @@ export default function SettingsPage() {
     if (isFirebaseConfigured && firebaseDb && user?.id) {
       const db = firebaseDb
       await setDoc(
-        doc(db, 'builder_profiles', user.id),
+        doc(db, FS.BUILDER_PROFILES, user.id),
         {
           id: user.id,
           user_id: user.id,
@@ -215,7 +273,7 @@ export default function SettingsPage() {
       )
 
       await setDoc(
-        doc(db, 'users', user.id),
+        doc(db, FS.USERS, user.id),
         { name: profile.name || user.name || 'builder' },
         { merge: true }
       )
@@ -233,14 +291,28 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50/50">
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {linkedinBanner && (
+          <p
+            role="status"
+            className={`mb-6 text-sm font-medium px-4 py-3 rounded-xl border ${
+              linkedinBanner.kind === 'ok'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                : 'bg-red-50 text-red-700 border-red-100'
+            }`}
+          >
+            {linkedinBanner.msg}
+          </p>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Edit Profile</h1>
-            <p className="text-xs text-slate-400 mt-1">Build your identity in sequence: story, proof, then opportunities.</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Settings</h1>
+            <p className="text-sm text-slate-500 mt-1.5 max-w-xl leading-relaxed">
+              Manage your public builder profile, proof of work, and how you appear across Buildry.
+            </p>
           </div>
           <div className="hidden md:block text-right mr-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-1">Profile completion</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Completion</p>
             <p className="text-sm font-black text-slate-800">{Math.round((completionScore / 6) * 100)}%</p>
           </div>
           <button
@@ -257,17 +329,18 @@ export default function SettingsPage() {
         </div>
 
         {/* Tab navigation */}
-        <div className="flex gap-0 border border-slate-100 bg-white rounded-2xl mb-8 overflow-x-auto">
+        <div className="flex gap-0 border border-slate-200/80 bg-white rounded-2xl mb-8 overflow-x-auto shadow-sm">
           {TABS.map(tab => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${
-                activeTab === tab.id ? 'text-slate-900 bg-slate-50/70' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-50/40'
+              className={`px-5 py-3.5 text-[10px] font-semibold uppercase tracking-widest transition-all relative whitespace-nowrap ${
+                activeTab === tab.id ? 'text-slate-900 bg-slate-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
               }`}
             >
               {tab.label}
-              {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-900" />}
+              {activeTab === tab.id && <div className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-slate-900" />}
             </button>
           ))}
         </div>
@@ -297,7 +370,7 @@ export default function SettingsPage() {
             <AvailabilityTab profile={profile} setProfile={setProfile} />
           )}
           {activeTab === 'wallets' && (
-            <WalletsTab />
+            <SettingsWalletsTab profile={profile} setProfile={setProfile} userId={user?.id} />
           )}
         </div>
       </div>
@@ -420,7 +493,7 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
       const current = profile.twitter_handle
       if (!current?.trim()) return
       await setDoc(
-        doc(firebaseDb, 'builder_profiles', userId),
+        doc(firebaseDb, FS.BUILDER_PROFILES, userId),
         { twitter_handle: current.trim(), updated_at: Date.now() },
         { merge: true }
       )
@@ -438,7 +511,7 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
       const current = profile.github_username
       if (!current?.trim()) return
       await setDoc(
-        doc(firebaseDb, 'builder_profiles', userId),
+        doc(firebaseDb, FS.BUILDER_PROFILES, userId),
         { github_username: current.trim(), updated_at: Date.now() },
         { merge: true }
       )
@@ -465,10 +538,11 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
       }
       if (githubUsername) patch.github_username = githubUsername
       if (githubData && Object.keys(githubData).length > 0) patch.github_data = githubData
-      await setDoc(doc(firebaseDb, 'builder_profiles', userId), patch, { merge: true })
+      await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, userId), patch, { merge: true })
       setProfile((p: any) => ({
         ...p,
         ...(githubUsername ? { github_username: githubUsername } : {}),
+        ...(githubData && Object.keys(githubData).length > 0 ? { github_data: githubData } : {}),
       }))
       if (!githubUsername) {
         setSocialHint(
@@ -489,7 +563,7 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
         if (userId && firebaseDb) {
           const db = firebaseDb
           await setDoc(
-            doc(db, 'builder_profiles', userId),
+            doc(db, FS.BUILDER_PROFILES, userId),
             {
               farcaster_handle: fcProfile.username || '',
               farcaster_data: fcProfile,
@@ -515,7 +589,7 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
         if (userId && firebaseDb) {
           const db = firebaseDb
           await setDoc(
-            doc(db, 'builder_profiles', userId),
+            doc(db, FS.BUILDER_PROFILES, userId),
             {
               telegram_handle: telegramAuth.username || '',
               telegram_data: telegramAuth,
@@ -539,7 +613,7 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
     setSocialHint(null)
     try {
       await setDoc(
-        doc(firebaseDb, 'builder_profiles', userId),
+        doc(firebaseDb, FS.BUILDER_PROFILES, userId),
         { linkedin_url: profile.linkedin_url?.trim() || '', updated_at: Date.now() },
         { merge: true }
       )
@@ -554,25 +628,13 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
     setSocialError(null)
     setSocialHint(null)
     try {
-      const { linkLinkedInToProfile } = await import('@/lib/socialLink')
-      const { error, linkedinUrl, linkedinData } = await linkLinkedInToProfile()
+      const { startLinkedInLinkRedirect } = await import('@/lib/socialLink')
+      const { error } = await startLinkedInLinkRedirect()
       if (error) {
         setSocialError(error)
         return
       }
-      const patch: Record<string, unknown> = { updated_at: Date.now() }
-      if (linkedinUrl) patch.linkedin_url = linkedinUrl
-      if (linkedinData && Object.keys(linkedinData).length > 0) patch.linkedin_data = linkedinData
-      await setDoc(doc(firebaseDb, 'builder_profiles', userId), patch, { merge: true })
-      setProfile((p: any) => ({
-        ...p,
-        ...(linkedinUrl ? { linkedin_url: linkedinUrl } : {}),
-      }))
-      if (!linkedinUrl) {
-        setSocialHint(
-          'LinkedIn is linked to your account. If your profile URL did not auto-fill, paste it below and click Save URL.'
-        )
-      }
+      setSocialHint('Redirecting to LinkedIn…')
     } finally {
       setLoadingProvider(null)
     }
@@ -662,9 +724,10 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                 className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
               />
               <p className="text-[10px] text-slate-400">
-                Uses Firebase <span className="font-semibold text-slate-500">OpenID Connect</span> (Custom provider:
-                Issuer https://www.linkedin.com/oauth, Provider ID <span className="font-mono">linkedin</span>). Add
-                that in Firebase Authentication before connecting.
+                Uses Firebase <span className="font-semibold text-slate-500">OpenID Connect</span> (Issuer{' '}
+                https://www.linkedin.com/oauth, Provider ID <span className="font-mono">linkedin</span>) with a{' '}
+                <span className="font-semibold text-slate-500">full-page redirect</span> so browser security policies do
+                not block the flow like they can with popups.
               </p>
             </div>
           </div>
@@ -806,7 +869,7 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
   const handleAdd = async () => {
     if (!userId || !form.title || !firebaseDb) return
     const db = firebaseDb
-    const docRef = await addDoc(collection(db, 'projects'), {
+    const docRef = await addDoc(collection(db, FS.PROJECTS), {
       builder_id: userId,
       title: form.title,
       description: form.description,
@@ -971,50 +1034,12 @@ function AvailabilityTab({ profile, setProfile }: { profile: any; setProfile: an
   )
 }
 
-/* ─── Wallets Tab ──────────────────────────────── */
-
-function WalletsTab() {
-  return (
-    <Section title="Connected Wallets">
-      <p className="text-xs text-slate-400 mb-6">Wallets linked here are verified on your profile and used for onchain reputation scoring.</p>
-
-      <div className="space-y-4">
-        {[
-          { address: '0x6c31...be3154', chain: 'EVM', primary: true },
-          { address: '8F2a...k9Lq', chain: 'SOL', primary: false },
-        ].map((w, i) => (
-          <div key={i} className="p-5 rounded-xl bg-white border border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
-                {w.chain}
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900 font-mono">{w.address}</p>
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Verified</p>
-              </div>
-            </div>
-            {w.primary ? (
-              <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-lg">Primary</span>
-            ) : (
-              <button className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider">Set Primary</button>
-            )}
-          </div>
-        ))}
-
-        <button className="w-full py-5 border border-dashed border-slate-200 hover:border-slate-300 hover:bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all">
-          + Connect Wallet
-        </button>
-      </div>
-    </Section>
-  )
-}
-
 /* ─── Shared components ─────────────────────────── */
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-8 shadow-sm">
-      <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6">{title}</h2>
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-sm">
+      <h2 className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-6">{title}</h2>
       {children}
     </div>
   )

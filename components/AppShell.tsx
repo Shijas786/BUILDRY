@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore } from '@/store/role'
 import Sidebar from './Sidebar'
 
-const PUBLIC_ROUTES = ['/', '/onboarding', '/auth']
+const PUBLIC_ROUTES = ['/', '/auth']
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

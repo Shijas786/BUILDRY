@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
+import { FS } from '@/lib/firestoreCollections'
 
 async function getUserProjection(userId: string) {
   if (!adminDb) return null
   const db = adminDb
   const [userDoc, profileDoc] = await Promise.all([
-    db.collection('users').doc(userId).get(),
-    db.collection('builder_profiles').doc(userId).get(),
+    db.collection(FS.USERS).doc(userId).get(),
+    db.collection(FS.BUILDER_PROFILES).doc(userId).get(),
   ])
 
   if (!userDoc.exists) return null
@@ -27,33 +28,38 @@ export async function GET(req: NextRequest) {
   }
   const db = adminDb
 
-  const page = parseInt(req.nextUrl.searchParams.get('page') || '1')
-  const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20')
-  const offset = Math.max(0, (page - 1) * limit)
-  const userId = req.nextUrl.searchParams.get('userId') || ''
-  const allNeeded = offset + limit
+  try {
+    const page = parseInt(req.nextUrl.searchParams.get('page') || '1')
+    const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20')
+    const offset = Math.max(0, (page - 1) * limit)
+    const userId = req.nextUrl.searchParams.get('userId') || ''
+    const allNeeded = offset + limit
 
-  const postsSnap = await db.collection('posts').orderBy('created_at', 'desc').limit(allNeeded).get()
-  let postDocs = postsSnap.docs.slice(offset, offset + limit)
+    const postsSnap = await db.collection(FS.POSTS).orderBy('created_at', 'desc').limit(allNeeded).get()
+    let postDocs = postsSnap.docs.slice(offset, offset + limit)
 
-  if (userId) {
-    const followingSnap = await db.collection('builder_followers').where('follower_id', '==', userId).get()
-    const followingSet = new Set(followingSnap.docs.map((d) => d.data().builder_id))
-    followingSet.add(userId)
-    postDocs = postDocs.filter((d) => followingSet.has(d.data().author_id))
-  }
+    if (userId) {
+      const followingSnap = await db.collection(FS.BUILDER_FOLLOWERS).where('follower_id', '==', userId).get()
+      const followingSet = new Set(followingSnap.docs.map((d) => d.data().builder_id))
+      followingSet.add(userId)
+      postDocs = postDocs.filter((d) => followingSet.has(d.data().author_id))
+    }
 
-  const hydrated = await Promise.all(
-    postDocs.map(async (postDoc) => {
-      const post = { id: postDoc.id, ...postDoc.data() } as any
-      const userProjection = await getUserProjection(post.author_id)
-      return { ...post, users: userProjection }
+    const hydrated = await Promise.all(
+      postDocs.map(async (postDoc) => {
+        const post = { id: postDoc.id, ...postDoc.data() } as any
+        const userProjection = await getUserProjection(post.author_id)
+        return { ...post, users: userProjection }
+      })
+    )
+
+    return NextResponse.json(hydrated, {
+      headers: { 'Cache-Control': 's-maxage=15, stale-while-revalidate=10' },
     })
-  )
-
-  return NextResponse.json(hydrated, {
-    headers: { 'Cache-Control': 's-maxage=15, stale-while-revalidate=10' },
-  })
+  } catch (err) {
+    console.error('Posts GET error:', err)
+    return NextResponse.json([], { status: 200 })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -70,7 +76,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const postRef = await db.collection('posts').add({
+    const postRef = await db.collection(FS.POSTS).add({
       author_id: authorId,
       content,
       post_type: postType || 'update',

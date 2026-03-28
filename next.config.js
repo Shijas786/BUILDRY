@@ -2,6 +2,9 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [{ source: '/onboarding', destination: '/feed', permanent: false }]
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },

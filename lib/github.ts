@@ -117,6 +117,87 @@ function formatDateUTC(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+export type GitHubCommitTotalsGraphql = {
+  /** Sum of GitHub `totalCommitContributions` per calendar year (public graph rules). */
+  totalCommits: number
+  /** Calendar years included in the sum (newest first). */
+  yearsIncluded: number[]
+}
+
+/**
+ * Real commit totals from GitHub GraphQL `contributionsCollection` (same family as the green graph).
+ * Requires a server token: `GITHUB_GRAPHQL_TOKEN` or `GITHUB_TOKEN` (classic PAT: `read:user` is enough for public profiles).
+ * Without a token this returns null — public REST cannot expose this.
+ */
+export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHubCommitTotalsGraphql | null> {
+  const token =
+    process.env.GITHUB_GRAPHQL_TOKEN?.trim() ||
+    process.env.GITHUUB_GRAPHQL_TOKEN?.trim() || // legacy typo in some deployments
+    process.env.GITHUB_TOKEN?.trim()
+  if (!token || !login?.trim()) return null
+
+  const now = new Date()
+  const currentYear = now.getUTCFullYear()
+  const years: number[] = []
+  for (let i = 0; i < 5; i += 1) years.push(currentYear - i)
+
+  let totalCommits = 0
+  const yearsIncluded: number[] = []
+  let loginValid = false
+
+  for (const y of years) {
+    const from = `${y}-01-01T00:00:00Z`
+    const to = y === currentYear ? now.toISOString() : `${y}-12-31T23:59:59Z`
+
+    try {
+      const { data } = await axios.post<{
+        data?: { user?: { contributionsCollection?: { totalCommitContributions?: number } } }
+        errors?: { message: string }[]
+      }>(
+        'https://api.github.com/graphql',
+        {
+          query: `
+            query($login: String!, $from: DateTime!, $to: DateTime!) {
+              user(login: $login) {
+                contributionsCollection(from: $from, to: $to) {
+                  totalCommitContributions
+                }
+              }
+            }
+          `,
+          variables: { login: login.trim(), from, to },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 12000,
+        }
+      )
+
+      if (data.errors?.length) continue
+      const user = data.data?.user
+      if (!user) {
+        if (!loginValid) return null
+        continue
+      }
+      loginValid = true
+      const n = user.contributionsCollection?.totalCommitContributions
+      if (typeof n === 'number') {
+        totalCommits += n
+        yearsIncluded.push(y)
+      }
+    } catch {
+      continue
+    }
+  }
+
+  if (!loginValid) return null
+
+  return { totalCommits, yearsIncluded }
+}
+
 export async function getGitHubContributionSummary(username: string): Promise<GitHubContributionSummary | null> {
   if (!username) return null
   try {

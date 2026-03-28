@@ -66,6 +66,21 @@ export async function getFarcasterProfileByUsername(
   }
 }
 
+export async function getFarcasterProfileByFid(fid: number): Promise<FarcasterProfile | null> {
+  if (!API_KEY || !Number.isFinite(fid) || fid <= 0) return null
+  try {
+    const { data } = await neynarClient.get('/farcaster/user/bulk', {
+      params: { fids: String(Math.floor(fid)) },
+    })
+    const users = data?.users
+    const user = Array.isArray(users) ? users[0] : null
+    if (!user) return null
+    return normalizeProfile(user as Record<string, unknown>)
+  } catch {
+    return null
+  }
+}
+
 function normalizeProfile(u: Record<string, unknown>): FarcasterProfile {
   const verifications = u.verifications as string[] || []
   const verifiedAddresses = (u.verified_addresses as Record<string, unknown>)

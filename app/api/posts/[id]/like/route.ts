@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
+import { FS, FS_DOC_IDS } from '@/lib/firestoreCollections'
 
 export async function POST(
   req: NextRequest,
@@ -17,9 +18,9 @@ export async function POST(
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
-  const likeId = `${postId}_${userId}`
-  const likeRef = db.collection('post_likes').doc(likeId)
-  const postRef = db.collection('posts').doc(postId)
+  const likeId = FS_DOC_IDS.POST_LIKE(postId, userId)
+  const likeRef = db.collection(FS.POST_LIKES).doc(likeId)
+  const postRef = db.collection(FS.POSTS).doc(postId)
 
   const existing = await likeRef.get()
   if (existing.exists) {

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { createClient } from '@supabase/supabase-js'
+import { isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
+import { mergeBuilderProfileFields } from '@/lib/firestoreAdminHelpers'
 
-function verifyTelegramAuth(payload: Record<string, any>, botToken: string): boolean {
+function verifyTelegramAuth(payload: Record<string, unknown>, botToken: string): boolean {
   const { hash, ...rest } = payload
-  if (!hash) return false
+  if (!hash || typeof hash !== 'string') return false
 
   const dataCheckString = Object.keys(rest)
     .sort()
@@ -21,33 +22,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { userId, telegramAuth } = body
     const botToken = process.env.TELEGRAM_BOT_TOKEN || ''
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
-    if (!userId || !telegramAuth || !botToken || !supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!userId || !telegramAuth || !botToken || !isFirebaseAdminConfigured) {
+      return NextResponse.json({ error: 'Missing required fields or Firebase Admin not configured' }, { status: 400 })
     }
 
-    const isValid = verifyTelegramAuth(telegramAuth, botToken)
+    const isValid = verifyTelegramAuth(telegramAuth as Record<string, unknown>, botToken)
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid Telegram auth payload' }, { status: 401 })
     }
 
-    const authDate = Number(telegramAuth.auth_date || 0)
+    const authDate = Number((telegramAuth as { auth_date?: number }).auth_date || 0)
     const now = Math.floor(Date.now() / 1000)
     if (!authDate || Math.abs(now - authDate) > 3600) {
       return NextResponse.json({ error: 'Telegram auth expired' }, { status: 401 })
     }
 
-    const handle = telegramAuth.username || `${telegramAuth.id}`
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    await supabase
-      .from('builder_profiles')
-      .upsert({ user_id: userId, telegram_handle: handle }, { onConflict: 'user_id' })
+    const ta = telegramAuth as { username?: string; id?: number | string }
+    const handle = ta.username || `${ta.id}`
+    await mergeBuilderProfileFields(userId, { telegram_handle: handle })
 
     return NextResponse.json({ success: true, handle })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Telegram auth failed' }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Telegram auth failed'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
-

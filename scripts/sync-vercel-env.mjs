@@ -5,7 +5,14 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
-const ENV_FILE = path.join(ROOT, '.env.local')
+const ENV_FILE = [path.join(ROOT, '.env.local'), path.join(ROOT, '.env')].find((p) =>
+  fs.existsSync(p)
+)
+if (!ENV_FILE) {
+  console.error('No .env.local or .env found in project root.')
+  process.exit(1)
+}
+console.error(`Using env file: ${path.basename(ENV_FILE)}`)
 
 function parseLine(line) {
   line = line.trim()
@@ -28,7 +35,9 @@ const text = fs.readFileSync(ENV_FILE, 'utf8')
 const pairs = []
 for (const line of text.split('\n')) {
   const p = parseLine(line)
-  if (p) pairs.push(p)
+  if (!p) continue
+  if (/SUPABASE/i.test(p[0])) continue
+  pairs.push(p)
 }
 
 const sensitive = (k) =>

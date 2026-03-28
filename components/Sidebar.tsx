@@ -7,6 +7,8 @@ import { useRoleStore, NAV_BY_ROLE, type UserRole } from '@/store/role'
 import { useAuth } from '@/context/AuthProvider'
 import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { doc, getDoc } from 'firebase/firestore'
+import BuildryWordmark from '@/components/BuildryWordmark'
+import { FS } from '@/lib/firestoreCollections'
 
 const ROLE_META: Record<UserRole, { label: string; icon: React.ReactNode; color: string }> = {
   developer: {
@@ -55,7 +57,7 @@ export default function Sidebar() {
       return
     }
 
-    getDoc(doc(firebaseDb, 'builder_profiles', user.id)).then((snapshot) => {
+    getDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id)).then((snapshot) => {
       if (!snapshot.exists()) {
         setProfileUsername(null)
         return
@@ -72,12 +74,11 @@ export default function Sidebar() {
     >
       {/* Logo + collapse */}
       <div className="h-[72px] flex items-center justify-between px-4 border-b border-slate-100 shrink-0">
-        <Link href="/feed" className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-base shrink-0">
-            B
-          </div>
-          {sidebarExpanded && (
-            <span className="text-sm font-black text-slate-900 tracking-widest truncate">BUILDRY</span>
+        <Link href="/feed" className="flex items-center gap-2.5 min-w-0" aria-label="Buildry feed">
+          {sidebarExpanded ? (
+            <BuildryWordmark tone="dark" variant="full" className="max-w-[min(100%,200px)]" />
+          ) : (
+            <BuildryWordmark tone="dark" variant="icon" />
           )}
         </Link>
         <button

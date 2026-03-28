@@ -8,6 +8,8 @@ import { fmtAddr } from '@/lib/format'
 import { OPEN_AUTH_MODAL_EVENT, type OpenAuthModalDetail } from '@/lib/openAuthModal'
 import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { doc, getDoc } from 'firebase/firestore'
+import BuildryWordmark from '@/components/BuildryWordmark'
+import { FS } from '@/lib/firestoreCollections'
 
 export default function Navbar() {
   const { user, loading, signOut: authSignOut } = useAuth()
@@ -30,7 +32,7 @@ export default function Navbar() {
       return
     }
 
-    getDoc(doc(firebaseDb, 'builder_profiles', user.id)).then((snapshot) => {
+    getDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id)).then((snapshot) => {
       if (!snapshot.exists()) {
         setProfileUsername(null)
         return
@@ -59,11 +61,8 @@ export default function Navbar() {
     <>
       <nav className="h-[72px] flex items-center justify-between px-6 md:px-8 border-b border-slate-100 bg-white/95 backdrop-blur sticky top-0 z-[100]">
         <div className="flex items-center gap-10">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-xl shadow-slate-900/10">
-              B
-            </div>
-            <span className="text-sm font-black text-slate-900 tracking-widest hidden lg:block">BUILDRY</span>
+          <Link href="/" className="flex items-center gap-2 min-w-0 py-1" aria-label="Buildry home">
+            <BuildryWordmark tone="dark" variant="full" priority />
           </Link>
         </div>
 
@@ -207,7 +206,7 @@ function AuthModal({
         setError(authError.message)
       } else {
         onClose()
-        if (mode === 'signup') window.location.href = '/onboarding'
+        if (mode === 'signup') window.location.href = '/feed'
       }
     } catch {
       setError('Something went wrong')
@@ -229,7 +228,9 @@ function AuthModal({
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-3xl w-full max-w-md p-8 border border-slate-100 shadow-2xl fade-in" onClick={e => e.stopPropagation()}>
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xl mx-auto mb-4">B</div>
+          <div className="flex justify-center mb-4">
+            <BuildryWordmark tone="dark" variant="full" className="max-w-[min(100%,320px)] sm:max-w-[360px]" />
+          </div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">{mode === 'login' ? 'Welcome back' : 'Join Buildry'}</h2>
           <p className="text-sm text-slate-400 mt-1">Where founders build in public</p>
         </div>

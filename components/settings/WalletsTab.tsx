@@ -1,0 +1,503 @@
+'use client'
+
+import React, { useCallback, useState } from 'react'
+import { useAccount, useSignMessage } from 'wagmi'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { useWalletModal } from '@solana/wallet-adapter-react-ui'
+import { useAppKit } from '@reown/appkit/react'
+import { firebaseAuth } from '@/lib/firebaseClient'
+import { uint8ArrayToBase64 } from '@/lib/walletClientEncode'
+import { MAX_VERIFIED_WALLETS } from '@/lib/walletConstants'
+
+export type VerifiedWalletRow = { chain: 'sol' | 'evm'; address: string; verified_at?: number }
+
+function friendlyError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e)
+  if (/user rejected|denied|cancel|rejected the request/i.test(msg)) {
+    return 'The request was cancelled in your wallet.'
+  }
+  if (/already linked|another account|409/i.test(msg)) {
+    return msg
+  }
+  return msg || 'Something went wrong. Please try again.'
+}
+
+function truncateMiddle(s: string, lead = 6, tail = 4): string {
+  const t = String(s).trim()
+  if (t.length <= lead + tail + 2) return t
+  return `${t.slice(0, lead)} … ${t.slice(-tail)}`
+}
+
+function Spinner({ className }: { className?: string }) {
+  return (
+    <svg
+      className={`animate-spin ${className || 'h-4 w-4'}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  )
+}
+
+function IconEth({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden>
+      <path fill="#627EEA" d="M16 4l9.8 15.2L16 14.4 6.2 19.2 16 4z" />
+      <path fill="#C0CBF0" d="M16 14.4l9.8 4.8L16 28l-9.8-8.8 9.8-4.8z" />
+    </svg>
+  )
+}
+
+function IconSol({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id="solg" x1="6" y1="4" x2="26" y2="28" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#9945FF" />
+          <stop offset="1" stopColor="#14F195" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill="url(#solg)" />
+      <path
+        fill="white"
+        fillOpacity="0.95"
+        d="M10.2 20.1l2.4-2.4h11.1l-2.4 2.4H10.2zm0-4.8l2.4-2.4h11.1l-2.4 2.4H10.2zm4.8-4.8l2.4-2.4h6.3l-2.4 2.4h-6.3z"
+      />
+    </svg>
+  )
+}
+
+function IconWalletOutline({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+      />
+    </svg>
+  )
+}
+
+function StatusBanner({
+  kind,
+  text,
+  onDismiss,
+}: {
+  kind: 'success' | 'error'
+  text: string
+  onDismiss: () => void
+}) {
+  const isOk = kind === 'success'
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`mb-6 flex gap-3 rounded-xl border px-4 py-3 ${
+        isOk ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'
+      }`}
+    >
+      <p className="flex-1 text-sm font-medium leading-relaxed">{text}</p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className={`shrink-0 rounded-lg px-2 text-sm font-semibold ${
+          isOk ? 'text-emerald-800 hover:bg-emerald-100' : 'text-red-800 hover:bg-red-100'
+        }`}
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+export default function SettingsWalletsTab({
+  profile,
+  setProfile,
+  userId,
+}: {
+  profile: {
+    verified_wallets?: VerifiedWalletRow[]
+    sol_wallet?: string
+    evm_wallet?: string
+  }
+  setProfile: React.Dispatch<React.SetStateAction<any>>
+  userId?: string
+}) {
+  const { open } = useAppKit()
+  const { address: wagmiAddress, isConnected } = useAccount()
+  const { signMessageAsync, isPending: evmSigning } = useSignMessage()
+  const { publicKey, signMessage, connected: solConnected, wallet: solWallet } = useWallet()
+  const { setVisible: openSolWalletModal } = useWalletModal()
+
+  const [busy, setBusy] = useState<'evm' | 'sol' | null>(null)
+  const [rowBusy, setRowBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+
+  const list: VerifiedWalletRow[] = Array.isArray(profile.verified_wallets) ? profile.verified_wallets : []
+  const primaryEvm = profile.evm_wallet || list.find((w) => w.chain === 'evm')?.address
+  const primarySol = profile.sol_wallet || list.find((w) => w.chain === 'sol')?.address
+
+  const getToken = useCallback(async () => {
+    if (!firebaseAuth?.currentUser) return null
+    return firebaseAuth.currentUser.getIdToken()
+  }, [])
+
+  const applyWalletList = useCallback(
+    (vw: VerifiedWalletRow[]) => {
+      setProfile((p: any) => ({
+        ...p,
+        verified_wallets: vw,
+        sol_wallet: vw.find((w: VerifiedWalletRow) => w.chain === 'sol')?.address ?? null,
+        evm_wallet: vw.find((w: VerifiedWalletRow) => w.chain === 'evm')?.address ?? null,
+      }))
+    },
+    [setProfile]
+  )
+
+  const runVerify = useCallback(
+    async (challengeId: string, signature: string) => {
+      const idToken = await getToken()
+      if (!idToken) throw new Error('You are not signed in.')
+      const res = await fetch('/api/profile/wallet/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ challengeId, signature }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Verification failed.')
+      return data as { verified_wallets?: VerifiedWalletRow[] }
+    },
+    [getToken]
+  )
+
+  const postWalletAction = useCallback(
+    async (path: 'primary' | 'remove', chain: 'sol' | 'evm', address: string) => {
+      const idToken = await getToken()
+      if (!idToken) throw new Error('You are not signed in.')
+      const res = await fetch(`/api/profile/wallet/${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ chain, address }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Request failed.')
+      return data as { verified_wallets?: VerifiedWalletRow[] }
+    },
+    [getToken]
+  )
+
+  const linkEvm = async () => {
+    setMsg(null)
+    if (!userId) {
+      setMsg({ kind: 'error', text: 'Sign in to link a wallet.' })
+      return
+    }
+    if (!isConnected || !wagmiAddress) {
+      setMsg({
+        kind: 'error',
+        text: 'Connect an EVM wallet with the button below, then tap “Sign to verify”.',
+      })
+      return
+    }
+    setBusy('evm')
+    try {
+      const idToken = await getToken()
+      if (!idToken) {
+        setMsg({ kind: 'error', text: 'Your session expired. Please sign in again.' })
+        return
+      }
+      const chRes = await fetch('/api/profile/wallet/challenge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ chain: 'evm', address: wagmiAddress }),
+      })
+      const ch = await chRes.json().catch(() => ({}))
+      if (!chRes.ok) {
+        setMsg({ kind: 'error', text: typeof ch.error === 'string' ? ch.error : 'Could not start verification.' })
+        return
+      }
+      const sig = await signMessageAsync({
+        message: ch.message as string,
+        account: wagmiAddress as `0x${string}`,
+      })
+      const done = await runVerify(ch.challengeId as string, sig)
+      const vw = Array.isArray(done.verified_wallets) ? done.verified_wallets : []
+      applyWalletList(vw)
+      setMsg({ kind: 'success', text: 'EVM wallet verified and added to your profile.' })
+    } catch (e: unknown) {
+      setMsg({ kind: 'error', text: friendlyError(e) })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const linkSol = async () => {
+    setMsg(null)
+    if (!userId) {
+      setMsg({ kind: 'error', text: 'Sign in to link a wallet.' })
+      return
+    }
+    if (!solConnected || !publicKey) {
+      openSolWalletModal(true)
+      setMsg({
+        kind: 'error',
+        text: 'Choose a Solana wallet (Reown or Phantom), approve the connection, then tap “Sign to verify”.',
+      })
+      return
+    }
+    const addr = publicKey.toBase58()
+    setBusy('sol')
+    try {
+      const idToken = await getToken()
+      if (!idToken) {
+        setMsg({ kind: 'error', text: 'Your session expired. Please sign in again.' })
+        return
+      }
+      const chRes = await fetch('/api/profile/wallet/challenge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ chain: 'sol', address: addr }),
+      })
+      const ch = await chRes.json().catch(() => ({}))
+      if (!chRes.ok) {
+        setMsg({ kind: 'error', text: typeof ch.error === 'string' ? ch.error : 'Could not start verification.' })
+        return
+      }
+      if (!signMessage) {
+        setMsg({
+          kind: 'error',
+          text: 'This wallet does not support message signing. Try Phantom or another standard wallet.',
+        })
+        return
+      }
+      const encoded = new TextEncoder().encode(ch.message as string)
+      const sigBytes = await signMessage(encoded)
+      const sigB64 = uint8ArrayToBase64(sigBytes)
+      const done = await runVerify(ch.challengeId as string, sigB64)
+      const vw = Array.isArray(done.verified_wallets) ? done.verified_wallets : []
+      applyWalletList(vw)
+      setMsg({ kind: 'success', text: 'Solana wallet verified and added to your profile.' })
+    } catch (e: unknown) {
+      setMsg({ kind: 'error', text: friendlyError(e) })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const setPrimary = async (chain: 'sol' | 'evm', address: string) => {
+    const key = `p-${chain}-${address}`
+    setRowBusy(key)
+    setMsg(null)
+    try {
+      const data = await postWalletAction('primary', chain, address)
+      const vw = Array.isArray(data.verified_wallets) ? data.verified_wallets : []
+      applyWalletList(vw)
+      setMsg({ kind: 'success', text: 'Primary wallet updated.' })
+    } catch (e: unknown) {
+      setMsg({ kind: 'error', text: friendlyError(e) })
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
+  const removeWallet = async (chain: 'sol' | 'evm', address: string) => {
+    const key = `r-${chain}-${address}`
+    setRowBusy(key)
+    setMsg(null)
+    try {
+      const data = await postWalletAction('remove', chain, address)
+      const vw = Array.isArray(data.verified_wallets) ? data.verified_wallets : []
+      applyWalletList(vw)
+      setMsg({ kind: 'success', text: 'Wallet removed from your profile.' })
+    } catch (e: unknown) {
+      setMsg({ kind: 'error', text: friendlyError(e) })
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
+  const signing = busy !== null || evmSigning
+  const isPrimary = (w: VerifiedWalletRow) =>
+    w.chain === 'evm' ? w.address === primaryEvm : w.address === primarySol
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+      <header className="mb-8">
+        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">Verified addresses</h2>
+        <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-2xl">
+          You can manually connect up to {MAX_VERIFIED_WALLETS} wallets. Wallet addresses are public on your profile
+          after you sign to verify ownership. Use Reown (WalletConnect) to connect, then sign once per address.
+        </p>
+      </header>
+
+      {msg && <StatusBanner kind={msg.kind} text={msg.text} onDismiss={() => setMsg(null)} />}
+
+      <section className="mb-8" aria-labelledby="wallet-list-heading">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <span id="wallet-list-heading" className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            Linked wallets
+          </span>
+          <span className="text-xs font-medium tabular-nums text-slate-400">
+            {list.length}/{MAX_VERIFIED_WALLETS}
+          </span>
+        </div>
+
+        {list.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-12 text-center">
+            <p className="text-sm font-semibold text-slate-700">No wallets linked yet</p>
+            <p className="mt-1.5 text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+              Connect with Reown below, then use “Sign to verify” to add an address to this list.
+            </p>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {list.map((w, i) => {
+              const primary = isPrimary(w)
+              const rowKey = `${w.chain}-${w.address}-${i}`
+              const busyP = rowBusy === `p-${w.chain}-${w.address}`
+              const busyR = rowBusy === `r-${w.chain}-${w.address}`
+              return (
+                <li
+                  key={rowKey}
+                  className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
+                >
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="mt-0.5 shrink-0 w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
+                      {w.chain === 'evm' ? (
+                        <IconEth className="w-7 h-7" />
+                      ) : (
+                        <IconSol className="w-7 h-7 rounded-md" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-mono text-sm font-semibold text-slate-900 tracking-tight" title={w.address}>
+                          {truncateMiddle(w.address)}
+                        </p>
+                        {w.chain === 'evm' && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                            <span className="w-1.5 h-1.5 rounded-sm bg-blue-500" aria-hidden />
+                            EVM
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">Verified via Reown · Buildry</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 sm:pl-2">
+                    {primary ? (
+                      <span className="inline-flex items-center justify-center h-9 px-4 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
+                        Primary
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!!rowBusy}
+                        onClick={() => void setPrimary(w.chain, w.address)}
+                        className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-bold hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                      >
+                        {busyP ? <Spinner className="h-4 w-4" /> : 'Set as primary'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!!rowBusy}
+                      onClick={() => void removeWallet(w.chain, w.address)}
+                      className="h-9 px-3 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-bold hover:bg-red-50 disabled:opacity-50 transition-colors"
+                    >
+                      {busyR ? <Spinner className="h-4 w-4 text-red-500" /> : 'Disable'}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-4" aria-label="Connect wallets">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => void open({ view: 'Connect', namespace: 'eip155' })}
+            className="flex items-center justify-center gap-2 h-12 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm font-bold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+          >
+            <IconWalletOutline className="w-5 h-5 text-slate-500" />
+            Connect EVM wallet
+          </button>
+          <button
+            type="button"
+            onClick={() => void open({ view: 'Connect', namespace: 'solana' })}
+            className="flex items-center justify-center gap-2 h-12 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm font-bold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+          >
+            <IconWalletOutline className="w-5 h-5 text-slate-500" />
+            Connect Solana wallet
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          Reown opens the wallet chooser. For Solana, you can also use the Phantom modal via “Sign to verify” if your
+          adapter is not connected yet.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => void linkEvm()}
+            disabled={signing}
+            className="flex-1 h-11 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-black disabled:opacity-45 inline-flex items-center justify-center gap-2"
+          >
+            {(busy === 'evm' || evmSigning) && <Spinner className="h-4 w-4 text-white" />}
+            Sign to verify · EVM
+          </button>
+          <button
+            type="button"
+            onClick={() => void linkSol()}
+            disabled={signing}
+            className="flex-1 h-11 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-black disabled:opacity-45 inline-flex items-center justify-center gap-2"
+          >
+            {busy === 'sol' && <Spinner className="h-4 w-4 text-white" />}
+            Sign to verify · Solana
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          {isConnected && wagmiAddress && (
+            <span className="block font-mono text-slate-600 mb-1">Active EVM: {truncateMiddle(wagmiAddress, 8, 6)}</span>
+          )}
+          {solConnected && solWallet?.adapter?.name && (
+            <span className="block text-slate-600">
+              Solana adapter: {solWallet.adapter.name}
+              {publicKey ? ` · ${truncateMiddle(publicKey.toBase58(), 6, 4)}` : ''}
+            </span>
+          )}
+        </p>
+      </section>
+
+      <p className="mt-8 text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-6">
+        Signatures only prove you control the address; they do not move funds. Challenges expire after ten minutes.
+      </p>
+    </div>
+  )
+}

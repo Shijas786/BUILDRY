@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
+import { FS, FS_DOC_IDS } from '@/lib/firestoreCollections'
 
 export async function POST(req: NextRequest) {
   if (!isFirebaseAdminConfigured || !adminDb) {
@@ -14,8 +15,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing followerId or builderId' }, { status: 400 })
     }
 
-    const followId = `${builderId}_${followerId}`
-    const followRef = db.collection('builder_followers').doc(followId)
+    const followId = FS_DOC_IDS.FOLLOW(builderId, followerId)
+    const followRef = db.collection(FS.BUILDER_FOLLOWERS).doc(followId)
     const existing = await followRef.get()
 
     if (existing.exists) {

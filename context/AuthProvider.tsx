@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { isSupabaseConfigured, type AppUser } from '@/lib/auth'
 import { firebaseAuth, firebaseDb } from '@/lib/firebaseClient'
+import { FS } from '@/lib/firestoreCollections'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 
@@ -33,7 +34,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = useCallback(async (authUser: FirebaseUser) => {
     if (!firebaseDb) return
-    const userRef = doc(firebaseDb, 'users', authUser.uid)
+    const userRef = doc(firebaseDb, FS.USERS, authUser.uid)
     const userSnap = await getDoc(userRef)
 
     if (!userSnap.exists()) {
@@ -67,14 +68,29 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsub = onAuthStateChanged(firebaseAuth, async (authUser) => {
-      if (authUser?.uid) {
-        setSession({ user: { id: authUser.uid } })
-        await fetchUser(authUser)
-      } else {
-        setSession(null)
-        setUser(null)
+      try {
+        if (authUser?.uid) {
+          setSession({ user: { id: authUser.uid } })
+          await fetchUser(authUser)
+        } else {
+          setSession(null)
+          setUser(null)
+        }
+      } catch {
+        if (authUser?.uid) {
+          setUser({
+            id: authUser.uid,
+            email: authUser.email ?? null,
+            name: authUser.displayName || authUser.email?.split('@')[0] || 'builder',
+            avatar_url: authUser.photoURL ?? null,
+            account_type: null,
+            wallet_address: null,
+            created_at: new Date().toISOString(),
+          })
+        }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     return () => unsub()

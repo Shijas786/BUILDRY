@@ -46,7 +46,7 @@ export async function getHeliusTransactions(wallet: string): Promise<number> {
 
   try {
     const { data } = await axios.get(`https://api.helius.xyz/v0/addresses/${wallet}/transactions`, {
-      params: { 'api-key': HELIUS_KEY, limit: 100 }
+      params: { 'api-key': HELIUS_KEY, limit: 200 },
     })
     return data.length || 0
   } catch {
@@ -72,7 +72,7 @@ export async function getSolanaDeploymentStats(wallet: string): Promise<SolanaDe
   }
   try {
     const { data } = await axios.get(`https://api.helius.xyz/v0/addresses/${wallet}/transactions`, {
-      params: { 'api-key': HELIUS_KEY, limit: 200 },
+      params: { 'api-key': HELIUS_KEY, limit: 400 },
     })
     const txs = Array.isArray(data) ? data : []
     const deployedPrograms = txs.filter((tx: any) => {

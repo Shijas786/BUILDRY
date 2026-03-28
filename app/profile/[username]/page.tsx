@@ -4,20 +4,319 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
+import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
+import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
 
 interface ProfileData {
   profile: any
   talent: any
   github: any
+  socialShowcase?: {
+    linkedin: {
+      name: string | null
+      picture: string | null
+      headline: string | null
+      linkedinUrl: string | null
+    } | null
+    github: {
+      username: string
+      avatarUrl: string
+      bio: string | null
+      publicRepos: number
+      followers: number
+      totalStars: number
+      oauthName?: string | null
+      oauthBlog?: string | null
+      oauthCompany?: string | null
+      htmlUrl?: string | null
+    } | null
+    farcaster: {
+      fid: number
+      username: string
+      displayName: string
+      avatar?: string
+      bio?: string
+      followers: number
+      following: number
+      powerBadge: boolean
+    } | null
+    farcasterFromConnect: Record<string, unknown> | null
+  }
   onchain: any
   posts: any[]
   projects: any[]
   githubContributionSummary: any
   tokens: any[]
   followersCount: number
+  contributions?: BuilderContributionsSnapshot
 }
 
 type Tab = 'posts' | 'projects' | 'tokens' | 'activity' | 'services'
+
+function shortAddr(a: string | null | undefined): string {
+  if (!a || a.length < 10) return a || '—'
+  return `${a.slice(0, 4)}…${a.slice(-4)}`
+}
+
+function BuilderContributionsGrid({ c }: { c: BuilderContributionsSnapshot | undefined }) {
+  if (!c) return null
+  const hasAny =
+    c.github ||
+    c.solana.wallet ||
+    c.evm.wallet ||
+    c.projects.total > 0 ||
+    c.posts > 0
+  if (!hasAny) return null
+
+  return (
+    <div className="mb-8">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-3">
+        Ship log <span className="font-normal normal-case text-slate-400">(public signals, estimates)</span>
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {c.github && (
+          <>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">GitHub repos</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.publicRepos}</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stars received</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.totalStars.toLocaleString()}</p>
+            </div>
+            {c.github.graphqlCommitContributionsTotal != null && (
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  Commits (GitHub graph)
+                </p>
+                <p className="text-lg font-black text-slate-900 tabular-nums">
+                  {c.github.graphqlCommitContributionsTotal.toLocaleString()}
+                </p>
+                <p className="text-[9px] text-slate-400 mt-0.5">
+                  {c.github.graphqlCommitContributionsYears?.length
+                    ? `totalCommitContributions · last ${c.github.graphqlCommitContributionsYears.length} calendar yrs`
+                    : 'totalCommitContributions (GraphQL)'}
+                </p>
+              </div>
+            )}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">365d activity</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.activityPoints365d}</p>
+              <p className="text-[9px] text-slate-400 mt-0.5">from public events (not raw commits)</p>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active days</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.activeDays365d}</p>
+            </div>
+          </>
+        )}
+        <div className="p-3 rounded-xl bg-violet-50/50 border border-violet-100">
+          <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-1">Solana · Helius</p>
+          <p className="text-lg font-black text-slate-900 tabular-nums">{c.solana.heliusTransactionsSampled}</p>
+          <p className="text-[9px] text-slate-500 mt-0.5">tx sample</p>
+          {c.solana.wallet && (
+            <p className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={c.solana.wallet}>
+              {shortAddr(c.solana.wallet)}
+            </p>
+          )}
+        </div>
+        <div className="p-3 rounded-xl bg-violet-50/50 border border-violet-100">
+          <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-1">Programs (est.)</p>
+          <p className="text-lg font-black text-slate-900 tabular-nums">{c.solana.programsDeployedEstimate}</p>
+          <p className="text-[9px] text-slate-500 mt-0.5">deploy/create heuristic</p>
+        </div>
+        <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">EVM contracts (est.)</p>
+          <p className="text-lg font-black text-slate-900 tabular-nums">{c.evm.contractsDeployedEstimate}</p>
+          <p className="text-[9px] text-slate-500 mt-0.5">Etherscan mainnet</p>
+          {c.evm.wallet && (
+            <p className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={c.evm.wallet}>
+              {shortAddr(c.evm.wallet)}
+            </p>
+          )}
+        </div>
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Projects listed</p>
+          <p className="text-lg font-black text-slate-900 tabular-nums">{c.projects.total}</p>
+          <p className="text-[9px] text-slate-400 mt-0.5">
+            {c.projects.manual} manual · {c.projects.fromGitHub} GitHub
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AiBuilderNarrative({
+  state,
+}: {
+  state: { status: 'idle' | 'loading' | 'ok' | 'empty' | 'config'; text?: string; note?: string }
+}) {
+  if (state.status === 'idle' || state.status === 'loading') {
+    return (
+      <div className="mb-8 p-5 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white animate-pulse">
+        <div className="h-3 w-40 bg-slate-200 rounded mb-3" />
+        <div className="h-3 w-full bg-slate-100 rounded mb-2" />
+        <div className="h-3 max-w-xl bg-slate-100 rounded" />
+      </div>
+    )
+  }
+  if (state.status === 'config') {
+    return (
+      <div className="mb-8 p-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500">
+        AI builder summary is off. Set <span className="font-mono">ANTHROPIC_API_KEY</span> on the server to enable Claude-powered
+        profile copy from LinkedIn, GitHub, Farcaster, and on-chain signals.
+      </div>
+    )
+  }
+  if (state.status !== 'ok' || !state.text) return null
+
+  return (
+    <div className="mb-8 p-5 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-white">
+      <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-3">Builder snapshot · AI</p>
+      <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">{state.text}</div>
+      <p className="text-[9px] text-slate-400 mt-3">
+        Generated from public profile data; not financial or employment advice.
+      </p>
+    </div>
+  )
+}
+
+function warpcastProfileUrl(username: string, fid?: number): string {
+  if (fid != null && (username.startsWith('!') || username === '')) {
+    return `https://warpcast.com/~/profiles/${fid}`
+  }
+  const u = username.replace(/^@/, '').replace(/^!/, '')
+  if (!u && fid != null) return `https://warpcast.com/~/profiles/${fid}`
+  return `https://warpcast.com/${u}`
+}
+
+function ConnectedSocialShowcase({
+  linkedin,
+  github,
+  farcaster,
+}: {
+  linkedin: NonNullable<ProfileData['socialShowcase']>['linkedin']
+  github: NonNullable<ProfileData['socialShowcase']>['github']
+  farcaster: {
+    username: string
+    displayName: string
+    bio?: string
+    avatar?: string
+    fid?: number
+    followers: number
+    following: number
+    powerBadge: boolean
+    source: 'neynar' | 'connected'
+  } | null
+}) {
+  if (!linkedin && !github && !farcaster) return null
+
+  return (
+    <div className="mb-8">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-4">Connected profiles</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {linkedin && (linkedin.linkedinUrl || linkedin.name || linkedin.picture) && (
+          (() => {
+            const inner = (
+              <>
+                <div className="w-14 h-14 rounded-xl bg-[#0A66C2]/10 overflow-hidden shrink-0 flex items-center justify-center text-[#0A66C2] font-black">
+                  {linkedin.picture ? (
+                    <img src={linkedin.picture} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    'in'
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#0A66C2] mb-1">LinkedIn</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{linkedin.name || 'Connected'}</p>
+                  {linkedin.headline && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-snug">{linkedin.headline}</p>
+                  )}
+                </div>
+              </>
+            )
+            const shell =
+              'flex gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:border-[#0A66C2]/30 hover:bg-white transition-all'
+            return linkedin.linkedinUrl ? (
+              <a href={linkedin.linkedinUrl} target="_blank" rel="noopener" className={shell}>
+                {inner}
+              </a>
+            ) : (
+              <div className={shell}>{inner}</div>
+            )
+          })()
+        )}
+
+        {github && (
+          <a
+            href={github.htmlUrl || `https://github.com/${github.username}`}
+            target="_blank"
+            rel="noopener"
+            className="flex gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-white transition-all"
+          >
+            <div className="w-14 h-14 rounded-xl bg-slate-900 overflow-hidden shrink-0">
+              {github.avatarUrl ? (
+                <img src={github.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white text-xs font-black">GH</div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">GitHub</p>
+              <p className="text-sm font-bold text-slate-900 truncate">
+                {github.oauthName || github.username}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {github.publicRepos} repos · {github.followers.toLocaleString()} followers ·{' '}
+                {github.totalStars.toLocaleString()} stars
+              </p>
+              {(github.bio || github.oauthCompany) && (
+                <p className="text-xs text-slate-400 line-clamp-2 mt-1">
+                  {[github.bio, github.oauthCompany].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+          </a>
+        )}
+
+        {farcaster && (
+          <a
+            href={warpcastProfileUrl(farcaster.username, farcaster.fid)}
+            target="_blank"
+            rel="noopener"
+            className="flex gap-4 p-4 rounded-2xl border border-slate-100 bg-violet-50/40 hover:border-violet-200 hover:bg-white transition-all"
+          >
+            <div className="w-14 h-14 rounded-xl bg-violet-100 overflow-hidden shrink-0 flex items-center justify-center">
+              {farcaster.avatar ? (
+                <img src={farcaster.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-violet-600 font-black text-lg">FC</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-violet-500 mb-1">
+                Farcaster{farcaster.powerBadge ? ' ⚡' : ''}
+              </p>
+              <p className="text-sm font-bold text-slate-900 truncate">{farcaster.displayName}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                @{farcaster.username.replace(/^!/, '') || '—'}
+                {farcaster.fid != null ? ` · FID ${farcaster.fid}` : ''}
+                {farcaster.followers > 0 ? ` · ${farcaster.followers.toLocaleString()} followers` : ''}
+              </p>
+              {farcaster.bio && (
+                <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-snug">{farcaster.bio}</p>
+              )}
+              {farcaster.source === 'connected' && (
+                <p className="text-[10px] text-violet-400 mt-1">Add NEYNAR_API_KEY for live stats</p>
+              )}
+            </div>
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const params = useParams()
@@ -25,6 +324,11 @@ export default function ProfilePage() {
   const [data, setData] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('posts')
+  const [aiNarrative, setAiNarrative] = useState<{
+    status: 'idle' | 'loading' | 'ok' | 'empty' | 'config'
+    text?: string
+    note?: string
+  }>({ status: 'idle' })
 
   useEffect(() => {
     fetch(`/api/profile/${username}`)
@@ -34,12 +338,65 @@ export default function ProfilePage() {
       .finally(() => setLoading(false))
   }, [username])
 
+  useEffect(() => {
+    if (!data?.profile) return
+    setAiNarrative({ status: 'loading' })
+    let cancelled = false
+    fetch(`/api/profile/${encodeURIComponent(username)}/builder-narrative`)
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) return { narrative: null, reason: j.error || 'request_failed' }
+        return j
+      })
+      .then((j) => {
+        if (cancelled) return
+        if (j.narrative) setAiNarrative({ status: 'ok', text: j.narrative })
+        else if (j.reason) setAiNarrative({ status: 'config', note: j.reason })
+        else setAiNarrative({ status: 'empty' })
+      })
+      .catch(() => {
+        if (!cancelled) setAiNarrative({ status: 'empty' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [username, data?.profile?.id])
+
   if (loading) return <ProfileSkeleton />
 
   const p = data?.profile
   const talent = data?.talent
   const github = data?.github
+  const socialShowcase = data?.socialShowcase
   const onchain = data?.onchain
+
+  const fcLive = socialShowcase?.farcaster
+  const fcStored = farcasterShowcaseFromStored(socialShowcase?.farcasterFromConnect ?? null)
+  const fcDisplay = fcLive
+    ? {
+        username: fcLive.username,
+        displayName: fcLive.displayName,
+        bio: fcLive.bio,
+        avatar: fcLive.avatar,
+        fid: fcLive.fid,
+        followers: fcLive.followers,
+        following: fcLive.following,
+        powerBadge: fcLive.powerBadge,
+        source: 'neynar' as const,
+      }
+    : fcStored
+      ? {
+          username: fcStored.username,
+          displayName: fcStored.displayName,
+          bio: fcStored.bio,
+          avatar: fcStored.avatar,
+          fid: fcStored.fid,
+          followers: 0,
+          following: 0,
+          powerBadge: false,
+          source: 'connected' as const,
+        }
+      : null
 
   if (!p) {
     return (
@@ -74,8 +431,12 @@ export default function ProfilePage() {
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 md:p-8 mb-6">
         <div className="flex items-end gap-6 mb-5">
           <div className="w-28 h-28 rounded-3xl bg-white border-4 border-white shadow-xl overflow-hidden shrink-0">
-            {(p.avatar_url || github?.avatarUrl) ? (
-              <img src={p.avatar_url || github?.avatarUrl} alt="" className="w-full h-full object-cover" />
+            {(p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl) ? (
+              <img
+                src={p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="w-full h-full bg-slate-100 flex items-center justify-center text-3xl font-black text-slate-300">
                 {(p.username || '?').charAt(0).toUpperCase()}
@@ -119,8 +480,36 @@ export default function ProfilePage() {
           {p.website && (
             <a href={p.website} target="_blank" rel="noopener" className="hover:text-slate-900 transition-colors">{p.website}</a>
           )}
+          {socialShowcase?.linkedin?.linkedinUrl && (
+            <a
+              href={socialShowcase.linkedin.linkedinUrl}
+              target="_blank"
+              rel="noopener"
+              className="hover:text-[#0A66C2] transition-colors"
+            >
+              LinkedIn
+            </a>
+          )}
+          {fcDisplay && (
+            <a
+              href={warpcastProfileUrl(fcDisplay.username, fcDisplay.fid)}
+              target="_blank"
+              rel="noopener"
+              className="hover:text-violet-600 transition-colors"
+            >
+              Farcaster{fcDisplay.fid ? ` · FID ${fcDisplay.fid}` : ''}
+            </a>
+          )}
           <span>{data?.followersCount || 0} followers</span>
         </div>
+
+        <ConnectedSocialShowcase
+          linkedin={socialShowcase?.linkedin ?? null}
+          github={socialShowcase?.github ?? null}
+          farcaster={fcDisplay}
+        />
+
+        <AiBuilderNarrative state={aiNarrative} />
 
         {/* Reputation stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -146,6 +535,8 @@ export default function ProfilePage() {
             ]}
           />
         </div>
+
+        <BuilderContributionsGrid c={data?.contributions} />
 
         {/* Skills */}
         {p.skills && p.skills.length > 0 && (

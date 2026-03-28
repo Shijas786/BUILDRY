@@ -91,14 +91,24 @@ HELIUS_API_KEY=
 ETHERSCAN_API_KEY=
 NEYNAR_API_KEY=
 TAPESTRY_API_KEY=
+# Optional: GitHub GraphQL for builder “Commits (GitHub graph)” on profiles (classic PAT: read:user). Falls back to GITHUB_TOKEN.
+# GITHUB_GRAPHQL_TOKEN=
+# GITHUB_TOKEN=
 
 # Optional AI layer
 CHAINGPT_API_KEY=
+# Claude (Anthropic) — public builder profile “Builder snapshot” narrative on /profile/[username]
+ANTHROPIC_API_KEY=
+# Optional override, default claude-3-5-haiku-20241022
+# ANTHROPIC_MODEL=
 ```
 
 Notes:
 - The app can run with partial/missing keys (some modules degrade gracefully).
 - Keep `.env.local` out of git.
+- **Farcaster “Sign in” (QR / phone scan):** `NEXT_PUBLIC_APP_DOMAIN` must match the **domain** configured in your [Farcaster developer](https://farcaster.xyz/~/developers) app for this site (usually apex `buildry.in`). If visitors use `www.` but the app is registered on the apex (or the reverse), verification often fails after scanning. Optional: `NEXT_PUBLIC_OPTIMISM_RPC_URL` (defaults to public Optimism RPC), `NEXT_PUBLIC_FARCASTER_AUTH_RELAY` (defaults to `https://relay.farcaster.xyz`).
+- **Public profile “Connected profiles”:** LinkedIn uses stored OIDC fields (`linkedin_data`). GitHub merges the public GitHub API with the OAuth snapshot (`github_data`). Farcaster uses **Neynar** (`NEYNAR_API_KEY`) for live followers/bio when possible; without a key, the card still shows data saved at connect time.
+- **Ship log + AI snapshot:** `/api/profile/[user]` includes a **`contributions`** object (GitHub repos/stars/365d public-activity score from events, optional GraphQL **`totalCommitContributions`** sum over the last five calendar years when **`GITHUB_GRAPHQL_TOKEN`** or **`GITHUB_TOKEN`** is set, Helius-sampled Solana txs + deploy heuristic, Etherscan-mainnet contract-creation heuristic, project/post counts). **`ANTHROPIC_API_KEY`** enables a cached Claude “Builder snapshot” blurb that combines LinkedIn/GitHub/Farcaster hints with those signals (still factual, no key = UI explains how to enable).
 
 ---
 
@@ -131,6 +141,30 @@ Firebase Console → **Authentication** → **Settings** → **Authorized domain
 
 (Keep `localhost` for local dev.)
 
+### 3b) Firebase — Firestore rules & indexes
+
+The repo includes **`firestore.rules`** and **`firestore.indexes.json`**. After cloning or changing them, deploy to your **production** Firebase project (same project as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`):
+
+```bash
+# one-time on your machine: sign in to the Google account that owns the Firebase project
+npx firebase login
+# default project is set in .firebaserc (buildry-18c42); override: npx firebase use <your-project-id>
+npm run firebase:deploy:firestore
+# equivalent: npx firebase deploy --only firestore:rules,firestore:indexes
+```
+
+If a query fails at runtime, the browser or server log usually links to the **Firestore console** to create a missing composite index; you can then copy the suggested index into `firestore.indexes.json` and redeploy.
+
+**Production checklist**
+
+| Item | Notes |
+|------|--------|
+| Rules deployed | Client SDK needs rules that allow **your own** `users/{uid}`, **`builder_profiles/{uid}`** writes, and **`projects`** for your `builder_id`. The default in this repo matches the app; **deny-all** rules break sign-in/settings. |
+| Admin env on Vercel | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (multiline key: paste with `\n` for newlines, or use JSON service account in a secret manager). |
+| Client env | All `NEXT_PUBLIC_FIREBASE_*` vars from the Firebase project settings. |
+| Service account | Use a dedicated key with minimal roles; rotate if leaked. |
+| Optional hardening | [App Check](https://firebase.google.com/docs/app-check) for abuse resistance on client-facing Firebase APIs. |
+
 ### 4) Google sign-in (Firebase / Google Cloud)
 
 Google Cloud Console → **APIs & Services** → **Credentials** → your **Web client** → **Authorized JavaScript origins**:
@@ -140,7 +174,9 @@ Google Cloud Console → **APIs & Services** → **Credentials** → your **Web 
 
 ### 5) Env on Vercel
 
-Set **`NEXT_PUBLIC_APP_DOMAIN`** to `buildry.in` (no `https://`) in Vercel **Environment Variables** for **Production**, or run `npm run vercel:env-sync` after updating `.env.local`.
+Set **`NEXT_PUBLIC_APP_DOMAIN`** to `buildry.in` (no `https://`) in Vercel **Environment Variables** for **Production**, or run `npm run vercel:env-sync` after updating `.env.local` or `.env` (the script prefers `.env.local`, then `.env`; Supabase keys are skipped).
+
+If **`GITHUB_GRAPHQL_TOKEN`** is missing on **Preview** deployments, add it in the Vercel dashboard for the **Preview** environment (the CLI often requires a specific Git branch for preview-only secrets when the production branch is `main`).
 
 `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` stays **`buildry-18c42.firebaseapp.com`** unless you configure a **custom auth domain** in Firebase.
 
@@ -236,7 +272,7 @@ Buildry links LinkedIn to your **existing** Firebase account (Google/email) from
 
 ### 4) Test
 
-Sign in with Google → **Settings** → **Socials** → **Connect LinkedIn**. Allow popups. If the profile URL does not auto-fill, paste your public URL and click **Save URL**.
+Sign in with Google → **Settings** → **Socials** → **Connect LinkedIn**. The app uses a **full-page redirect** (not a popup) so strict browser **Cross-Origin-Opener-Policy** rules do not break the flow. After LinkedIn sends you back, you should land on **Settings** with the Socials tab focused and a confirmation message. If the profile URL does not auto-fill, paste your public URL and click **Save URL**.
 
 ---
 
