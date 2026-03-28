@@ -47,12 +47,12 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed top-0 left-0 h-screen bg-white border-r border-slate-100 z-[90] flex flex-col transition-all duration-300 ${
+      className={`fixed top-0 left-0 h-dvh max-h-dvh bg-white border-r border-slate-100 z-[120] flex flex-col overflow-x-hidden transition-all duration-300 ${
         sidebarExpanded ? 'w-[240px]' : 'w-[68px]'
       }`}
     >
       {/* Logo + collapse */}
-      <div className="h-[72px] flex items-center justify-between px-4 border-b border-slate-100 shrink-0">
+      <div className="h-[72px] shrink-0 flex items-center justify-between px-4 border-b border-slate-100">
         <Link href="/feed" className="flex items-center gap-2.5 min-w-0" aria-label="Buildry feed">
           {sidebarExpanded ? (
             <BuildryWordmark tone="dark" variant="full" className="max-w-[min(100%,200px)]" />
@@ -71,7 +71,7 @@ export default function Sidebar() {
       </div>
 
       {/* Role switcher */}
-      <div className={`px-3 py-4 border-b border-slate-100 ${sidebarExpanded ? '' : 'px-2'}`}>
+      <div className={`shrink-0 px-3 py-4 border-b border-slate-100 ${sidebarExpanded ? '' : 'px-2'}`}>
         {sidebarExpanded && (
           <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] mb-3 px-1">Switch role</p>
         )}
@@ -132,12 +132,12 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-slate-100 px-3 py-3 bg-slate-50/80">
-        <div
-          className={`flex ${sidebarExpanded ? 'items-center justify-between gap-2 min-w-0' : 'flex-col items-center justify-center'}`}
-        >
-          <NavbarAccountCluster menuOpen="above" compact={!sidebarExpanded} />
-        </div>
+      <div className="shrink-0 border-t border-slate-100 px-2.5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] bg-slate-50/80">
+        <NavbarAccountCluster
+          menuOpen="above"
+          compact={!sidebarExpanded}
+          forSidebar={sidebarExpanded}
+        />
       </div>
     </aside>
   )

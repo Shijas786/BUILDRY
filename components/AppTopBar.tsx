@@ -99,10 +99,16 @@ export type NavbarAccountClusterProps = {
   menuOpen?: 'below' | 'above'
   /** Icon-only + tight layout for collapsed rail. */
   compact?: boolean
+  /** Wide rail: fill width, always show name/wallet lines (not hidden on small breakpoints). */
+  forSidebar?: boolean
 }
 
 /** Bell + account menu — Navbar (below) or Sidebar (above). */
-export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: NavbarAccountClusterProps) {
+export function NavbarAccountCluster({
+  menuOpen = 'below',
+  compact = false,
+  forSidebar = false,
+}: NavbarAccountClusterProps) {
   const { user, signOut: authSignOut } = useAuth()
   const { address, isConnected } = useAppKitAccount()
   const { open } = useAppKit()
@@ -159,17 +165,21 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
       ? 'bottom-full mb-2 right-0 left-auto'
       : 'top-[calc(100%+10px)] right-0'
 
+  const outerRow =
+    compact
+      ? 'flex-col items-center gap-2'
+      : forSidebar
+        ? 'flex-row items-center gap-1.5 w-full min-w-0'
+        : 'flex-row items-center gap-1 sm:gap-2'
+
   return (
-    <div
-      ref={menuRef}
-      className={`flex relative shrink-0 min-w-0 ${compact ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1 sm:gap-2'}`}
-    >
+    <div ref={menuRef} className={`flex relative shrink-0 min-w-0 ${outerRow}`}>
       <button
         type="button"
         aria-label="Notifications"
         title="Notifications"
-        className={`relative rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ${
-          compact ? 'w-9 h-9' : 'w-10 h-10'
+        className={`relative rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all shrink-0 ${
+          compact ? 'w-9 h-9' : forSidebar ? 'w-9 h-9' : 'w-10 h-10'
         }`}
       >
         <IconBell className={compact ? 'w-5 h-5' : 'w-[22px] h-[22px]'} />
@@ -181,7 +191,11 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
         aria-haspopup="menu"
         onClick={() => setShowDropdown(!showDropdown)}
         className={`group flex items-center rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all shadow-sm min-w-0 ${
-          compact ? 'flex-col p-1 gap-0.5' : 'gap-2.5 sm:gap-3 pl-1 pr-2 py-1'
+          compact
+            ? 'flex-col p-1 gap-0.5'
+            : forSidebar
+              ? 'flex-1 min-w-0 max-w-full gap-2 pl-1 pr-1.5 py-1.5'
+              : 'gap-2.5 sm:gap-3 pl-1 pr-2 py-1'
         }`}
       >
         <div
@@ -196,10 +210,14 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
           )}
         </div>
         {!compact && (
-          <div className="text-left hidden sm:block pr-1 min-w-0 max-w-[120px] lg:max-w-[140px]">
-            <p className="text-[13px] font-bold text-slate-900 leading-tight truncate">{displayName}</p>
+          <div
+            className={`text-left pr-0.5 min-w-0 ${forSidebar ? 'flex-1' : 'hidden sm:block max-w-[120px] lg:max-w-[140px]'}`}
+          >
+            <p className="text-[12px] sm:text-[13px] font-bold text-slate-900 leading-snug truncate">{displayName}</p>
             {walletLine ? (
-              <p className="text-[10px] font-medium text-slate-400 leading-tight font-mono truncate">{walletLine}</p>
+              <p className="text-[9px] sm:text-[10px] font-medium text-slate-400 leading-snug font-mono truncate">
+                {walletLine}
+              </p>
             ) : null}
           </div>
         )}
@@ -225,7 +243,7 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
       {showDropdown && (
         <div
           role="menu"
-          className={`absolute ${menuPos} w-[min(calc(100vw-2rem),280px)] max-w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[200] fade-in`}
+          className={`absolute ${menuPos} w-[min(calc(100vw-2rem),280px)] max-w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[600] fade-in`}
         >
           <div className="px-4 py-3 border-b border-slate-100">
             <p className="text-[13px] font-semibold text-slate-900 truncate">{signedInHeadline}</p>
