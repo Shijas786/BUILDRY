@@ -320,7 +320,7 @@ supabase/
 
 ## Current Direction
 
-Buildry is evolving from a trading-first concept into a social reputation network for startup builders.
+
 The focus is now:
 - identity + proof,
 - network growth through content,
