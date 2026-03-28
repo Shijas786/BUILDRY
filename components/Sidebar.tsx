@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRoleStore, NAV_BY_ROLE, type UserRole } from '@/store/role'
 import { useAuth } from '@/context/AuthProvider'
-import { createAuthClient, isSupabaseConfigured } from '@/lib/auth'
+import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { doc, getDoc } from 'firebase/firestore'
 
 const ROLE_META: Record<UserRole, { label: string; icon: React.ReactNode; color: string }> = {
   developer: {
@@ -49,19 +50,18 @@ export default function Sidebar() {
   const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
 
   React.useEffect(() => {
-    if (!user?.id || !isSupabaseConfigured) {
+    if (!user?.id || !isFirebaseConfigured || !firebaseDb) {
       setProfileUsername(null)
       return
     }
-    const supabase = createAuthClient()
-    if (!supabase) return
 
-    supabase
-      .from('builder_profiles')
-      .select('username')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => setProfileUsername(data?.username || null))
+    getDoc(doc(firebaseDb, 'builder_profiles', user.id)).then((snapshot) => {
+      if (!snapshot.exists()) {
+        setProfileUsername(null)
+        return
+      }
+      setProfileUsername((snapshot.data() as any)?.username || null)
+    })
   }, [user?.id])
 
   return (

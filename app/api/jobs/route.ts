@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+import { getServiceSupabase } from '@/lib/supabaseService'
 
 export async function GET(req: NextRequest) {
+  const supabase = getServiceSupabase()
+  if (!supabase) {
+    return NextResponse.json([], { status: 503 })
+  }
+
   const category = req.nextUrl.searchParams.get('category')
   const status = req.nextUrl.searchParams.get('status') || 'open'
   const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20')
@@ -35,6 +35,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = getServiceSupabase()
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+  }
+
   try {
     const body = await req.json()
     const { clientId, title, description, category, skillsRequired, budgetUsd, budgetType, deadline, paymentCurrency } = body

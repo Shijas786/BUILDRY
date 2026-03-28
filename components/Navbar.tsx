@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { useAuth } from '@/context/AuthProvider'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
 import { fmtAddr } from '@/lib/format'
-import { createAuthClient, isSupabaseConfigured } from '@/lib/auth'
+import { OPEN_AUTH_MODAL_EVENT, type OpenAuthModalDetail } from '@/lib/openAuthModal'
+import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { doc, getDoc } from 'firebase/firestore'
 
 export default function Navbar() {
   const { user, loading, signOut: authSignOut } = useAuth()
@@ -14,6 +16,7 @@ export default function Navbar() {
   const { disconnect } = useDisconnect()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'signup'>('login')
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
 
   const isLoggedIn = !!user || (isConnected && !!address)
@@ -22,20 +25,29 @@ export default function Navbar() {
   const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
 
   useEffect(() => {
-    if (!user?.id || !isSupabaseConfigured) {
+    if (!user?.id || !isFirebaseConfigured || !firebaseDb) {
       setProfileUsername(null)
       return
     }
-    const supabase = createAuthClient()
-    if (!supabase) return
 
-    supabase
-      .from('builder_profiles')
-      .select('username')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => setProfileUsername(data?.username || null))
+    getDoc(doc(firebaseDb, 'builder_profiles', user.id)).then((snapshot) => {
+      if (!snapshot.exists()) {
+        setProfileUsername(null)
+        return
+      }
+      setProfileUsername((snapshot.data() as any)?.username || null)
+    })
   }, [user?.id])
+
+  useEffect(() => {
+    const onOpenAuth = (e: Event) => {
+      const detail = (e as CustomEvent<OpenAuthModalDetail>).detail
+      setAuthModalInitialMode(detail?.mode ?? 'login')
+      setShowAuthModal(true)
+    }
+    window.addEventListener(OPEN_AUTH_MODAL_EVENT, onOpenAuth)
+    return () => window.removeEventListener(OPEN_AUTH_MODAL_EVENT, onOpenAuth)
+  }, [])
 
   const handleLogout = async () => {
     await authSignOut()
@@ -133,29 +145,49 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowAuthModal(true)}
+                type="button"
+                onClick={() => {
+                  setAuthModalInitialMode('login')
+                  setShowAuthModal(true)
+                }}
                 className="text-slate-600 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:text-slate-900 transition-all"
               >
                 Log in
               </button>
-              <Link
-                href="/onboarding"
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalInitialMode('signup')
+                  setShowAuthModal(true)
+                }}
                 className="bg-slate-900 text-white px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95 shadow-lg shadow-slate-900/10"
               >
                 Sign up
-              </Link>
+              </button>
             </div>
           )}
         </div>
       </nav>
 
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && (
+        <AuthModal
+          key={authModalInitialMode}
+          initialMode={authModalInitialMode}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
     </>
   )
 }
 
-function AuthModal({ onClose }: { onClose: () => void }) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+function AuthModal({
+  initialMode = 'login',
+  onClose,
+}: {
+  initialMode?: 'login' | 'signup'
+  onClose: () => void
+}) {
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -185,7 +217,12 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 
   const handleGoogle = async () => {
     const { signInWithGoogle } = await import('@/lib/auth')
-    await signInWithGoogle()
+    const { error } = await signInWithGoogle()
+    if (error) {
+      setError(error.message)
+      return
+    }
+    onClose()
   }
 
   return (

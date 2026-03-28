@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import '@farcaster/auth-kit/styles.css'
 import './globals.css'
 import Web3Provider from '@/context/Web3Provider'
 import AuthProvider from '@/context/AuthProvider'

@@ -1,9 +1,14 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import {
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+} from 'firebase/auth'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey)
+export const isSupabaseConfigured = isFirebaseConfigured
 
 export type UserRole = 'developer' | 'founder' | 'investor' | 'recruiter'
 
@@ -17,64 +22,106 @@ export interface AppUser {
   created_at: string
 }
 
-export function createAuthClient(): SupabaseClient | null {
-  if (!isSupabaseConfigured) return null
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
-
 export async function getSession() {
-  const supabase = createAuthClient()
-  if (!supabase) return null
-  const { data: { session }, error } = await supabase.auth.getSession()
-  if (error) return null
-  return session
+  if (!firebaseAuth?.currentUser) return null
+  return { user: { id: firebaseAuth.currentUser.uid } }
 }
 
 export async function getUser(): Promise<AppUser | null> {
-  const supabase = createAuthClient()
-  if (!supabase) return null
-  const session = await getSession()
-  if (!session?.user) return null
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', session.user.id)
-    .single()
-
-  if (error || !data) return null
-  return data as AppUser
+  if (!firebaseDb || !firebaseAuth?.currentUser) return null
+  const uid = firebaseAuth.currentUser.uid
+  const userRef = doc(firebaseDb, 'users', uid)
+  const userSnap = await getDoc(userRef)
+  if (!userSnap.exists()) return null
+  return userSnap.data() as AppUser
 }
 
 export async function signUpWithEmail(email: string, password: string) {
-  const supabase = createAuthClient()
-  if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
-  return supabase.auth.signUp({ email, password })
+  if (!firebaseAuth || !firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
+  try {
+    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password)
+    await setDoc(
+      doc(firebaseDb, 'users', credential.user.uid),
+      {
+        id: credential.user.uid,
+        email: credential.user.email,
+        name: credential.user.displayName || email.split('@')[0],
+        avatar_url: credential.user.photoURL,
+        account_type: null,
+        wallet_address: null,
+        created_at: new Date().toISOString(),
+      },
+      { merge: true }
+    )
+    return { data: credential, error: null }
+  } catch (error: any) {
+    return { data: null, error: { message: error?.message || 'Signup failed' } }
+  }
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  const supabase = createAuthClient()
-  if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
-  return supabase.auth.signInWithPassword({ email, password })
+  if (!firebaseAuth || !firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
+  try {
+    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password)
+    await setDoc(
+      doc(firebaseDb, 'users', credential.user.uid),
+      {
+        id: credential.user.uid,
+        email: credential.user.email,
+        name: credential.user.displayName || email.split('@')[0],
+        avatar_url: credential.user.photoURL,
+        created_at: new Date().toISOString(),
+      },
+      { merge: true }
+    )
+    return { data: credential, error: null }
+  } catch (error: any) {
+    return { data: null, error: { message: error?.message || 'Login failed' } }
+  }
 }
 
 export async function signInWithGoogle() {
-  const supabase = createAuthClient()
-  if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
-  return supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback` },
-  })
+  if (!firebaseAuth || !firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
+  try {
+    const provider = new GoogleAuthProvider()
+    const credential = await signInWithPopup(firebaseAuth, provider)
+    await setDoc(
+      doc(firebaseDb, 'users', credential.user.uid),
+      {
+        id: credential.user.uid,
+        email: credential.user.email,
+        name: credential.user.displayName || credential.user.email?.split('@')[0] || 'builder',
+        avatar_url: credential.user.photoURL,
+        created_at: new Date().toISOString(),
+      },
+      { merge: true }
+    )
+    return { data: credential, error: null }
+  } catch (error: any) {
+    return { data: null, error: { message: error?.message || 'Google login failed' } }
+  }
 }
 
 export async function signOut() {
-  const supabase = createAuthClient()
-  if (!supabase) return { error: null }
-  return supabase.auth.signOut()
+  if (!firebaseAuth) return { error: null }
+  try {
+    await firebaseSignOut(firebaseAuth)
+    return { error: null }
+  } catch (error: any) {
+    return { error: { message: error?.message || 'Sign out failed' } }
+  }
 }
 
 export async function updateUserRole(userId: string, role: UserRole) {
-  const supabase = createAuthClient()
-  if (!supabase) return { data: null, error: null }
-  return supabase.from('users').update({ account_type: role }).eq('id', userId)
+  if (!firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
+  try {
+    await updateDoc(doc(firebaseDb, 'users', userId), { account_type: role })
+    return { data: true, error: null }
+  } catch (error: any) {
+    return { data: null, error: { message: error?.message || 'Failed to update role' } }
+  }
+}
+
+export function createAuthClient() {
+  return null
 }

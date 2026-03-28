@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar'
 import { useAuth } from '@/context/AuthProvider'
 import { useRouter } from 'next/navigation'
 import HomepageBuilderShowcase from '@/components/HomepageBuilderShowcase'
+import { openAuthModal } from '@/lib/openAuthModal'
 import TokenTicker from '@/components/TokenTicker'
 
 export default function LandingPage() {
@@ -48,12 +49,13 @@ export default function LandingPage() {
         </p>
 
         <div className="mb-20">
-          <Link
-            href="/onboarding"
+          <button
+            type="button"
+            onClick={() => openAuthModal('signup')}
             className="inline-block bg-slate-900 text-white px-8 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-[0.98]"
           >
             Start building your profile
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -137,12 +139,13 @@ export default function LandingPage() {
         <p className="text-base text-slate-400 mb-10 max-w-md mx-auto">
           Join thousands of founders and developers who are growing their startups with Buildry.
         </p>
-        <Link
-          href="/onboarding"
+        <button
+          type="button"
+          onClick={() => openAuthModal('signup')}
           className="inline-block bg-slate-900 text-white px-12 py-5 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-black transition-all active:scale-[0.98] shadow-xl shadow-slate-900/10"
         >
           Get started free
-        </Link>
+        </button>
       </section>
 
       {/* Footer */}

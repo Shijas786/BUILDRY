@@ -2,12 +2,7 @@
 
 import { Connection, PublicKey } from '@solana/web3.js'
 import { BagsSDK } from '@bagsfm/bags-sdk'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+import { getServiceSupabase } from '@/lib/supabaseService'
 
 export async function prepareLaunchTransaction(
   name: string,
@@ -70,13 +65,16 @@ export async function prepareLaunchTransaction(
 
     if (userId) {
       try {
-        await supabase.from('posts').insert({
-          author_id: userId,
-          content: `Just launched $${symbol} — ${name}! ${description}`,
-          post_type: 'launch',
-          milestone_title: `Launched $${symbol}`,
-          milestone_category: 'launch',
-        })
+        const supabase = getServiceSupabase()
+        if (supabase) {
+          await supabase.from('posts').insert({
+            author_id: userId,
+            content: `Just launched $${symbol} — ${name}! ${description}`,
+            post_type: 'launch',
+            milestone_title: `Launched $${symbol}`,
+            milestone_category: 'launch',
+          })
+        }
       } catch (postErr) {
         console.error('Auto-post on launch failed:', postErr)
       }

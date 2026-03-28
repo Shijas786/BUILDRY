@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { getProfile } from '@/lib/talent'
 import {
   getGitHubStats,
@@ -12,10 +11,7 @@ import {
   getEvmDeploymentStats,
 } from '@/lib/trust'
 import { getTokensByCreator } from '@/lib/bags'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-const hasSupabase = !!(supabaseUrl && supabaseKey)
+import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 
 export async function GET(
   _req: NextRequest,
@@ -28,35 +24,42 @@ export async function GET(
   let projects: any[] = []
   let followersCount = 0
 
-  if (hasSupabase) {
-    const supabase = createClient(supabaseUrl, supabaseKey)
+  if (isFirebaseAdminConfigured && adminDb) {
+    const db = adminDb
+    const byUsernameSnap = await db
+      .collection('builder_profiles')
+      .where('username', '==', username)
+      .limit(1)
+      .get()
 
-    const { data } = await supabase
-      .from('builder_profiles')
-      .select('*, users(*)')
-      .eq('username', username)
-      .single()
-    profile = data
-
-    // Fallback: allow stable profile route by user_id too.
-    if (!profile) {
-      const { data: byUserId } = await supabase
-        .from('builder_profiles')
-        .select('*, users(*)')
-        .eq('user_id', username)
-        .single()
-      profile = byUserId
+    if (!byUsernameSnap.empty) {
+      profile = { id: byUsernameSnap.docs[0].id, ...byUsernameSnap.docs[0].data() }
     }
 
-    if (profile) {
-      const [postsRes, projectsRes, followersRes] = await Promise.all([
-        supabase.from('posts').select('*').eq('author_id', profile.user_id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('projects').select('*').eq('builder_id', profile.id).order('created_at', { ascending: false }),
-        supabase.from('builder_followers').select('*', { count: 'exact', head: true }).eq('builder_id', profile.id),
+    if (!profile) {
+      const byUserIdDoc = await db.collection('builder_profiles').doc(username).get()
+      if (byUserIdDoc.exists) {
+        profile = { id: byUserIdDoc.id, ...byUserIdDoc.data() }
+      }
+    }
+
+    if (profile?.user_id) {
+      const [userDoc, postsSnap, projectsSnap, followersSnap] = await Promise.all([
+        db.collection('users').doc(profile.user_id).get(),
+        db.collection('posts').where('author_id', '==', profile.user_id).get(),
+        db.collection('projects').where('builder_id', '==', profile.user_id).get(),
+        db.collection('builder_followers').where('builder_id', '==', profile.user_id).get(),
       ])
-      posts = postsRes.data || []
-      projects = projectsRes.data || []
-      followersCount = followersRes.count || 0
+
+      profile.users = userDoc.exists ? userDoc.data() : null
+      posts = postsSnap.docs
+        .map((postDoc) => ({ id: postDoc.id, ...postDoc.data() }))
+        .sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))
+        .slice(0, 20)
+      projects = projectsSnap.docs
+        .map((projectDoc) => ({ id: projectDoc.id, ...projectDoc.data() }))
+        .sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))
+      followersCount = followersSnap.size
     }
   }
 

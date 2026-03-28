@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isFirebaseAdminConfigured || !adminDb) {
+    return NextResponse.json({ error: 'Firebase is not configured' }, { status: 500 })
+  }
+  const db = adminDb
+
   const { userId } = await req.json()
   const postId = params.id
 
@@ -17,24 +17,26 @@ export async function POST(
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
-  const { data: existing } = await supabase
-    .from('post_likes')
-    .select('user_id')
-    .eq('user_id', userId)
-    .eq('post_id', postId)
-    .single()
+  const likeId = `${postId}_${userId}`
+  const likeRef = db.collection('post_likes').doc(likeId)
+  const postRef = db.collection('posts').doc(postId)
 
-  if (existing) {
-    await supabase.from('post_likes').delete().eq('user_id', userId).eq('post_id', postId)
-    try {
-      await supabase.rpc('decrement_likes', { post_id_input: postId })
-    } catch {}
+  const existing = await likeRef.get()
+  if (existing.exists) {
+    await db.runTransaction(async (trx) => {
+      const postSnap = await trx.get(postRef)
+      const currentLikes = (postSnap.data()?.likes_count || 0) as number
+      trx.delete(likeRef)
+      trx.set(postRef, { likes_count: Math.max(0, currentLikes - 1) }, { merge: true })
+    })
     return NextResponse.json({ liked: false })
   }
 
-  await supabase.from('post_likes').insert({ user_id: userId, post_id: postId })
-  try {
-    await supabase.rpc('increment_likes', { post_id_input: postId })
-  } catch {}
+  await db.runTransaction(async (trx) => {
+    const postSnap = await trx.get(postRef)
+    const currentLikes = (postSnap.data()?.likes_count || 0) as number
+    trx.set(likeRef, { post_id: postId, user_id: userId, created_at: Date.now() })
+    trx.set(postRef, { likes_count: currentLikes + 1 }, { merge: true })
+  })
   return NextResponse.json({ liked: true })
 }

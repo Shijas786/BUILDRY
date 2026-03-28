@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 
 export async function POST(req: NextRequest) {
+  if (!isFirebaseAdminConfigured || !adminDb) {
+    return NextResponse.json({ error: 'Firebase is not configured' }, { status: 500 })
+  }
+  const db = adminDb
+
   try {
     const { followerId, builderId } = await req.json()
 
@@ -14,21 +14,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing followerId or builderId' }, { status: 400 })
     }
 
-    const { data: existing } = await supabase
-      .from('builder_followers')
-      .select('id')
-      .eq('follower_id', followerId)
-      .eq('builder_id', builderId)
-      .single()
+    const followId = `${builderId}_${followerId}`
+    const followRef = db.collection('builder_followers').doc(followId)
+    const existing = await followRef.get()
 
-    if (existing) {
-      await supabase.from('builder_followers').delete().eq('id', existing.id)
+    if (existing.exists) {
+      await followRef.delete()
       return NextResponse.json({ followed: false })
     }
 
-    await supabase.from('builder_followers').insert({
+    await followRef.set({
       follower_id: followerId,
       builder_id: builderId,
+      created_at: Date.now(),
     })
 
     return NextResponse.json({ followed: true })

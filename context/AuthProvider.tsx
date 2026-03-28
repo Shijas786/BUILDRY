@@ -1,11 +1,13 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { createAuthClient, isSupabaseConfigured, type AppUser } from '@/lib/auth'
-import type { Session } from '@supabase/supabase-js'
+import { isSupabaseConfigured, type AppUser } from '@/lib/auth'
+import { firebaseAuth, firebaseDb } from '@/lib/firebaseClient'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 
 interface AuthState {
-  session: Session | null
+  session: { user: { id: string } } | null
   user: AppUser | null
   loading: boolean
   signOut: () => Promise<void>
@@ -25,55 +27,64 @@ export function useAuth() {
 }
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<{ user: { id: string } } | null>(null)
   const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const supabase = isSupabaseConfigured ? createAuthClient() : null
+  const fetchUser = useCallback(async (authUser: FirebaseUser) => {
+    if (!firebaseDb) return
+    const userRef = doc(firebaseDb, 'users', authUser.uid)
+    const userSnap = await getDoc(userRef)
 
-  const fetchUser = useCallback(async (userId: string) => {
-    if (!supabase) return
-    const { data } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setUser(data as AppUser | null)
-  }, [supabase])
+    if (!userSnap.exists()) {
+      const freshUser: AppUser = {
+        id: authUser.uid,
+        email: authUser.email,
+        name: authUser.displayName || authUser.email?.split('@')[0] || 'builder',
+        avatar_url: authUser.photoURL,
+        account_type: null,
+        wallet_address: null,
+        created_at: new Date().toISOString(),
+      }
+      await setDoc(userRef, freshUser, { merge: true })
+      setUser(freshUser)
+      return
+    }
+
+    setUser(userSnap.data() as AppUser)
+  }, [])
 
   const refreshUser = useCallback(async () => {
-    if (session?.user?.id) {
-      await fetchUser(session.user.id)
+    if (firebaseAuth?.currentUser) {
+      await fetchUser(firebaseAuth.currentUser)
     }
-  }, [session, fetchUser])
+  }, [fetchUser])
 
   useEffect(() => {
-    if (!supabase) {
+    if (!isSupabaseConfigured || !firebaseAuth) {
       setLoading(false)
       return
     }
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      if (s?.user?.id) fetchUser(s.user.id)
-      setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
-      if (s?.user?.id) {
-        fetchUser(s.user.id)
+    const unsub = onAuthStateChanged(firebaseAuth, async (authUser) => {
+      if (authUser?.uid) {
+        setSession({ user: { id: authUser.uid } })
+        await fetchUser(authUser)
       } else {
+        setSession(null)
         setUser(null)
       }
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
-  }, [supabase, fetchUser])
+    return () => unsub()
+  }, [fetchUser])
 
   const handleSignOut = async () => {
-    if (supabase) await supabase.auth.signOut()
+    if (firebaseAuth) {
+      const { signOut } = await import('@/lib/auth')
+      await signOut()
+    }
     setSession(null)
     setUser(null)
   }

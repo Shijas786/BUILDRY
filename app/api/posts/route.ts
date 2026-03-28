@@ -1,48 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+async function getUserProjection(userId: string) {
+  if (!adminDb) return null
+  const db = adminDb
+  const [userDoc, profileDoc] = await Promise.all([
+    db.collection('users').doc(userId).get(),
+    db.collection('builder_profiles').doc(userId).get(),
+  ])
+
+  if (!userDoc.exists) return null
+  const userData = userDoc.data() || {}
+  const profileData = profileDoc.exists ? profileDoc.data() : {}
+  return {
+    id: userId,
+    name: userData.name || 'Builder',
+    avatar_url: userData.avatar_url || null,
+    account_type: userData.account_type || null,
+    builder_profiles: { username: (profileData as any)?.username || null },
+  }
+}
 
 export async function GET(req: NextRequest) {
+  if (!isFirebaseAdminConfigured || !adminDb) {
+    return NextResponse.json([], { status: 200 })
+  }
+  const db = adminDb
+
   const page = parseInt(req.nextUrl.searchParams.get('page') || '1')
   const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20')
-  const userId = req.nextUrl.searchParams.get('userId')
-  const offset = (page - 1) * limit
+  const offset = Math.max(0, (page - 1) * limit)
+  const userId = req.nextUrl.searchParams.get('userId') || ''
+  const allNeeded = offset + limit
 
-  let query = supabase
-    .from('posts')
-    .select('*, users!posts_author_id_fkey(id, name, avatar_url, account_type, builder_profiles(username))')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  const postsSnap = await db.collection('posts').orderBy('created_at', 'desc').limit(allNeeded).get()
+  let postDocs = postsSnap.docs.slice(offset, offset + limit)
 
   if (userId) {
-    const { data: following } = await supabase
-      .from('builder_followers')
-      .select('builder_id')
-      .eq('follower_id', userId)
-
-    if (following && following.length > 0) {
-      const authorIds = following.map(f => f.builder_id)
-      authorIds.push(userId)
-    }
+    const followingSnap = await db.collection('builder_followers').where('follower_id', '==', userId).get()
+    const followingSet = new Set(followingSnap.docs.map((d) => d.data().builder_id))
+    followingSet.add(userId)
+    postDocs = postDocs.filter((d) => followingSet.has(d.data().author_id))
   }
 
-  const { data: posts, error } = await query
+  const hydrated = await Promise.all(
+    postDocs.map(async (postDoc) => {
+      const post = { id: postDoc.id, ...postDoc.data() } as any
+      const userProjection = await getUserProjection(post.author_id)
+      return { ...post, users: userProjection }
+    })
+  )
 
-  if (error) {
-    console.error('Feed fetch error:', error)
-    return NextResponse.json([], { status: 500 })
-  }
-
-  return NextResponse.json(posts || [], {
+  return NextResponse.json(hydrated, {
     headers: { 'Cache-Control': 's-maxage=15, stale-while-revalidate=10' },
   })
 }
 
 export async function POST(req: NextRequest) {
+  if (!isFirebaseAdminConfigured || !adminDb) {
+    return NextResponse.json({ error: 'Firebase is not configured' }, { status: 500 })
+  }
+  const db = adminDb
+
   try {
     const body = await req.json()
     const { authorId, content, postType, images, milestoneTitle, milestoneCategory, projectId, linkUrl } = body
@@ -51,27 +70,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
-        author_id: authorId,
-        content,
-        post_type: postType || 'update',
-        images: images || [],
-        milestone_title: milestoneTitle || null,
-        milestone_category: milestoneCategory || null,
-        project_id: projectId || null,
-        link_url: linkUrl || null,
-      })
-      .select()
-      .single()
+    const postRef = await db.collection('posts').add({
+      author_id: authorId,
+      content,
+      post_type: postType || 'update',
+      images: images || [],
+      milestone_title: milestoneTitle || null,
+      milestone_category: milestoneCategory || null,
+      project_id: projectId || null,
+      link_url: linkUrl || null,
+      likes_count: 0,
+      comments_count: 0,
+      created_at: Date.now(),
+    })
 
-    if (error) {
-      console.error('Post create error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json(data, { status: 201 })
+    const postDoc = await postRef.get()
+    return NextResponse.json({ id: postRef.id, ...postDoc.data() }, { status: 201 })
   } catch (err) {
     console.error('Posts API Error:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

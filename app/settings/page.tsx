@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore, type UserRole } from '@/store/role'
-import { isSupabaseConfigured, createAuthClient } from '@/lib/auth'
+import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import FarcasterConnect from '@/components/FarcasterConnect'
 import TelegramConnect from '@/components/TelegramConnect'
 
@@ -66,48 +67,49 @@ export default function SettingsPage() {
   ].filter(Boolean).length
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !user?.id) return
-    const supabase = createAuthClient()
-    if (!supabase) return
+    if (!isFirebaseConfigured || !firebaseDb || !user?.id) return
+    const db = firebaseDb
 
-    supabase
-      .from('builder_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          const normalized = normalizeUsername(data.username || '')
-          setProfile(p => ({
-            ...p,
-            username: normalized,
-            name: user.name || data.username || '',
-            bio: data.bio || '',
-            tagline: data.tagline || '',
-            location: data.location || '',
-            website: data.website || '',
-            avatar_url: data.avatar_url || '',
-            banner_url: data.banner_url || '',
-            github_username: data.github_username || '',
-            twitter_handle: data.twitter_handle || '',
-            farcaster_handle: data.farcaster_handle || '',
-            linkedin_url: data.linkedin_url || '',
-            telegram_handle: data.telegram_handle || '',
-            skills: data.skills || [],
-            open_for_work: data.open_for_work || false,
-            hourly_rate_usd: data.hourly_rate_usd?.toString() || '',
-            availability: data.availability || 'full_time',
-          }))
-          setInitialUsername(normalized)
-        }
-      })
+    const loadData = async () => {
+      const profileSnap = await getDoc(doc(db, 'builder_profiles', user.id))
+      if (profileSnap.exists()) {
+        const data = profileSnap.data() as any
+        const normalized = normalizeUsername(data.username || '')
+        setProfile((p) => ({
+          ...p,
+          username: normalized,
+          name: user.name || data.username || '',
+          bio: data.bio || '',
+          tagline: data.tagline || '',
+          location: data.location || '',
+          website: data.website || '',
+          avatar_url: data.avatar_url || '',
+          banner_url: data.banner_url || '',
+          github_username: data.github_username || '',
+          twitter_handle: data.twitter_handle || '',
+          farcaster_handle: data.farcaster_handle || '',
+          linkedin_url: data.linkedin_url || '',
+          telegram_handle: data.telegram_handle || '',
+          skills: data.skills || [],
+          open_for_work: data.open_for_work || false,
+          hourly_rate_usd: data.hourly_rate_usd?.toString() || '',
+          availability: data.availability || 'full_time',
+        }))
+        setInitialUsername(normalized)
+      }
 
-    supabase
-      .from('projects')
-      .select('*')
-      .eq('builder_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setProjects(data || []))
+      const projectsSnap = await getDocs(query(collection(db, 'projects'), where('builder_id', '==', user.id)))
+      const docs = projectsSnap.docs
+        .map((projectDoc) => ({ id: projectDoc.id, ...projectDoc.data() }))
+        .sort((a: any, b: any) => {
+          const aTime = typeof a.created_at === 'number' ? a.created_at : 0
+          const bTime = typeof b.created_at === 'number' ? b.created_at : 0
+          return bTime - aTime
+        })
+      setProjects(docs)
+    }
+
+    void loadData()
   }, [user])
 
   useEffect(() => {
@@ -137,25 +139,22 @@ export default function SettingsPage() {
       return
     }
 
-    if (!isSupabaseConfigured) {
+    if (!isFirebaseConfigured || !firebaseDb) {
       setUsernameStatus('available')
       setUsernameMsg('Looks good.')
       return
     }
-
-    const supabase = createAuthClient()
-    if (!supabase) return
+    const db = firebaseDb
 
     let cancelled = false
     setUsernameStatus('checking')
     setUsernameMsg('Checking availability...')
 
     const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('builder_profiles')
-        .select('user_id')
-        .eq('username', username)
-        .limit(1)
+      const result = await getDocs(
+        query(collection(db, 'builder_profiles'), where('username', '==', username))
+      )
+      const data = result.docs.map((item) => item.data())
 
       if (cancelled) return
 
@@ -187,10 +186,12 @@ export default function SettingsPage() {
     }
 
     setSaving(true)
-    if (isSupabaseConfigured && user?.id) {
-      const supabase = createAuthClient()
-      if (supabase) {
-        await supabase.from('builder_profiles').upsert({
+    if (isFirebaseConfigured && firebaseDb && user?.id) {
+      const db = firebaseDb
+      await setDoc(
+        doc(db, 'builder_profiles', user.id),
+        {
+          id: user.id,
           user_id: user.id,
           username: normalizedUsername,
           bio: profile.bio,
@@ -206,13 +207,20 @@ export default function SettingsPage() {
           telegram_handle: profile.telegram_handle,
           skills: profile.skills,
           open_for_work: profile.open_for_work,
-          hourly_rate_usd: profile.hourly_rate_usd ? parseInt(profile.hourly_rate_usd) : null,
+          hourly_rate_usd: profile.hourly_rate_usd ? parseInt(profile.hourly_rate_usd, 10) : null,
           availability: profile.availability,
-        }, { onConflict: 'user_id' })
+          updated_at: Date.now(),
+        },
+        { merge: true }
+      )
 
-        await supabase.from('users').update({ name: profile.name }).eq('id', user.id)
-        await refreshUser()
-      }
+      await setDoc(
+        doc(db, 'users', user.id),
+        { name: profile.name || user.name || 'builder' },
+        { merge: true }
+      )
+
+      await refreshUser()
     }
     setInitialUsername(normalizedUsername)
     setSaving(false)
@@ -400,89 +408,300 @@ function ProfileTab({ profile, setProfile, activeRole, setActiveRole, usernameSt
 
 function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile: any; userId?: string }) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
+  const [socialError, setSocialError] = useState<string | null>(null)
+  const [socialHint, setSocialHint] = useState<string | null>(null)
 
-  const connectSupabaseProvider = async (provider: 'github' | 'twitter' | 'linkedin_oidc') => {
-    const supabase = createAuthClient()
-    if (!supabase) return
-    setLoadingProvider(provider)
-    const redirectTo = `${window.location.origin}/auth/social-callback?provider=${provider}`
-    await supabase.auth.linkIdentity({
-      provider,
-      options: { redirectTo },
-    } as any)
-    setLoadingProvider(null)
-  }
-
-  const connectFarcaster = async (fcProfile: any) => {
-    setLoadingProvider('farcaster')
+  const saveTwitterHandle = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('twitter_handle')
+    setSocialError(null)
+    setSocialHint(null)
     try {
-      await fetch('/api/auth/farcaster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          profile: fcProfile,
-        }),
-      })
-      setProfile((p: any) => ({ ...p, farcaster_handle: fcProfile.username || p.farcaster_handle }))
+      const current = profile.twitter_handle
+      if (!current?.trim()) return
+      await setDoc(
+        doc(firebaseDb, 'builder_profiles', userId),
+        { twitter_handle: current.trim(), updated_at: Date.now() },
+        { merge: true }
+      )
     } finally {
       setLoadingProvider(null)
     }
   }
 
-  const connectTelegram = async (telegramAuth: any) => {
-    setLoadingProvider('telegram')
+  const saveGithubUsername = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('github_save')
+    setSocialError(null)
+    setSocialHint(null)
     try {
-      await fetch('/api/auth/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          telegramAuth,
-        }),
-      })
-      setProfile((p: any) => ({ ...p, telegram_handle: telegramAuth.username || p.telegram_handle }))
+      const current = profile.github_username
+      if (!current?.trim()) return
+      await setDoc(
+        doc(firebaseDb, 'builder_profiles', userId),
+        { github_username: current.trim(), updated_at: Date.now() },
+        { merge: true }
+      )
     } finally {
       setLoadingProvider(null)
     }
   }
 
-  const items = [
-    { key: 'github_username', label: 'GitHub', icon: '🐙', value: profile.github_username, connect: () => connectSupabaseProvider('github') },
-    { key: 'twitter_handle', label: 'X (Twitter)', icon: '𝕏', value: profile.twitter_handle, connect: () => connectSupabaseProvider('twitter') },
-    { key: 'linkedin_url', label: 'LinkedIn', icon: '💼', value: profile.linkedin_url, connect: () => connectSupabaseProvider('linkedin_oidc') },
-  ]
+  const connectGitHubOAuth = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('github_oauth')
+    setSocialError(null)
+    setSocialHint(null)
+    try {
+      const { linkGitHubToProfile } = await import('@/lib/socialLink')
+      const { error, githubUsername, githubData } = await linkGitHubToProfile()
+      if (error) {
+        setSocialError(error)
+        return
+      }
+      const patch: Record<string, unknown> = {
+        updated_at: Date.now(),
+        github_verified: true,
+      }
+      if (githubUsername) patch.github_username = githubUsername
+      if (githubData && Object.keys(githubData).length > 0) patch.github_data = githubData
+      await setDoc(doc(firebaseDb, 'builder_profiles', userId), patch, { merge: true })
+      setProfile((p: any) => ({
+        ...p,
+        ...(githubUsername ? { github_username: githubUsername } : {}),
+      }))
+      if (!githubUsername) {
+        setSocialHint(
+          'GitHub is linked to your account. If your username did not auto-fill, type it above and click Save username.'
+        )
+      }
+    } finally {
+      setLoadingProvider(null)
+    }
+  }
+
+  const connectFarcaster = useCallback(
+    async (fcProfile: any) => {
+      setSocialError(null)
+      setSocialHint(null)
+      setLoadingProvider('farcaster')
+      try {
+        if (userId && firebaseDb) {
+          const db = firebaseDb
+          await setDoc(
+            doc(db, 'builder_profiles', userId),
+            {
+              farcaster_handle: fcProfile.username || '',
+              farcaster_data: fcProfile,
+              updated_at: Date.now(),
+            },
+            { merge: true }
+          )
+        }
+        setProfile((p: any) => ({ ...p, farcaster_handle: fcProfile.username || p.farcaster_handle }))
+      } finally {
+        setLoadingProvider(null)
+      }
+    },
+    [userId, setProfile]
+  )
+
+  const connectTelegram = useCallback(
+    async (telegramAuth: any) => {
+      setSocialError(null)
+      setSocialHint(null)
+      setLoadingProvider('telegram')
+      try {
+        if (userId && firebaseDb) {
+          const db = firebaseDb
+          await setDoc(
+            doc(db, 'builder_profiles', userId),
+            {
+              telegram_handle: telegramAuth.username || '',
+              telegram_data: telegramAuth,
+              updated_at: Date.now(),
+            },
+            { merge: true }
+          )
+        }
+        setProfile((p: any) => ({ ...p, telegram_handle: telegramAuth.username || p.telegram_handle }))
+      } finally {
+        setLoadingProvider(null)
+      }
+    },
+    [userId, setProfile]
+  )
+
+  const saveLinkedInUrl = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('linkedin_save')
+    setSocialError(null)
+    setSocialHint(null)
+    try {
+      await setDoc(
+        doc(firebaseDb, 'builder_profiles', userId),
+        { linkedin_url: profile.linkedin_url?.trim() || '', updated_at: Date.now() },
+        { merge: true }
+      )
+    } finally {
+      setLoadingProvider(null)
+    }
+  }
+
+  const connectLinkedInOAuth = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('linkedin_oauth')
+    setSocialError(null)
+    setSocialHint(null)
+    try {
+      const { linkLinkedInToProfile } = await import('@/lib/socialLink')
+      const { error, linkedinUrl, linkedinData } = await linkLinkedInToProfile()
+      if (error) {
+        setSocialError(error)
+        return
+      }
+      const patch: Record<string, unknown> = { updated_at: Date.now() }
+      if (linkedinUrl) patch.linkedin_url = linkedinUrl
+      if (linkedinData && Object.keys(linkedinData).length > 0) patch.linkedin_data = linkedinData
+      await setDoc(doc(firebaseDb, 'builder_profiles', userId), patch, { merge: true })
+      setProfile((p: any) => ({
+        ...p,
+        ...(linkedinUrl ? { linkedin_url: linkedinUrl } : {}),
+      }))
+      if (!linkedinUrl) {
+        setSocialHint(
+          'LinkedIn is linked to your account. If your profile URL did not auto-fill, paste it below and click Save URL.'
+        )
+      }
+    } finally {
+      setLoadingProvider(null)
+    }
+  }
 
   return (
-    <Section title="Connected Socials (OAuth)">
-      <p className="text-xs text-slate-400 mb-6">
-        Connect your socials via OAuth for verified identity. GitHub, X, and LinkedIn use Supabase OAuth; Farcaster and Telegram use their native auth flows.
+    <Section title="Social profiles">
+      <p className="text-xs text-slate-400 mb-4">
+        Link accounts that appear on your builder profile. GitHub and LinkedIn support Firebase OAuth; you can still
+        paste handles or URLs manually. Farcaster uses Sign in with Farcaster to verify your handle.
       </p>
+      {socialError && (
+        <p className="text-xs font-semibold text-red-500 mb-4" role="alert">
+          {socialError}
+        </p>
+      )}
+      {socialHint && !socialError && <p className="text-xs font-medium text-slate-500 mb-4">{socialHint}</p>}
       <div className="space-y-4">
-        {items.map((s) => (
-          <div key={s.key} className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100 hover:border-slate-200 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">{s.icon}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-              <p className="text-xs font-bold text-slate-600 truncate">{s.value || 'Not connected'}</p>
+        <div className="p-4 rounded-xl bg-white border border-slate-100 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">🐙</div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GitHub</p>
+              <input
+                value={profile.github_username || ''}
+                onChange={(e) => setProfile((p: any) => ({ ...p, github_username: e.target.value }))}
+                placeholder="octocat"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
+              />
+              <p className="text-[10px] text-slate-400">
+                Enable the <span className="font-semibold text-slate-500">GitHub</span> provider in Firebase Authentication,
+                then use Connect GitHub. Callback URL on your GitHub OAuth app must be your Firebase auth handler (see
+                README).
+              </p>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <button
-              onClick={s.connect}
-              disabled={loadingProvider === s.key || loadingProvider === (s.label === 'LinkedIn' ? 'linkedin_oidc' : s.key)}
-              className="px-4 py-2 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+              type="button"
+              onClick={connectGitHubOAuth}
+              disabled={loadingProvider === 'github_oauth'}
+              className="px-4 py-2.5 rounded-xl bg-[#24292f] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
             >
-              {s.value ? 'Reconnect' : 'Connect'}
+              {loadingProvider === 'github_oauth' ? '…' : 'Connect GitHub'}
+            </button>
+            <button
+              type="button"
+              onClick={saveGithubUsername}
+              disabled={loadingProvider === 'github_save'}
+              className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+            >
+              {loadingProvider === 'github_save' ? '…' : 'Save username'}
             </button>
           </div>
-        ))}
+        </div>
 
-        <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100">
-          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">🟣</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Farcaster</p>
-            <p className="text-xs font-bold text-slate-600 truncate">{profile.farcaster_handle || 'Not connected'}</p>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 p-4 rounded-xl bg-white border border-slate-100 hover:border-slate-200 transition-all">
+          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0 sm:mb-1">𝕏</div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">X (Twitter)</p>
+            <input
+              value={profile.twitter_handle || ''}
+              onChange={(e) => setProfile((p: any) => ({ ...p, twitter_handle: e.target.value }))}
+              placeholder="handle (no @)"
+              className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
+            />
           </div>
-          <FarcasterConnect onConnected={connectFarcaster} />
+          <button
+            type="button"
+            onClick={saveTwitterHandle}
+            disabled={loadingProvider === 'twitter_handle'}
+            className="shrink-0 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+
+        <div className="p-4 rounded-xl bg-white border border-slate-100 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">💼</div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LinkedIn</p>
+              <input
+                value={profile.linkedin_url || ''}
+                onChange={(e) => setProfile((p: any) => ({ ...p, linkedin_url: e.target.value }))}
+                placeholder="https://www.linkedin.com/in/your-handle"
+                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
+              />
+              <p className="text-[10px] text-slate-400">
+                Uses Firebase <span className="font-semibold text-slate-500">OpenID Connect</span> (Custom provider:
+                Issuer https://www.linkedin.com/oauth, Provider ID <span className="font-mono">linkedin</span>). Add
+                that in Firebase Authentication before connecting.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <button
+              type="button"
+              onClick={connectLinkedInOAuth}
+              disabled={loadingProvider === 'linkedin_oauth'}
+              className="px-4 py-2.5 rounded-xl bg-[#0A66C2] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+            >
+              {loadingProvider === 'linkedin_oauth' ? '…' : 'Connect LinkedIn'}
+            </button>
+            <button
+              type="button"
+              onClick={saveLinkedInUrl}
+              disabled={loadingProvider === 'linkedin_save'}
+              className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+            >
+              {loadingProvider === 'linkedin_save' ? '…' : 'Save URL'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl bg-white border border-slate-100">
+          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">🟣</div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Farcaster</p>
+            <p className="text-xs font-bold text-slate-600 truncate">
+              {profile.farcaster_handle ? `@${profile.farcaster_handle}` : 'Not connected'}
+            </p>
+            <p className="text-[10px] text-slate-400">
+              Sign in with Farcaster attaches your FID and username to this profile (not your Buildry login).
+            </p>
+          </div>
+          <div className="w-full sm:w-52 shrink-0">
+            <FarcasterConnect onConnected={connectFarcaster} onError={(m) => setSocialError(m)} />
+          </div>
         </div>
 
         <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100">
@@ -585,23 +804,20 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
   const [form, setForm] = useState({ title: '', description: '', github_url: '', live_url: '', category: 'DeFi', status: 'building', tags: '' })
 
   const handleAdd = async () => {
-    if (!userId || !form.title) return
-    if (isSupabaseConfigured) {
-      const supabase = createAuthClient()
-      if (supabase) {
-        const { data } = await supabase.from('projects').insert({
-          builder_id: userId,
-          title: form.title,
-          description: form.description,
-          github_url: form.github_url || null,
-          live_url: form.live_url || null,
-          category: form.category,
-          status: form.status,
-          tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
-        }).select().single()
-        if (data) setProjects((prev: any[]) => [data, ...prev])
-      }
-    }
+    if (!userId || !form.title || !firebaseDb) return
+    const db = firebaseDb
+    const docRef = await addDoc(collection(db, 'projects'), {
+      builder_id: userId,
+      title: form.title,
+      description: form.description,
+      github_url: form.github_url || null,
+      live_url: form.live_url || null,
+      category: form.category,
+      status: form.status,
+      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+      created_at: Date.now(),
+    })
+    setProjects((prev: any[]) => [{ id: docRef.id, ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean) }, ...prev])
     setForm({ title: '', description: '', github_url: '', live_url: '', category: 'DeFi', status: 'building', tags: '' })
     setShowAdd(false)
   }
