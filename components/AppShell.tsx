@@ -4,7 +4,6 @@ import React from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore } from '@/store/role'
-import AppTopBar from './AppTopBar'
 import Sidebar from './Sidebar'
 
 const PUBLIC_ROUTES = ['/', '/auth']
@@ -26,12 +25,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <Sidebar />
       <main
-        className={`flex flex-col flex-1 min-h-screen transition-all duration-300 ${
+        className={`flex-1 min-h-screen transition-all duration-300 ${
           sidebarExpanded ? 'ml-[240px]' : 'ml-[68px]'
         }`}
       >
-        <AppTopBar />
-        <div className="flex-1 min-h-0">{children}</div>
+        {children}
       </main>
     </div>
   )

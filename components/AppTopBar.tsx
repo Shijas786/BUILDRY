@@ -57,30 +57,52 @@ function IconBell({ className }: { className?: string }) {
   )
 }
 
-/** Shared search field (navbar + app shell top bar). */
-export function AppSearchField({ className = '' }: { className?: string }) {
+/** Shared search field (navbar + sidebar). */
+export function AppSearchField({
+  className = '',
+  variant = 'default',
+}: {
+  className?: string
+  variant?: 'default' | 'sidebar'
+}) {
+  const isSidebar = variant === 'sidebar'
   return (
-    <div className={`w-full relative group ${className}`}>
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+    <div className={`w-full relative group min-w-0 ${className}`}>
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 text-slate-300 ${isSidebar ? 'left-3' : 'left-4'}`}
+      >
+        <svg className={isSidebar ? 'w-3.5 h-3.5' : 'w-4 h-4'} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
       </div>
       <input
         type="search"
-        placeholder="Search builders, projects, startups..."
-        className="w-full h-10 pl-11 pr-12 rounded-xl bg-slate-50 border border-slate-100 text-[11px] font-medium text-slate-900 focus:outline-none focus:border-slate-200 transition-all placeholder-slate-300"
+        placeholder={isSidebar ? 'Search…' : 'Search builders, projects, startups...'}
+        className={`w-full rounded-xl bg-slate-50 border border-slate-100 font-medium text-slate-900 focus:outline-none focus:border-slate-200 transition-all placeholder-slate-300 ${
+          isSidebar
+            ? 'h-9 pl-9 pr-3 text-[10px]'
+            : 'h-10 pl-11 pr-12 text-[11px]'
+        }`}
       />
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-20 group-focus-within:opacity-0 transition-opacity pointer-events-none">
-        <span className="text-[10px] font-bold border border-slate-300 px-1 rounded">⌘</span>
-        <span className="text-[10px] font-bold border border-slate-300 px-1 rounded">K</span>
-      </div>
+      {!isSidebar && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-20 group-focus-within:opacity-0 transition-opacity pointer-events-none">
+          <span className="text-[10px] font-bold border border-slate-300 px-1 rounded">⌘</span>
+          <span className="text-[10px] font-bold border border-slate-300 px-1 rounded">K</span>
+        </div>
+      )}
     </div>
   )
 }
 
-/** Bell + account menu — used in marketing Navbar and in AppTopBar. */
-export function NavbarAccountCluster() {
+export type NavbarAccountClusterProps = {
+  /** `above` = sidebar footer (menu opens upward). */
+  menuOpen?: 'below' | 'above'
+  /** Icon-only + tight layout for collapsed rail. */
+  compact?: boolean
+}
+
+/** Bell + account menu — Navbar (below) or Sidebar (above). */
+export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: NavbarAccountClusterProps) {
   const { user, signOut: authSignOut } = useAuth()
   const { address, isConnected } = useAppKitAccount()
   const { open } = useAppKit()
@@ -129,15 +151,25 @@ export function NavbarAccountCluster() {
     setShowDropdown(false)
   }
 
+  const menuPos =
+    menuOpen === 'above'
+      ? 'bottom-full mb-2 right-0 left-auto'
+      : 'top-[calc(100%+10px)] right-0'
+
   return (
-    <div ref={menuRef} className="flex items-center gap-1 sm:gap-2 relative shrink-0">
+    <div
+      ref={menuRef}
+      className={`flex relative shrink-0 min-w-0 ${compact ? 'flex-col items-center gap-2' : 'flex-row items-center gap-1 sm:gap-2'}`}
+    >
       <button
         type="button"
         aria-label="Notifications"
         title="Notifications"
-        className="relative w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all"
+        className={`relative rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all ${
+          compact ? 'w-9 h-9' : 'w-10 h-10'
+        }`}
       >
-        <IconBell className="w-[22px] h-[22px]" />
+        <IconBell className={compact ? 'w-5 h-5' : 'w-[22px] h-[22px]'} />
       </button>
 
       <button
@@ -145,23 +177,39 @@ export function NavbarAccountCluster() {
         aria-expanded={showDropdown}
         aria-haspopup="menu"
         onClick={() => setShowDropdown(!showDropdown)}
-        className="group flex items-center gap-2.5 sm:gap-3 pl-1 pr-2 py-1 rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all shadow-sm"
+        className={`group flex items-center rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all shadow-sm min-w-0 ${
+          compact ? 'flex-col p-1 gap-0.5' : 'gap-2.5 sm:gap-3 pl-1 pr-2 py-1'
+        }`}
       >
-        <div className="w-9 h-9 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-900 text-xs font-bold shadow-sm group-hover:scale-[1.02] transition-transform overflow-hidden">
+        <div
+          className={`rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-900 font-bold shadow-sm group-hover:scale-[1.02] transition-transform overflow-hidden shrink-0 ${
+            compact ? 'w-8 h-8 text-[10px]' : 'w-9 h-9 text-xs'
+          }`}
+        >
           {user?.avatar_url ? (
             <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
           ) : (
             displayName.charAt(0).toUpperCase()
           )}
         </div>
-        <div className="text-left hidden sm:block pr-1 min-w-0 max-w-[140px]">
-          <p className="text-[13px] font-bold text-slate-900 leading-tight truncate">{displayName}</p>
-          <p className="text-[10px] font-medium text-slate-400 leading-tight font-mono truncate">
-            {isConnected && address ? fmtAddr(address) : displayAddr}
-          </p>
-        </div>
+        {!compact && (
+          <div className="text-left hidden sm:block pr-1 min-w-0 max-w-[120px] lg:max-w-[140px]">
+            <p className="text-[13px] font-bold text-slate-900 leading-tight truncate">{displayName}</p>
+            <p className="text-[10px] font-medium text-slate-400 leading-tight font-mono truncate">
+              {isConnected && address ? fmtAddr(address) : displayAddr}
+            </p>
+          </div>
+        )}
         <svg
-          className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+          className={`text-slate-400 shrink-0 transition-transform ${compact ? 'w-3 h-3' : 'w-4 h-4'} ${
+            menuOpen === 'above'
+              ? showDropdown
+                ? ''
+                : 'rotate-180'
+              : showDropdown
+                ? 'rotate-180'
+                : ''
+          }`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -174,7 +222,7 @@ export function NavbarAccountCluster() {
       {showDropdown && (
         <div
           role="menu"
-          className="absolute top-[calc(100%+10px)] right-0 w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[200] fade-in"
+          className={`absolute ${menuPos} w-[min(calc(100vw-2rem),280px)] max-w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[200] fade-in`}
         >
           <div className="px-4 py-3 border-b border-slate-100">
             <p className="text-[11px] font-medium text-slate-400 mb-1">Connected:</p>
@@ -248,20 +296,5 @@ export function NavbarAccountCluster() {
         </div>
       )}
     </div>
-  )
-}
-
-/** Sticky top bar inside the main column when logged in (search + account). */
-export default function AppTopBar() {
-  return (
-    <header className="sticky top-0 z-[95] h-[72px] flex items-center gap-4 px-6 md:px-8 border-b border-slate-100 bg-white/95 backdrop-blur shrink-0">
-      <div className="hidden md:flex flex-1 min-w-0 max-w-xl">
-        <AppSearchField />
-      </div>
-      <div className="flex md:hidden flex-1 min-w-0">
-        <AppSearchField />
-      </div>
-      <NavbarAccountCluster />
-    </header>
   )
 }

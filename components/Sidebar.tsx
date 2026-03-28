@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRoleStore, NAV_BY_ROLE, type UserRole } from '@/store/role'
 import BuildryWordmark from '@/components/BuildryWordmark'
+import { AppSearchField, NavbarAccountCluster } from '@/components/AppTopBar'
 
 const ROLE_META: Record<UserRole, { label: string; icon: React.ReactNode; color: string }> = {
   developer: {
@@ -104,7 +105,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 pb-8 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 pb-3 space-y-1 min-h-0">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -130,6 +131,16 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      {/* Search + account (moved from top bar) */}
+      <div className="shrink-0 border-t border-slate-100 px-3 py-3 space-y-3 bg-slate-50/80">
+        {sidebarExpanded ? <AppSearchField variant="sidebar" /> : null}
+        <div
+          className={`flex ${sidebarExpanded ? 'items-center justify-between gap-2 min-w-0' : 'flex-col items-center justify-center'}`}
+        >
+          <NavbarAccountCluster menuOpen="above" compact={!sidebarExpanded} />
+        </div>
+      </div>
     </aside>
   )
 }
