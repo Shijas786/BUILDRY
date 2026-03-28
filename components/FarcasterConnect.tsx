@@ -75,13 +75,18 @@ function InnerConnect({
   const handleSuccess = React.useCallback(
     (data: SignInSuccess) => {
       if (reported.current) return
-      const username =
-        data?.username || (data?.fid != null ? `!${data.fid}` : '')
-      if (!username) return
+      const fid = data?.fid
+      // Relay must return a numeric fid; without it Auth Kit's UI shows "!undefined"
+      if (fid == null || typeof fid !== 'number' || !Number.isFinite(fid)) {
+        onError?.('Could not read your Farcaster ID. Close Warpcast and try again.')
+        return
+      }
+      const rawName = typeof data?.username === 'string' ? data.username.trim() : ''
+      const username = rawName || `!${fid}`
       reported.current = true
       onConnected({
         username,
-        fid: data.fid,
+        fid,
         bio: data.bio,
         displayName: data.displayName,
         pfpUrl: data.pfpUrl,
@@ -89,13 +94,24 @@ function InnerConnect({
         verifications: data.verifications,
       })
     },
-    [onConnected]
+    [onConnected, onError]
   )
 
   React.useEffect(() => {
-    if (!isAuthenticated || !profile?.username || reported.current) return
+    if (!isAuthenticated || reported.current) return
+    const fid = profile?.fid
+    if (fid == null || typeof fid !== 'number' || !Number.isFinite(fid)) return
+    const rawName = typeof profile?.username === 'string' ? profile.username.trim() : ''
     reported.current = true
-    onConnected(profile)
+    onConnected({
+      username: rawName || `!${fid}`,
+      fid,
+      bio: profile.bio,
+      displayName: profile.displayName,
+      pfpUrl: profile.pfpUrl,
+      custody: profile.custody,
+      verifications: profile.verifications,
+    })
   }, [isAuthenticated, profile, onConnected])
 
   return (

@@ -508,6 +508,9 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
   const [socialHint, setSocialHint] = useState<string | null>(null)
+  /** Show Auth Kit again to replace an existing Farcaster link */
+  const [farcasterRelink, setFarcasterRelink] = useState(false)
+  const [farcasterConnectKey, setFarcasterConnectKey] = useState(0)
 
   const saveTwitterHandle = async () => {
     if (!userId || !firebaseDb) return
@@ -569,42 +572,65 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
       setSocialHint(null)
       setLoadingProvider('farcaster')
       try {
-        if (userId && firebaseDb) {
-          const db = firebaseDb
+        const fid = typeof fcProfile?.fid === 'number' ? fcProfile.fid : null
+        if (!fid) {
+          setSocialError('No Farcaster ID returned. Try signing in again.')
+          return
+        }
 
-          // Enrich with Neynar data (follower/following counts, power badge, verified addresses)
-          let enriched: Record<string, unknown> = {}
+        let fromKit = typeof fcProfile?.username === 'string' ? fcProfile.username.trim() : ''
+        if (fromKit.startsWith('!') && /^\d+$/.test(fromKit.slice(1))) {
+          fromKit = '' // Auth Kit placeholder !fid — not a username
+        } else {
+          fromKit = fromKit.replace(/^@/, '').trim()
+        }
+        if (fromKit === 'undefined' || fromKit === 'null') fromKit = ''
+
+        let enriched: Record<string, unknown> = {}
+        let resolvedHandle = fromKit
+
+        if (fid) {
           try {
-            const fid = fcProfile.fid
-            if (fid) {
-              const res = await fetch(`/api/farcaster/profile?fid=${fid}`)
-              if (res.ok) {
-                const data = await res.json()
-                enriched = {
-                  farcaster_followers: data.followers ?? null,
-                  farcaster_following: data.following ?? null,
-                  farcaster_power_badge: data.powerBadge ?? false,
-                  farcaster_verified_addresses: data.verifiedAddresses ?? [],
-                  ...(data.bio ? { farcaster_bio: data.bio } : {}),
-                  ...(data.displayName ? { farcaster_display_name: data.displayName } : {}),
-                  ...(data.avatar ? { farcaster_avatar: data.avatar } : {}),
-                }
+            const res = await fetch(`/api/farcaster/profile?fid=${fid}`)
+            if (res.ok) {
+              const data = await res.json()
+              if (typeof data.username === 'string' && data.username.trim()) {
+                resolvedHandle = data.username.trim().replace(/^@/, '')
+              }
+              enriched = {
+                farcaster_followers: data.followers ?? null,
+                farcaster_following: data.following ?? null,
+                farcaster_power_badge: data.powerBadge ?? false,
+                farcaster_verified_addresses: data.verifiedAddresses ?? [],
+                ...(data.bio ? { farcaster_bio: data.bio } : {}),
+                ...(data.displayName ? { farcaster_display_name: data.displayName } : {}),
+                ...(data.avatar ? { farcaster_avatar: data.avatar } : {}),
               }
             }
           } catch {
-            // enrichment is best-effort; never block the connect
+            // enrichment is best-effort
           }
+        }
 
+        if (!resolvedHandle) {
+          setSocialError(
+            'Could not load your Farcaster username. Confirm NEYNAR_API_KEY is set on the server, then try again.'
+          )
+          return
+        }
+
+        if (userId && firebaseDb) {
+          const db = firebaseDb
           await setDoc(
             doc(db, FS.BUILDER_PROFILES, userId),
             {
-              farcaster_handle: fcProfile.username || '',
-              farcaster_fid: fcProfile.fid || null,
+              farcaster_handle: resolvedHandle,
+              farcaster_fid: fid,
               farcaster_bio: fcProfile.bio || enriched.farcaster_bio || null,
               farcaster_display_name: fcProfile.displayName || enriched.farcaster_display_name || null,
               farcaster_avatar: fcProfile.pfpUrl || enriched.farcaster_avatar || null,
               ...(fcProfile.pfpUrl ? { avatar_url: fcProfile.pfpUrl } : {}),
-              farcaster_data: fcProfile,
+              farcaster_data: { ...fcProfile, username: resolvedHandle },
               ...enriched,
               updated_at: Date.now(),
             },
@@ -613,13 +639,14 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
         }
         setProfile((p: any) => ({
           ...p,
-          farcaster_handle: fcProfile.username || p.farcaster_handle,
-          farcaster_fid: fcProfile.fid || p.farcaster_fid,
+          farcaster_handle: resolvedHandle,
+          farcaster_fid: fid ?? p.farcaster_fid,
           farcaster_bio: fcProfile.bio || p.farcaster_bio,
           farcaster_display_name: fcProfile.displayName || p.farcaster_display_name,
           farcaster_avatar: fcProfile.pfpUrl || p.farcaster_avatar,
           ...(fcProfile.pfpUrl ? { avatar_url: fcProfile.pfpUrl } : {}),
         }))
+        setFarcasterRelink(false)
       } finally {
         setLoadingProvider(null)
       }
@@ -863,8 +890,45 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
               , not this website.
             </p>
           </div>
-          <div className="w-full sm:w-52 shrink-0">
-            <FarcasterConnect onConnected={connectFarcaster} onError={(m) => setSocialError(m)} />
+          <div className="w-full sm:w-52 shrink-0 space-y-2">
+            {profile.farcaster_handle && !farcasterRelink ? (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Linked</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFarcasterRelink(true)
+                    setFarcasterConnectKey((k) => k + 1)
+                  }}
+                  className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+                >
+                  Change account
+                </button>
+              </div>
+            ) : loadingProvider === 'farcaster' ? (
+              <div className="w-full min-h-[40px] rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Saving…
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <FarcasterConnect
+                  key={farcasterConnectKey}
+                  onConnected={connectFarcaster}
+                  onError={(m) =>
+                    setSocialError(m == null || m === '' ? 'Farcaster sign-in failed' : String(m))
+                  }
+                />
+                {farcasterRelink && profile.farcaster_handle ? (
+                  <button
+                    type="button"
+                    onClick={() => setFarcasterRelink(false)}
+                    className="w-full py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
 
