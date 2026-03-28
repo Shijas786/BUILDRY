@@ -5,11 +5,11 @@ import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore, type UserRole } from '@/store/role'
 import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { FS } from '@/lib/firestoreCollections'
+import { onAuthStateChanged } from 'firebase/auth'
 import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
-import { getFirebaseOAuthRedirectUrls } from '@/lib/firebaseAuthHandlerUrl'
 
 type SettingsTab = 'profile' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
 
@@ -49,6 +49,7 @@ export default function SettingsPage() {
     avatar_url: '',
     banner_url: '',
     github_username: '',
+    github_verified: false,
     twitter_handle: '',
     farcaster_handle: '',
     linkedin_url: '',
@@ -95,6 +96,7 @@ export default function SettingsPage() {
           avatar_url: data.avatar_url || '',
           banner_url: data.banner_url || '',
           github_username: data.github_username || '',
+          github_verified: Boolean(data.github_verified),
           twitter_handle: data.twitter_handle || '',
           farcaster_handle: data.farcaster_handle || '',
           linkedin_url: data.linkedin_url || '',
@@ -128,6 +130,7 @@ export default function SettingsPage() {
   }, [user])
 
   const [oauthReturnBanner, setOauthReturnBanner] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
+  const [githubRelink, setGithubRelink] = useState(false)
 
   useEffect(() => {
     if (!user?.id || !firebaseDb) return
@@ -172,9 +175,11 @@ export default function SettingsPage() {
           await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
           setProfile((p: any) => ({
             ...p,
+            github_verified: true,
             ...(r.githubUsername ? { github_username: r.githubUsername } : {}),
             ...(r.githubData && Object.keys(r.githubData).length > 0 ? { github_data: r.githubData } : {}),
           }))
+          setGithubRelink(false)
           setActiveTab('socials')
           setOauthReturnBanner({
             kind: 'ok',
@@ -383,7 +388,13 @@ export default function SettingsPage() {
             />
           )}
           {activeTab === 'socials' && (
-            <SocialsTab profile={profile} setProfile={setProfile} userId={user?.id} />
+            <SocialsTab
+              profile={profile}
+              setProfile={setProfile}
+              userId={user?.id}
+              githubRelink={githubRelink}
+              setGithubRelink={setGithubRelink}
+            />
           )}
           {activeTab === 'skills' && (
             <SkillsTab profile={profile} setProfile={setProfile} />
@@ -509,7 +520,40 @@ function linkedInOAuthComingSoon(): boolean {
   return v === '1' || v === 'true' || v === 'yes'
 }
 
-function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile: any; userId?: string }) {
+/** Treat as linked when we have a handle, OAuth snapshot, Firestore flag, or GitHub already on the Firebase user. */
+function githubAccountLinkState(
+  profile: {
+    github_username?: string
+    github_verified?: boolean
+    github_data?: Record<string, unknown> | null
+  },
+  firebaseAuthHasGithubProvider: boolean
+): { linked: boolean; handleLine: string } {
+  const u = profile.github_username?.trim() || ''
+  const login =
+    profile.github_data && typeof profile.github_data.login === 'string'
+      ? String(profile.github_data.login).trim()
+      : ''
+  const handle = u || login
+  const linked =
+    Boolean(handle) || profile.github_verified === true || firebaseAuthHasGithubProvider
+  const handleLine = handle ? `@${handle}` : 'GitHub account connected'
+  return { linked, handleLine }
+}
+
+function SocialsTab({
+  profile,
+  setProfile,
+  userId,
+  githubRelink,
+  setGithubRelink,
+}: {
+  profile: any
+  setProfile: any
+  userId?: string
+  githubRelink: boolean
+  setGithubRelink: (v: boolean) => void
+}) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
   const [socialHint, setSocialHint] = useState<string | null>(null)
@@ -517,6 +561,19 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
   /** Show Auth Kit again to replace an existing Farcaster link */
   const [farcasterRelink, setFarcasterRelink] = useState(false)
   const [farcasterConnectKey, setFarcasterConnectKey] = useState(0)
+  const [githubConnectKey, setGithubConnectKey] = useState(0)
+  const [firebaseAuthHasGithub, setFirebaseAuthHasGithub] = useState(false)
+  useEffect(() => {
+    if (!firebaseAuth) {
+      setFirebaseAuthHasGithub(false)
+      return
+    }
+    const unsub = onAuthStateChanged(firebaseAuth, (u) => {
+      setFirebaseAuthHasGithub(!!u?.providerData.some((p) => p.providerId === 'github.com'))
+    })
+    return () => unsub()
+  }, [])
+  const ghLink = githubAccountLinkState(profile, firebaseAuthHasGithub)
 
   const saveTwitterHandle = async () => {
     if (!userId || !firebaseDb) return
@@ -723,82 +780,9 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
   return (
     <Section title="Social profiles">
       <p className="text-xs text-slate-400 mb-4">
-        Link accounts that appear on your builder profile. GitHub and LinkedIn use Firebase OAuth (full-page redirect);
-        you can still paste handles or URLs manually. Farcaster uses Sign in with Farcaster (website / QR flow), not the
-        Warpcast Mini Apps SDK.
+        Link the accounts you want shown on your public profile. You can connect with OAuth or enter a handle or URL
+        manually.
       </p>
-      {(() => {
-        const callbackUrls = getFirebaseOAuthRedirectUrls()
-        if (!callbackUrls.length) return null
-        return (
-          <div className="mb-4 p-3 rounded-xl bg-slate-900 text-slate-200 text-[10px] leading-relaxed space-y-2">
-            <p className="font-black uppercase tracking-widest text-slate-400">Firebase OAuth callback (LinkedIn + GitHub)</p>
-            <p>
-              The long URL you see in the browser (with <span className="font-mono text-emerald-200/90">apiKey</span>,{' '}
-              <span className="font-mono text-emerald-200/90">linkViaRedirect</span>,{' '}
-              <span className="font-mono text-emerald-200/90">redirectUrl=…buildry.in</span>) is normal — LinkedIn only
-              cares that the <span className="font-semibold text-white">redirect_uri</span> matches what you registered.
-              Add <span className="font-semibold text-white">every</span> URL below to LinkedIn (and GitHub) — both
-              domains, https, <span className="font-semibold text-white">no trailing slash</span>.
-            </p>
-            {callbackUrls.map((callbackUrl) => (
-              <div key={callbackUrl} className="flex flex-wrap items-center gap-2">
-                <code className="flex-1 min-w-0 break-all text-[9px] bg-slate-800 px-2 py-1.5 rounded-lg text-emerald-200">
-                  {callbackUrl}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(callbackUrl)
-                    setSocialHint('Copied redirect URL.')
-                    setTimeout(() => setSocialHint(null), 2500)
-                  }}
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[9px] font-black uppercase tracking-widest"
-                >
-                  Copy
-                </button>
-              </div>
-            ))}
-            <p className="text-slate-400">
-              If LinkedIn still shows a generic error: set{' '}
-              <span className="font-mono text-emerald-200/90">NEXT_PUBLIC_LINKEDIN_OIDC_SKIP_EMAIL=1</span> in Vercel env
-              (removes the <span className="font-mono">email</span> scope) — some apps need that until email is enabled on
-              the OpenID product.
-            </p>
-            <ul className="list-disc pl-4 space-y-1 text-slate-300">
-              <li>
-                <a
-                  href="https://www.linkedin.com/developers/apps"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-violet-300 font-semibold underline"
-                >
-                  LinkedIn Developers
-                </a>
-                → your app → <span className="font-semibold text-white">Auth</span> →{' '}
-                <span className="font-semibold text-white">Authorized redirect URLs for your app</span> → add{' '}
-                <span className="font-semibold text-white">both</span> URLs above.
-              </li>
-              <li>
-                Same app → <span className="font-semibold text-white">Products</span> → enable{' '}
-                <span className="font-semibold text-white">Sign In with LinkedIn using OpenID Connect</span> (required for
-                Firebase OIDC — legacy “Sign In with LinkedIn” alone is not enough).
-              </li>
-              <li>
-                Firebase Console → Authentication → Sign-in method → your OpenID Connect provider →{' '}
-                <span className="font-semibold text-white">Client ID</span> and <span className="font-semibold text-white">Secret</span>{' '}
-                must be from <span className="font-semibold text-white">this same</span> LinkedIn app (compare the{' '}
-                <span className="font-mono text-emerald-200/90">client_id</span> in LinkedIn’s URL bar with the Client ID in
-                LinkedIn’s app settings).
-              </li>
-              <li>
-                Firebase → Authentication → Settings → <span className="font-semibold text-white">Authorized domains</span> →
-                include <span className="font-mono">buildry.in</span> so you can return to the site after OAuth.
-              </li>
-            </ul>
-          </div>
-        )
-      })()}
       {socialError && (
         <p className="text-xs font-semibold text-red-500 mb-4" role="alert">
           {socialError}
@@ -807,40 +791,77 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
       {socialHint && !socialError && <p className="text-xs font-medium text-slate-500 mb-4">{socialHint}</p>}
       <div className="space-y-4">
         <div className="p-4 rounded-xl bg-white border border-slate-100 space-y-3">
-          <div className="flex items-start gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">🐙</div>
             <div className="flex-1 min-w-0 space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GitHub</p>
-              <input
-                value={profile.github_username || ''}
-                onChange={(e) => setProfile((p: any) => ({ ...p, github_username: e.target.value }))}
-                placeholder="octocat"
-                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
-              />
-              <p className="text-[10px] text-slate-400">
-                Enable the <span className="font-semibold text-slate-500">GitHub</span> provider in Firebase Authentication.
-                Connect GitHub uses a <span className="font-semibold text-slate-500">redirect</span> (same as LinkedIn).
-                Callback URL on your GitHub OAuth app must match the Firebase handler URL above.
-              </p>
+              {ghLink.linked && !githubRelink ? (
+                <>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Linked</p>
+                  <p className="text-xs font-bold text-slate-600 truncate">{ghLink.handleLine}</p>
+                </>
+              ) : (
+                <input
+                  key={githubConnectKey}
+                  value={profile.github_username || ''}
+                  onChange={(e) => setProfile((p: any) => ({ ...p, github_username: e.target.value }))}
+                  placeholder="username (e.g. octocat)"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
+                />
+              )}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <button
-              type="button"
-              onClick={connectGitHubOAuth}
-              disabled={loadingProvider === 'github_oauth'}
-              className="px-4 py-2.5 rounded-xl bg-[#24292f] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
-            >
-              {loadingProvider === 'github_oauth' ? '…' : 'Connect GitHub'}
-            </button>
-            <button
-              type="button"
-              onClick={saveGithubUsername}
-              disabled={loadingProvider === 'github_save'}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
-            >
-              {loadingProvider === 'github_save' ? '…' : 'Save username'}
-            </button>
+            <div className="w-full sm:w-52 shrink-0 flex flex-col gap-2 sm:items-stretch">
+              {ghLink.linked && !githubRelink ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGithubRelink(true)
+                      setGithubConnectKey((k) => k + 1)
+                    }}
+                    className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+                  >
+                    Change account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveGithubUsername}
+                    disabled={loadingProvider === 'github_save'}
+                    className="w-full min-h-[40px] rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                  >
+                    {loadingProvider === 'github_save' ? '…' : 'Save username'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={connectGitHubOAuth}
+                    disabled={loadingProvider === 'github_oauth'}
+                    className="w-full min-h-[40px] rounded-xl bg-[#24292f] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                  >
+                    {loadingProvider === 'github_oauth' ? '…' : 'Connect GitHub'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveGithubUsername}
+                    disabled={loadingProvider === 'github_save'}
+                    className="w-full min-h-[40px] rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                  >
+                    {loadingProvider === 'github_save' ? '…' : 'Save username'}
+                  </button>
+                  {githubRelink && ghLink.linked ? (
+                    <button
+                      type="button"
+                      onClick={() => setGithubRelink(false)}
+                      className="w-full py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -874,9 +895,8 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-[10px] text-amber-950 leading-relaxed space-y-1">
                   <p className="font-black uppercase tracking-widest text-amber-800">One-click connect — coming soon</p>
                   <p>
-                    LinkedIn only grants OpenID Connect after they approve your app’s product access. Until then, OAuth
-                    sign-in won’t work. Add your public profile link below and click <span className="font-semibold">Save
-                    URL</span> — your profile will still show LinkedIn on Buildry.
+                    LinkedIn sign-in from here isn’t available yet. Add your public profile link below and use{' '}
+                    <span className="font-semibold">Save URL</span> — it will still appear on your Buildry profile.
                   </p>
                 </div>
               ) : null}
@@ -886,23 +906,9 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                 placeholder="https://www.linkedin.com/in/your-handle"
                 className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
               />
-              <p className="text-[10px] text-slate-400">
-                {linkedInOAuthOff ? (
-                  <>
-                    When LinkedIn approves your app, set{' '}
-                    <span className="font-mono text-slate-500">NEXT_PUBLIC_LINKEDIN_OAUTH_COMING_SOON=0</span> (or remove
-                    it) in hosting env to turn <span className="font-semibold text-slate-500">Connect LinkedIn</span> back
-                    on.
-                  </>
-                ) : (
-                  <>
-                    Uses Firebase <span className="font-semibold text-slate-500">OpenID Connect</span> (Issuer{' '}
-                    https://www.linkedin.com/oauth, Provider ID <span className="font-mono">linkedin</span>) with a{' '}
-                    <span className="font-semibold text-slate-500">full-page redirect</span> so browser security policies
-                    do not block the flow like they can with popups.
-                  </>
-                )}
-              </p>
+              {!linkedInOAuthOff ? (
+                <p className="text-[10px] text-slate-400">Opens LinkedIn in a new step to verify your account, then returns here.</p>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -943,29 +949,17 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
               {profile.farcaster_handle ? `@${profile.farcaster_handle}` : 'Not connected'}
             </p>
             <p className="text-[10px] text-slate-400">
-              Sign in with Farcaster (Auth Kit) attaches your FID and username to this profile — not your Buildry login.
-              In the{' '}
+              Links your Farcaster identity to this profile (separate from how you log into Buildry). If sign-in fails in
+              Warpcast, check that your app’s domain in the{' '}
               <a
                 href="https://farcaster.xyz/~/developers"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-violet-600 font-semibold hover:underline"
               >
-                Farcaster developer portal
-              </a>
-              , your app domain must match the <span className="font-semibold">exact hostname</span> you use in the browser (
-              <span className="font-mono">buildry.in</span> and <span className="font-mono">www.buildry.in</span> count as
-              different). If Warpcast shows “Sign in failed” after approve, fix the portal domain or pick one URL and
-              redirect the other. The <span className="font-mono">sdk.actions.signIn</span> API is for{' '}
-              <a
-                href="https://miniapps.farcaster.xyz/docs/sdk/actions/sign-in"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-violet-600 font-semibold hover:underline"
-              >
-                Mini Apps inside Warpcast
-              </a>
-              , not this website.
+                developer portal
+              </a>{' '}
+              matches the site URL you use (with or without <span className="font-mono">www</span>).
             </p>
           </div>
           <div className="w-full sm:w-52 shrink-0 space-y-2">
