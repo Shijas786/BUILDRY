@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthProvider'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
@@ -11,6 +11,54 @@ import { doc, getDoc } from 'firebase/firestore'
 import BuildryWordmark from '@/components/BuildryWordmark'
 import { FS } from '@/lib/firestoreCollections'
 
+function IconUser({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  )
+}
+
+function IconGear({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function IconLogout({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+      />
+    </svg>
+  )
+}
+
+function IconBell({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.75}
+        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+      />
+    </svg>
+  )
+}
+
 export default function Navbar() {
   const { user, loading, signOut: authSignOut } = useAuth()
   const { address, isConnected } = useAppKitAccount()
@@ -20,6 +68,7 @@ export default function Navbar() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'signup'>('login')
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const isLoggedIn = !!user || (isConnected && !!address)
   const displayName = user?.name || (address ? address.slice(0, 6) : 'User')
@@ -40,6 +89,22 @@ export default function Navbar() {
       setProfileUsername((snapshot.data() as any)?.username || null)
     })
   }, [user?.id])
+
+  useEffect(() => {
+    if (!showDropdown) return
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      const el = menuRef.current
+      if (el && !el.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+    }
+  }, [showDropdown])
 
   useEffect(() => {
     const onOpenAuth = (e: Event) => {
@@ -85,59 +150,121 @@ export default function Navbar() {
 
         <div className="flex items-center gap-4">
           {isLoggedIn ? (
-            <div className="flex items-center gap-4 relative">
-              <button className="w-10 h-10 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-900 hover:bg-slate-50 transition-all">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <div ref={menuRef} className="flex items-center gap-1 sm:gap-2 relative">
+              <button
+                type="button"
+                aria-label="Notifications"
+                title="Notifications"
+                className="relative w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all"
+              >
+                <IconBell className="w-[22px] h-[22px]" />
               </button>
 
               <button
+                type="button"
+                aria-expanded={showDropdown}
+                aria-haspopup="menu"
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="group flex items-center gap-3 p-1.5 rounded-2xl bg-slate-50 border border-slate-100/50 hover:border-slate-300 transition-all shadow-sm"
+                className="group flex items-center gap-2.5 sm:gap-3 pl-1 pr-2 py-1 rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-all shadow-sm"
               >
-                <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-900 text-[10px] font-black shadow-sm group-hover:scale-105 transition-transform">
-                  {displayName.charAt(0).toUpperCase()}
+                <div className="w-9 h-9 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-900 text-xs font-bold shadow-sm group-hover:scale-[1.02] transition-transform overflow-hidden">
+                  {user?.avatar_url ? (
+                    <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    displayName.charAt(0).toUpperCase()
+                  )}
                 </div>
-                <div className="text-left hidden lg:block pr-2">
-                  <p className="text-[11px] font-black text-slate-900 leading-tight uppercase tracking-widest">{displayName}</p>
-                  <p className="text-[9px] font-bold text-slate-400 leading-tight tracking-wider font-mono opacity-80">{displayAddr}</p>
+                <div className="text-left hidden sm:block pr-1 min-w-0 max-w-[140px]">
+                  <p className="text-[13px] font-bold text-slate-900 leading-tight truncate">{displayName}</p>
+                  <p className="text-[10px] font-medium text-slate-400 leading-tight font-mono truncate">
+                    {isConnected && address ? fmtAddr(address) : displayAddr}
+                  </p>
                 </div>
-                <svg className={`w-3 h-3 text-slate-300 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"/></svg>
+                <svg
+                  className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
 
               {showDropdown && (
-                <div className="absolute top-14 right-0 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl p-2 z-[200] fade-in">
-                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Account</p>
-                    <p className="text-[10px] font-bold text-slate-900 break-all">{user?.email || displayAddr}</p>
+                <div
+                  role="menu"
+                  className="absolute top-[calc(100%+10px)] right-0 w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[200] fade-in"
+                >
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <p className="text-[11px] font-medium text-slate-400 mb-1">Connected:</p>
+                    <p className="text-[13px] font-semibold text-slate-900 font-mono tracking-tight break-all">
+                      {isConnected && address ? fmtAddr(address) : user?.email || displayAddr || '—'}
+                    </p>
                   </div>
-                  {[
-                    { name: 'Profile', href: profileHref },
-                    { name: 'Settings', href: '/settings' },
-                    { name: 'Feed', href: '/feed' },
-                  ].map(item => (
+
+                  <div className="py-1 px-1.5">
                     <Link
-                      key={item.name}
-                      href={item.href}
+                      role="menuitem"
+                      href={profileHref}
                       onClick={() => setShowDropdown(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 text-[11px] font-bold text-slate-500 hover:text-slate-900 transition-all"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                     >
-                      {item.name}
+                      <IconUser className="w-[18px] h-[18px] text-slate-500" />
+                      Profile
                     </Link>
-                  ))}
-                  {!isConnected && (
-                    <button
-                      onClick={() => { open(); setShowDropdown(false) }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-blue-50 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-all"
+                    <Link
+                      role="menuitem"
+                      href="/settings"
+                      onClick={() => setShowDropdown(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                     >
-                      Connect Wallet
-                    </button>
+                      <IconGear className="w-[18px] h-[18px] text-slate-500" />
+                      Settings
+                    </Link>
+                  </div>
+
+                  {!isConnected && (
+                    <div className="border-t border-slate-100 py-1 px-1.5">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          open()
+                          setShowDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 text-left transition-colors"
+                      >
+                        <svg
+                          className="w-[18px] h-[18px] text-slate-500 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.75}
+                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                          />
+                        </svg>
+                        Connect wallet
+                      </button>
+                    </div>
                   )}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-xl hover:bg-red-50 text-[11px] font-bold text-red-500 hover:text-red-700 transition-all border-t border-slate-100 pt-3"
-                  >
-                    Log out
-                  </button>
+
+                  <div className="border-t border-slate-100 pt-1 pb-1 px-1.5 mt-0.5">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-700 text-left transition-colors"
+                    >
+                      <IconLogout className="w-[18px] h-[18px] text-slate-500" />
+                      Log out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
