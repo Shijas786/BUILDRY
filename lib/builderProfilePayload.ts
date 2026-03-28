@@ -132,7 +132,14 @@ export async function loadBuilderProfilePayload(username: string) {
     profile?.github_username ? getGitHubCommitTotalsGraphql(profile.github_username) : Promise.resolve(null),
     wallet ? getHeliusTransactions(wallet) : Promise.resolve(0),
     wallet ? getSolanaDeploymentStats(wallet) : Promise.resolve({ deployedPrograms: 0, walletAgeDays: 0 }),
-    evmWallet ? getEvmDeploymentStats(evmWallet) : Promise.resolve({ deployedContracts: 0, walletAgeDays: 0 }),
+    evmWallet
+      ? getEvmDeploymentStats(evmWallet)
+      : Promise.resolve({
+          deployedContracts: 0,
+          walletAgeDays: 0,
+          transactionCount: 0,
+          gasEthEstimate: null,
+        }),
     wallet ? getTokensByCreator(wallet) : Promise.resolve([]),
     farcasterEnrichedPromise,
   ])

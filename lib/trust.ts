@@ -62,6 +62,10 @@ export interface SolanaDeploymentStats {
 export interface EvmDeploymentStats {
   deployedContracts: number
   walletAgeDays: number
+  /** Count of txs returned from Etherscan (capped by API offset). */
+  transactionCount: number
+  /** Sum of gasUsed×gasPrice for returned txs, as ETH string (4–6 decimals) or null. */
+  gasEthEstimate: string | null
 }
 
 export async function getSolanaDeploymentStats(wallet: string): Promise<SolanaDeploymentStats> {
@@ -87,10 +91,36 @@ export async function getSolanaDeploymentStats(wallet: string): Promise<SolanaDe
   }
 }
 
+function sumGasToEthString(txs: { gasUsed?: string; gasPrice?: string }[]): string | null {
+  try {
+    let wei = BigInt(0)
+    for (const tx of txs) {
+      const gu = BigInt(String(tx.gasUsed || '0'))
+      const gp = BigInt(String(tx.gasPrice || '0'))
+      wei += gu * gp
+    }
+    if (wei === BigInt(0)) return null
+    // Format without precision loss for small amounts
+    const eth = Number(wei) / 1e18
+    if (!Number.isFinite(eth) || eth === 0) return null
+    if (eth < 0.0001) return eth.toExponential(2)
+    if (eth < 1) return eth.toFixed(6).replace(/\.?0+$/, '') || '0'
+    return eth.toFixed(4).replace(/\.?0+$/, '') || '0'
+  } catch {
+    return null
+  }
+}
+
 export async function getEvmDeploymentStats(wallet: string): Promise<EvmDeploymentStats> {
-  if (!wallet) return { deployedContracts: 0, walletAgeDays: 0 }
+  const empty: EvmDeploymentStats = {
+    deployedContracts: 0,
+    walletAgeDays: 0,
+    transactionCount: 0,
+    gasEthEstimate: null,
+  }
+  if (!wallet) return empty
   const ETHERSCAN_KEY = process.env.ETHERSCAN_API_KEY || ''
-  if (!ETHERSCAN_KEY) return { deployedContracts: 0, walletAgeDays: 0 }
+  if (!ETHERSCAN_KEY) return empty
   try {
     const { data } = await axios.get('https://api.etherscan.io/api', {
       params: {
@@ -108,9 +138,15 @@ export async function getEvmDeploymentStats(wallet: string): Promise<EvmDeployme
     const deployedContracts = txs.filter((tx: any) => !tx.to || tx.to === '').length
     const firstTs = txs.length > 0 ? Number(txs[0].timeStamp || 0) : 0
     const walletAgeDays = firstTs > 0 ? Math.max(0, Math.floor((Date.now() / 1000 - firstTs) / 86400)) : 0
-    return { deployedContracts, walletAgeDays }
+    const gasEthEstimate = txs.length > 0 ? sumGasToEthString(txs) : null
+    return {
+      deployedContracts,
+      walletAgeDays,
+      transactionCount: txs.length,
+      gasEthEstimate,
+    }
   } catch {
-    return { deployedContracts: 0, walletAgeDays: 0 }
+    return empty
   }
 }
 

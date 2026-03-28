@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
+import ProfileActivitySection from '@/components/ProfileActivitySection'
 import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
@@ -594,11 +595,13 @@ export default function ProfilePage() {
           {activeTab === 'projects' && <ProjectsTab projects={data?.projects || []} />}
           {activeTab === 'tokens' && <TokensTab tokens={data?.tokens || []} />}
           {activeTab === 'activity' && (
-            <ActivityTab
+            <ProfileActivitySection
               github={github}
               onchain={onchain}
               profile={p}
               githubContributionSummary={data?.githubContributionSummary}
+              contributions={data?.contributions}
+              talent={data?.talent}
             />
           )}
           {activeTab === 'services' && <ServicesTab profile={p} />}
@@ -683,77 +686,6 @@ function ProjectsTab({ projects }: { projects: any[] }) {
           )}
         </div>
       ))}
-    </div>
-  )
-}
-
-function ActivityTab({
-  github,
-  onchain,
-  profile,
-  githubContributionSummary,
-}: {
-  github: any
-  onchain: any
-  profile: any
-  githubContributionSummary: any
-}) {
-  const stats = [
-    { label: 'GitHub Repos', value: github?.publicRepos || profile?.github_repos || 0 },
-    { label: 'GitHub Stars', value: github?.totalStars || profile?.github_stars || 0 },
-    { label: 'GitHub Followers', value: github?.followers || 0 },
-    { label: 'SOL Transactions', value: onchain?.transactions || profile?.sol_transactions || 0 },
-    { label: 'SOL Programs', value: onchain?.solanaDeployments?.deployedPrograms || 0 },
-    { label: 'EVM Contracts', value: onchain?.evmDeployments?.deployedContracts || 0 },
-    { label: 'Wallet Age (days)', value: onchain?.solanaDeployments?.walletAgeDays || profile?.sol_wallet_age_days || 0 },
-  ]
-
-  return (
-    <div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        {stats.map(s => (
-          <StatCard key={s.label} label={s.label} value={s.value} />
-        ))}
-      </div>
-      {github?.topLanguages && github.topLanguages.length > 0 && (
-        <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Languages</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {github.topLanguages.map((l: string) => (
-              <span key={l} className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-bold">{l}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {githubContributionSummary?.points?.length > 0 && (
-        <div className="mt-8">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">GitHub Contributions (Last 365 days)</p>
-          <div className="flex flex-wrap gap-[2px] bg-slate-50 p-3 rounded-xl border border-slate-100">
-            {githubContributionSummary.points.map((pt: any) => {
-              const level =
-                pt.count >= 8 ? 'bg-emerald-600' :
-                pt.count >= 4 ? 'bg-emerald-500' :
-                pt.count >= 2 ? 'bg-emerald-300' :
-                pt.count >= 1 ? 'bg-emerald-200' :
-                'bg-slate-200'
-              return (
-                <div
-                  key={pt.date}
-                  title={`${pt.date}: ${pt.count} contributions`}
-                  className={`w-2.5 h-2.5 rounded-[2px] ${level} shrink-0`}
-                />
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-6 mt-3 text-[10px] text-slate-400 font-bold">
-            <span>Total: {githubContributionSummary.totalContributions}</span>
-            <span>Active days: {githubContributionSummary.activeDays}</span>
-            <span>Current streak: {githubContributionSummary.currentStreak}</span>
-            <span>Longest streak: {githubContributionSummary.longestStreak}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
