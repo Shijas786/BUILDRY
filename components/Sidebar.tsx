@@ -75,7 +75,7 @@ export default function Sidebar() {
         {sidebarExpanded && (
           <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] mb-3 px-1">Switch role</p>
         )}
-        <div className={`grid gap-1.5 ${sidebarExpanded ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-1.5 grid-cols-1`}>
           {(Object.keys(ROLE_META) as UserRole[]).map((role) => {
             const meta = ROLE_META[role]
             const isActive = activeRole === role
@@ -83,8 +83,8 @@ export default function Sidebar() {
               <button
                 key={role}
                 onClick={() => setActiveRole(role)}
-                className={`flex items-center gap-2 rounded-xl transition-all ${
-                  sidebarExpanded ? 'px-3 py-2' : 'px-0 py-2 justify-center'
+                className={`flex items-center gap-2 rounded-xl transition-all min-w-0 ${
+                  sidebarExpanded ? 'px-3 py-2 w-full' : 'px-0 py-2 justify-center'
                 } ${
                   isActive
                     ? `${meta.color} border font-black`
@@ -96,7 +96,9 @@ export default function Sidebar() {
                   {meta.icon}
                 </svg>
                 {sidebarExpanded && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider truncate">{meta.label}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider truncate min-w-0 flex-1 text-left">
+                    {meta.label}
+                  </span>
                 )}
               </button>
             )

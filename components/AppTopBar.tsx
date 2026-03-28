@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthProvider'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
@@ -94,6 +95,100 @@ export function AppSearchField({
   )
 }
 
+function AccountDropdownBody({
+  signedInHeadline,
+  userName,
+  walletLine,
+  profileHref,
+  isConnected,
+  showWalletSubline = true,
+  onClose,
+  onConnectWallet,
+  onLogout,
+}: {
+  signedInHeadline: string
+  userName?: string
+  walletLine: string | null
+  profileHref: string
+  isConnected: boolean
+  /** Sidebar: name-only surface — omit wallet under the header. */
+  showWalletSubline?: boolean
+  onClose: () => void
+  onConnectWallet: () => void
+  onLogout: () => void
+}) {
+  return (
+    <>
+      <div className="px-4 py-3 border-b border-slate-100">
+        <p className="text-[13px] font-semibold text-slate-900 truncate">{signedInHeadline}</p>
+        {showWalletSubline && userName && walletLine ? (
+          <p className="text-[11px] font-medium text-slate-400 mt-1 font-mono tracking-tight truncate">{walletLine}</p>
+        ) : null}
+      </div>
+
+      <div className="py-1 px-1.5">
+        <Link
+          role="menuitem"
+          href={profileHref}
+          onClick={onClose}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+        >
+          <IconUser className="w-[18px] h-[18px] text-slate-500" />
+          Profile
+        </Link>
+        <Link
+          role="menuitem"
+          href="/settings"
+          onClick={onClose}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+        >
+          <IconGear className="w-[18px] h-[18px] text-slate-500" />
+          Settings
+        </Link>
+      </div>
+
+      {!isConnected && (
+        <div className="border-t border-slate-100 py-1 px-1.5">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onConnectWallet}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 text-left transition-colors"
+          >
+            <svg
+              className="w-[18px] h-[18px] text-slate-500 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.75}
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+            Connect wallet
+          </button>
+        </div>
+      )}
+
+      <div className="border-t border-slate-100 pt-1 pb-1 px-1.5 mt-0.5">
+        <button
+          type="button"
+          role="menuitem"
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-700 text-left transition-colors"
+        >
+          <IconLogout className="w-[18px] h-[18px] text-slate-500" />
+          Log out
+        </button>
+      </div>
+    </>
+  )
+}
+
 export type NavbarAccountClusterProps = {
   /** `above` = sidebar footer (menu opens upward). */
   menuOpen?: 'below' | 'above'
@@ -116,12 +211,17 @@ export function NavbarAccountCluster({
   const [showDropdown, setShowDropdown] = useState(false)
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const dropdownPanelRef = useRef<HTMLDivElement>(null)
+  const [portalPos, setPortalPos] = useState<{ left: number; bottom: number; width: number } | null>(null)
+
+  const usePortalMenu = menuOpen === 'above'
 
   const displayName = user?.name?.trim() || (address ? address.slice(0, 6) : 'User')
   const walletLine = isConnected && address ? fmtAddr(address) : null
-  /** Menu header: name only — never show email here. */
-  const signedInHeadline =
-    user?.name?.trim() || walletLine || 'Builder'
+  /** Menu header: name first; sidebar omits wallet from the title line. */
+  const signedInHeadline = forSidebar
+    ? user?.name?.trim() || 'Builder'
+    : user?.name?.trim() || walletLine || 'Builder'
   const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
 
   useEffect(() => {
@@ -138,13 +238,34 @@ export function NavbarAccountCluster({
     })
   }, [user?.id])
 
+  useLayoutEffect(() => {
+    if (!showDropdown || !usePortalMenu || !menuRef.current) {
+      setPortalPos(null)
+      return
+    }
+    const update = () => {
+      const el = menuRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const w = Math.min(280, window.innerWidth - 16)
+      let left = r.right - w
+      left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
+      const gap = 10
+      const bottom = window.innerHeight - r.top + gap
+      setPortalPos({ left, bottom, width: w })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [showDropdown, usePortalMenu, compact, forSidebar])
+
   useEffect(() => {
     if (!showDropdown) return
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      const el = menuRef.current
-      if (el && !el.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
+      const t = e.target as Node
+      if (menuRef.current?.contains(t)) return
+      if (dropdownPanelRef.current?.contains(t)) return
+      setShowDropdown(false)
     }
     document.addEventListener('mousedown', onPointerDown)
     document.addEventListener('touchstart', onPointerDown)
@@ -153,6 +274,13 @@ export function NavbarAccountCluster({
       document.removeEventListener('touchstart', onPointerDown)
     }
   }, [showDropdown])
+
+  useEffect(() => {
+    if (!showDropdown || !usePortalMenu) return
+    const onScroll = () => setShowDropdown(false)
+    window.addEventListener('scroll', onScroll, true)
+    return () => window.removeEventListener('scroll', onScroll, true)
+  }, [showDropdown, usePortalMenu])
 
   const handleLogout = async () => {
     await authSignOut()
@@ -214,7 +342,7 @@ export function NavbarAccountCluster({
             className={`text-left pr-0.5 min-w-0 ${forSidebar ? 'flex-1' : 'hidden sm:block max-w-[120px] lg:max-w-[140px]'}`}
           >
             <p className="text-[12px] sm:text-[13px] font-bold text-slate-900 leading-snug truncate">{displayName}</p>
-            {walletLine ? (
+            {!forSidebar && walletLine ? (
               <p className="text-[9px] sm:text-[10px] font-medium text-slate-400 leading-snug font-mono truncate">
                 {walletLine}
               </p>
@@ -240,84 +368,60 @@ export function NavbarAccountCluster({
         </svg>
       </button>
 
-      {showDropdown && (
-        <div
-          role="menu"
-          className={`absolute ${menuPos} w-[min(calc(100vw-2rem),280px)] max-w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[600] fade-in`}
-        >
-          <div className="px-4 py-3 border-b border-slate-100">
-            <p className="text-[13px] font-semibold text-slate-900 truncate">{signedInHeadline}</p>
-            {user?.name?.trim() && walletLine ? (
-              <p className="text-[11px] font-medium text-slate-400 mt-1 font-mono tracking-tight truncate">
-                {walletLine}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="py-1 px-1.5">
-            <Link
-              role="menuitem"
-              href={profileHref}
-              onClick={() => setShowDropdown(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-            >
-              <IconUser className="w-[18px] h-[18px] text-slate-500" />
-              Profile
-            </Link>
-            <Link
-              role="menuitem"
-              href="/settings"
-              onClick={() => setShowDropdown(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-            >
-              <IconGear className="w-[18px] h-[18px] text-slate-500" />
-              Settings
-            </Link>
-          </div>
-
-          {!isConnected && (
-            <div className="border-t border-slate-100 py-1 px-1.5">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  open()
-                  setShowDropdown(false)
+      {showDropdown &&
+        (usePortalMenu && portalPos && typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                ref={dropdownPanelRef}
+                role="menu"
+                style={{
+                  position: 'fixed',
+                  left: portalPos.left,
+                  bottom: portalPos.bottom,
+                  width: portalPos.width,
+                  zIndex: 600,
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-slate-50 text-left transition-colors"
+                className="bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/10 py-2 fade-in max-h-[min(70vh,calc(100dvh-2rem))] overflow-y-auto"
               >
-                <svg
-                  className="w-[18px] h-[18px] text-slate-500 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.75}
-                    d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                Connect wallet
-              </button>
-            </div>
-          )}
-
-          <div className="border-t border-slate-100 pt-1 pb-1 px-1.5 mt-0.5">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-slate-700 hover:bg-red-50 hover:text-red-700 text-left transition-colors"
-            >
-              <IconLogout className="w-[18px] h-[18px] text-slate-500" />
-              Log out
-            </button>
-          </div>
-        </div>
-      )}
+                <AccountDropdownBody
+                  signedInHeadline={signedInHeadline}
+                  userName={user?.name?.trim()}
+                  walletLine={walletLine}
+                  profileHref={profileHref}
+                  isConnected={isConnected}
+                  showWalletSubline={!forSidebar}
+                  onClose={() => setShowDropdown(false)}
+                  onConnectWallet={() => {
+                    open()
+                    setShowDropdown(false)
+                  }}
+                  onLogout={handleLogout}
+                />
+              </div>,
+              document.body
+            )
+          : !usePortalMenu ? (
+              <div
+                ref={dropdownPanelRef}
+                role="menu"
+                className={`absolute ${menuPos} w-[min(calc(100vw-2rem),280px)] max-w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[600] fade-in max-h-[min(70vh,calc(100dvh-2rem))] overflow-y-auto`}
+              >
+                <AccountDropdownBody
+                  signedInHeadline={signedInHeadline}
+                  userName={user?.name?.trim()}
+                  walletLine={walletLine}
+                  profileHref={profileHref}
+                  isConnected={isConnected}
+                  showWalletSubline={!forSidebar}
+                  onClose={() => setShowDropdown(false)}
+                  onConnectWallet={() => {
+                    open()
+                    setShowDropdown(false)
+                  }}
+                  onLogout={handleLogout}
+                />
+              </div>
+            ) : null)}
     </div>
   )
 }
