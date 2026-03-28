@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRoleStore, NAV_BY_ROLE, type UserRole } from '@/store/role'
 import { useAuth } from '@/context/AuthProvider'
+import { useAppKitAccount, useDisconnect } from '@reown/appkit/react'
 import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { doc, getDoc } from 'firebase/firestore'
 import BuildryWordmark from '@/components/BuildryWordmark'
@@ -45,11 +46,18 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 export default function Sidebar() {
   const pathname = usePathname()
   const { activeRole, setActiveRole, sidebarExpanded, toggleSidebar } = useRoleStore()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
+  const { isConnected } = useAppKitAccount()
+  const { disconnect } = useDisconnect()
   const [profileUsername, setProfileUsername] = React.useState<string | null>(null)
   const navItems = NAV_BY_ROLE[activeRole]
   const roleMeta = ROLE_META[activeRole]
   const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
+
+  const handleLogout = async () => {
+    await signOut()
+    if (isConnected) disconnect()
+  }
 
   React.useEffect(() => {
     if (!user?.id || !isFirebaseConfigured || !firebaseDb) {
@@ -172,23 +180,43 @@ export default function Sidebar() {
         </Link>
 
         {user && (
-          <Link
-            href={profileHref}
-            className={`flex items-center gap-3 rounded-xl hover:bg-slate-50 transition-all ${
-              sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-            }`}
-            title="Profile"
-          >
-            <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 shrink-0">
-              {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-            </div>
-            {sidebarExpanded && (
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold text-slate-900 truncate">{user.name || 'Your Profile'}</p>
-                <p className="text-[9px] text-slate-400 truncate">{user.email}</p>
+          <>
+            <Link
+              href={profileHref}
+              className={`flex items-center gap-3 rounded-xl hover:bg-slate-50 transition-all ${
+                sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
+              }`}
+              title="Profile"
+            >
+              <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 shrink-0">
+                {(user.name || user.email || 'U').charAt(0).toUpperCase()}
               </div>
-            )}
-          </Link>
+              {sidebarExpanded && (
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-slate-900 truncate">{user.name || 'Your Profile'}</p>
+                  <p className="text-[9px] text-slate-400 truncate">{user.email}</p>
+                </div>
+              )}
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={`w-full flex items-center gap-3 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all ${
+                sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
+              }`}
+              title="Log out"
+            >
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              {sidebarExpanded && <span className="text-[11px] font-bold tracking-wide">Log out</span>}
+            </button>
+          </>
         )}
       </div>
     </aside>

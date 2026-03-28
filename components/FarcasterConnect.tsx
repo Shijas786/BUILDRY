@@ -9,14 +9,6 @@ function parseEnvDomain(raw: string | undefined): string | undefined {
   return raw.replace(/^https?:\/\//i, '').split('/')[0]?.trim() || undefined
 }
 
-function apexHost(host: string): string {
-  return host.replace(/^www\./i, '')
-}
-
-function hostsMatch(a: string, b: string): boolean {
-  return apexHost(a) === apexHost(b)
-}
-
 function buildAuthKitConfig() {
   const envHost = parseEnvDomain(process.env.NEXT_PUBLIC_APP_DOMAIN)
   const relay =
@@ -47,16 +39,15 @@ function buildAuthKitConfig() {
     }
   }
 
-  // Production: if env host matches this page (e.g. www vs apex), use env for SIWE so it matches Farcaster app config.
-  const domain = envHost && hostsMatch(hostname, envHost) ? envHost : hostname
-  let siweUri = window.location.origin
-  if (envHost && hostsMatch(hostname, envHost)) {
-    const isLocalEnv = envHost.includes('localhost') || envHost.startsWith('127.')
-    const protocol = isLocalEnv ? 'http' : 'https'
-    siweUri = `${protocol}://${envHost}`
+  // Use the **actual** page host + origin for SIWE. Mismatch with a different host in env (e.g. apex vs www) is the
+  // most common cause of Warpcast showing "Sign in failed" after approve — the relay verifies against your
+  // Farcaster developer app domain, which must match this host exactly.
+  return {
+    domain: hostname,
+    siweUri: window.location.origin,
+    rpcUrl,
+    relay,
   }
-
-  return { domain, siweUri, rpcUrl, relay }
 }
 
 type SignInSuccess = {
@@ -115,7 +106,13 @@ function InnerConnect({
         timeout={600_000}
         interval={2000}
         onSuccess={handleSuccess}
-        onError={(err) => onError?.(err?.message || 'Farcaster connect failed')}
+        onError={(err) => {
+          const detail =
+            err && typeof err === 'object' && 'message' in err && typeof (err as { message: string }).message === 'string'
+              ? (err as { message: string }).message
+              : String(err ?? '')
+          onError?.(detail || 'Farcaster connect failed')
+        }}
       />
     </div>
   )

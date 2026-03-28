@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
 import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
+import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
 
 interface ProfileData {
@@ -419,8 +420,21 @@ export default function ProfilePage() {
     { id: 'services', label: 'Services' },
   ]
 
+  const showHandleHint = !p.username && looksLikeFirebaseAuthUid(username)
+
   return (
     <div className="min-h-screen bg-slate-50/40">
+      {showHandleHint && (
+        <div className="bg-amber-50 border-b border-amber-100 text-amber-900">
+          <div className="max-w-6xl mx-auto px-6 md:px-8 py-3 text-center text-[11px] font-medium">
+            This profile is opened with an account ID (no public handle yet).{' '}
+            <Link href="/settings" className="font-bold text-amber-950 underline underline-offset-2 hover:no-underline">
+              Set a username in Settings
+            </Link>{' '}
+            for a short URL and better discovery.
+          </div>
+        </div>
+      )}
       {/* Banner */}
       <div className="h-56 bg-gradient-to-br from-slate-100 to-slate-50 relative">
         {p.banner_url && <img src={p.banner_url} alt="" className="w-full h-full object-cover" />}

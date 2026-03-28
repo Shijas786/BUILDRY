@@ -1,0 +1,16 @@
+{
+  "accountAssociation": {
+    "header": "",
+    "payload": "",
+    "signature": ""
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Buildry",
+    "iconUrl": "https://buildry.in/icon.png",
+    "homeUrl": "https://buildry.in",
+    "subtitle": "Builder reputation platform",
+    "description": "Discover and verify top builders across crypto and tech.",
+    "primaryCategory": "developer-tools"
+  }
+}

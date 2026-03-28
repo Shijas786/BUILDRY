@@ -24,6 +24,7 @@ import {
 } from '@/lib/socialShowcase'
 import { buildContributionsSnapshot } from '@/lib/builderContributions'
 import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
+import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 
 export type BuilderProfilePayload = Awaited<ReturnType<typeof loadBuilderProfilePayload>>
 
@@ -49,6 +50,34 @@ export async function loadBuilderProfilePayload(username: string) {
       const byUserIdDoc = await db.collection(FS.BUILDER_PROFILES).doc(username).get()
       if (byUserIdDoc.exists) {
         profile = { id: byUserIdDoc.id, ...byUserIdDoc.data() }
+      }
+    }
+
+    // Feed/post links use Firebase uid when builder has no public handle yet; builder_profiles doc may not exist.
+    if (!profile && looksLikeFirebaseAuthUid(username)) {
+      const userOnly = await db.collection(FS.USERS).doc(username).get()
+      if (userOnly.exists) {
+        const ud = userOnly.data() || {}
+        profile = {
+          id: username,
+          user_id: username,
+          username: null,
+          bio: null,
+          tagline: null,
+          location: null,
+          website: null,
+          avatar_url: (ud as { avatar_url?: string | null }).avatar_url ?? null,
+          banner_url: null,
+          github_username: null,
+          twitter_handle: null,
+          farcaster_handle: null,
+          linkedin_url: null,
+          telegram_handle: null,
+          skills: [],
+          open_for_work: false,
+          hourly_rate_usd: null,
+          availability: null,
+        }
       }
     }
 

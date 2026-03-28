@@ -9,6 +9,7 @@ import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where } from '
 import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
+import { getFirebaseAuthHandlerUrl } from '@/lib/firebaseAuthHandlerUrl'
 
 type SettingsTab = 'profile' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
 
@@ -126,42 +127,66 @@ export default function SettingsPage() {
     void loadData()
   }, [user])
 
-  const [linkedinBanner, setLinkedinBanner] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
+  const [oauthReturnBanner, setOauthReturnBanner] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 
   useEffect(() => {
     if (!user?.id || !firebaseDb) return
     let cancelled = false
     ;(async () => {
-      const { completeLinkedInLinkFromRedirect } = await import('@/lib/socialLink')
-      const r = await completeLinkedInLinkFromRedirect()
+      const { completeSocialOAuthRedirect } = await import('@/lib/socialLink')
+      const r = await completeSocialOAuthRedirect()
       if (cancelled) return
-      if (r.error) {
-        setLinkedinBanner({ kind: 'err', msg: r.error })
+      if (!r.handled) {
+        if (r.error) setOauthReturnBanner({ kind: 'err', msg: r.error })
         return
       }
-      if (!r.handled) return
 
-      const patch: Record<string, unknown> = { updated_at: Date.now() }
-      if (r.linkedinUrl) patch.linkedin_url = r.linkedinUrl
-      if (r.linkedinData && Object.keys(r.linkedinData).length > 0) patch.linkedin_data = r.linkedinData
       try {
-        await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
-        setProfile((p: any) => ({
-          ...p,
-          ...(r.linkedinUrl ? { linkedin_url: r.linkedinUrl } : {}),
-          ...(r.linkedinData ? { linkedin_data: r.linkedinData } : {}),
-        }))
-        setActiveTab('socials')
-        setLinkedinBanner({
-          kind: 'ok',
-          msg: r.linkedinUrl
-            ? 'LinkedIn connected.'
-            : 'LinkedIn linked. Add your profile URL under Socials if needed.',
-        })
+        if (r.provider === 'linkedin') {
+          const patch: Record<string, unknown> = { updated_at: Date.now() }
+          if (r.linkedinUrl) patch.linkedin_url = r.linkedinUrl
+          if (r.linkedinData && Object.keys(r.linkedinData).length > 0) patch.linkedin_data = r.linkedinData
+          await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
+          setProfile((p: any) => ({
+            ...p,
+            ...(r.linkedinUrl ? { linkedin_url: r.linkedinUrl } : {}),
+            ...(r.linkedinData ? { linkedin_data: r.linkedinData } : {}),
+          }))
+          setActiveTab('socials')
+          setOauthReturnBanner({
+            kind: 'ok',
+            msg: r.linkedinUrl
+              ? 'LinkedIn connected.'
+              : 'LinkedIn linked. Add your profile URL under Socials if needed.',
+          })
+          return
+        }
+
+        if (r.provider === 'github') {
+          const patch: Record<string, unknown> = {
+            updated_at: Date.now(),
+            github_verified: true,
+          }
+          if (r.githubUsername) patch.github_username = r.githubUsername
+          if (r.githubData && Object.keys(r.githubData).length > 0) patch.github_data = r.githubData
+          await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
+          setProfile((p: any) => ({
+            ...p,
+            ...(r.githubUsername ? { github_username: r.githubUsername } : {}),
+            ...(r.githubData && Object.keys(r.githubData).length > 0 ? { github_data: r.githubData } : {}),
+          }))
+          setActiveTab('socials')
+          setOauthReturnBanner({
+            kind: 'ok',
+            msg: r.githubUsername
+              ? `GitHub connected as @${r.githubUsername}.`
+              : 'GitHub linked. Enter your username above and Save if it did not auto-fill.',
+          })
+        }
       } catch {
-        setLinkedinBanner({
+        setOauthReturnBanner({
           kind: 'err',
-          msg: 'Could not save LinkedIn to your profile. Check Firestore rules and your connection.',
+          msg: 'Could not save the social link to your profile. Check Firestore rules and your connection.',
         })
       }
     })()
@@ -291,16 +316,16 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50/50">
       <div className="max-w-5xl mx-auto px-6 py-8">
-        {linkedinBanner && (
+        {oauthReturnBanner && (
           <p
             role="status"
             className={`mb-6 text-sm font-medium px-4 py-3 rounded-xl border ${
-              linkedinBanner.kind === 'ok'
+              oauthReturnBanner.kind === 'ok'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
                 : 'bg-red-50 text-red-700 border-red-100'
             }`}
           >
-            {linkedinBanner.msg}
+            {oauthReturnBanner.msg}
           </p>
         )}
         {/* Header */}
@@ -526,29 +551,13 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
     setSocialError(null)
     setSocialHint(null)
     try {
-      const { linkGitHubToProfile } = await import('@/lib/socialLink')
-      const { error, githubUsername, githubData } = await linkGitHubToProfile()
+      const { startGitHubLinkRedirect } = await import('@/lib/socialLink')
+      const { error } = await startGitHubLinkRedirect()
       if (error) {
         setSocialError(error)
         return
       }
-      const patch: Record<string, unknown> = {
-        updated_at: Date.now(),
-        github_verified: true,
-      }
-      if (githubUsername) patch.github_username = githubUsername
-      if (githubData && Object.keys(githubData).length > 0) patch.github_data = githubData
-      await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, userId), patch, { merge: true })
-      setProfile((p: any) => ({
-        ...p,
-        ...(githubUsername ? { github_username: githubUsername } : {}),
-        ...(githubData && Object.keys(githubData).length > 0 ? { github_data: githubData } : {}),
-      }))
-      if (!githubUsername) {
-        setSocialHint(
-          'GitHub is linked to your account. If your username did not auto-fill, type it above and click Save username.'
-        )
-      }
+      setSocialHint('Redirecting to GitHub…')
     } finally {
       setLoadingProvider(null)
     }
@@ -562,17 +571,55 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
       try {
         if (userId && firebaseDb) {
           const db = firebaseDb
+
+          // Enrich with Neynar data (follower/following counts, power badge, verified addresses)
+          let enriched: Record<string, unknown> = {}
+          try {
+            const fid = fcProfile.fid
+            if (fid) {
+              const res = await fetch(`/api/farcaster/profile?fid=${fid}`)
+              if (res.ok) {
+                const data = await res.json()
+                enriched = {
+                  farcaster_followers: data.followers ?? null,
+                  farcaster_following: data.following ?? null,
+                  farcaster_power_badge: data.powerBadge ?? false,
+                  farcaster_verified_addresses: data.verifiedAddresses ?? [],
+                  ...(data.bio ? { farcaster_bio: data.bio } : {}),
+                  ...(data.displayName ? { farcaster_display_name: data.displayName } : {}),
+                  ...(data.avatar ? { farcaster_avatar: data.avatar } : {}),
+                }
+              }
+            }
+          } catch {
+            // enrichment is best-effort; never block the connect
+          }
+
           await setDoc(
             doc(db, FS.BUILDER_PROFILES, userId),
             {
               farcaster_handle: fcProfile.username || '',
+              farcaster_fid: fcProfile.fid || null,
+              farcaster_bio: fcProfile.bio || enriched.farcaster_bio || null,
+              farcaster_display_name: fcProfile.displayName || enriched.farcaster_display_name || null,
+              farcaster_avatar: fcProfile.pfpUrl || enriched.farcaster_avatar || null,
+              ...(fcProfile.pfpUrl ? { avatar_url: fcProfile.pfpUrl } : {}),
               farcaster_data: fcProfile,
+              ...enriched,
               updated_at: Date.now(),
             },
             { merge: true }
           )
         }
-        setProfile((p: any) => ({ ...p, farcaster_handle: fcProfile.username || p.farcaster_handle }))
+        setProfile((p: any) => ({
+          ...p,
+          farcaster_handle: fcProfile.username || p.farcaster_handle,
+          farcaster_fid: fcProfile.fid || p.farcaster_fid,
+          farcaster_bio: fcProfile.bio || p.farcaster_bio,
+          farcaster_display_name: fcProfile.displayName || p.farcaster_display_name,
+          farcaster_avatar: fcProfile.pfpUrl || p.farcaster_avatar,
+          ...(fcProfile.pfpUrl ? { avatar_url: fcProfile.pfpUrl } : {}),
+        }))
       } finally {
         setLoadingProvider(null)
       }
@@ -643,9 +690,41 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
   return (
     <Section title="Social profiles">
       <p className="text-xs text-slate-400 mb-4">
-        Link accounts that appear on your builder profile. GitHub and LinkedIn support Firebase OAuth; you can still
-        paste handles or URLs manually. Farcaster uses Sign in with Farcaster to verify your handle.
+        Link accounts that appear on your builder profile. GitHub and LinkedIn use Firebase OAuth (full-page redirect);
+        you can still paste handles or URLs manually. Farcaster uses Sign in with Farcaster (website / QR flow), not the
+        Warpcast Mini Apps SDK.
       </p>
+      {(() => {
+        const callbackUrl = getFirebaseAuthHandlerUrl()
+        if (!callbackUrl) return null
+        return (
+          <div className="mb-4 p-3 rounded-xl bg-slate-900 text-slate-200 text-[10px] leading-relaxed space-y-2">
+            <p className="font-black uppercase tracking-widest text-slate-400">Firebase OAuth callback (LinkedIn + GitHub)</p>
+            <p>
+              If LinkedIn says <span className="text-amber-200 font-semibold">redirect_uri does not match</span> or GitHub
+              rejects the callback, add this <span className="font-semibold">exact</span> URL in each app’s developer
+              settings (not <span className="line-through opacity-70">buildry.in</span> unless Firebase uses a custom auth
+              domain):
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="flex-1 min-w-0 break-all text-[9px] bg-slate-800 px-2 py-1.5 rounded-lg text-emerald-200">
+                {callbackUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(callbackUrl)
+                  setSocialHint('Callback URL copied to clipboard.')
+                  setTimeout(() => setSocialHint(null), 2500)
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[9px] font-black uppercase tracking-widest"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        )
+      })()}
       {socialError && (
         <p className="text-xs font-semibold text-red-500 mb-4" role="alert">
           {socialError}
@@ -665,9 +744,9 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                 className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
               />
               <p className="text-[10px] text-slate-400">
-                Enable the <span className="font-semibold text-slate-500">GitHub</span> provider in Firebase Authentication,
-                then use Connect GitHub. Callback URL on your GitHub OAuth app must be your Firebase auth handler (see
-                README).
+                Enable the <span className="font-semibold text-slate-500">GitHub</span> provider in Firebase Authentication.
+                Connect GitHub uses a <span className="font-semibold text-slate-500">redirect</span> (same as LinkedIn).
+                Callback URL on your GitHub OAuth app must match the Firebase handler URL above.
               </p>
             </div>
           </div>
@@ -759,7 +838,29 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
               {profile.farcaster_handle ? `@${profile.farcaster_handle}` : 'Not connected'}
             </p>
             <p className="text-[10px] text-slate-400">
-              Sign in with Farcaster attaches your FID and username to this profile (not your Buildry login).
+              Sign in with Farcaster (Auth Kit) attaches your FID and username to this profile — not your Buildry login.
+              In the{' '}
+              <a
+                href="https://farcaster.xyz/~/developers"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-violet-600 font-semibold hover:underline"
+              >
+                Farcaster developer portal
+              </a>
+              , your app domain must match the <span className="font-semibold">exact hostname</span> you use in the browser (
+              <span className="font-mono">buildry.in</span> and <span className="font-mono">www.buildry.in</span> count as
+              different). If Warpcast shows “Sign in failed” after approve, fix the portal domain or pick one URL and
+              redirect the other. The <span className="font-mono">sdk.actions.signIn</span> API is for{' '}
+              <a
+                href="https://miniapps.farcaster.xyz/docs/sdk/actions/sign-in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-violet-600 font-semibold hover:underline"
+              >
+                Mini Apps inside Warpcast
+              </a>
+              , not this website.
             </p>
           </div>
           <div className="w-full sm:w-52 shrink-0">

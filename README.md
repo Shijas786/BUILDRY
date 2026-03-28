@@ -106,7 +106,7 @@ ANTHROPIC_API_KEY=
 Notes:
 - The app can run with partial/missing keys (some modules degrade gracefully).
 - Keep `.env.local` out of git.
-- **Farcaster “Sign in” (QR / phone scan):** `NEXT_PUBLIC_APP_DOMAIN` must match the **domain** configured in your [Farcaster developer](https://farcaster.xyz/~/developers) app for this site (usually apex `buildry.in`). If visitors use `www.` but the app is registered on the apex (or the reverse), verification often fails after scanning. Optional: `NEXT_PUBLIC_OPTIMISM_RPC_URL` (defaults to public Optimism RPC), `NEXT_PUBLIC_FARCASTER_AUTH_RELAY` (defaults to `https://relay.farcaster.xyz`).
+- **Farcaster “Sign in” (QR / phone scan):** In the [Farcaster developer portal](https://farcaster.xyz/~/developers), the app domain must match the **exact hostname** users open (e.g. `buildry.in` **or** `www.buildry.in` — they are not interchangeable). Auth Kit now sends SIWE using `window.location.hostname` and `origin`, so if Warpcast shows **“Sign in failed”** after you tap Sign in, add the host you actually use to the Farcaster app, or redirect all traffic to one canonical host on Vercel. `NEXT_PUBLIC_APP_DOMAIN` is still used for SSR placeholders and docs; optional: `NEXT_PUBLIC_OPTIMISM_RPC_URL`, `NEXT_PUBLIC_FARCASTER_AUTH_RELAY`.
 - **Public profile “Connected profiles”:** LinkedIn uses stored OIDC fields (`linkedin_data`). GitHub merges the public GitHub API with the OAuth snapshot (`github_data`). Farcaster uses **Neynar** (`NEYNAR_API_KEY`) for live followers/bio when possible; without a key, the card still shows data saved at connect time.
 - **Ship log + AI snapshot:** `/api/profile/[user]` includes a **`contributions`** object (GitHub repos/stars/365d public-activity score from events, optional GraphQL **`totalCommitContributions`** sum over the last five calendar years when **`GITHUB_GRAPHQL_TOKEN`** or **`GITHUB_TOKEN`** is set, Helius-sampled Solana txs + deploy heuristic, Etherscan-mainnet contract-creation heuristic, project/post counts). **`ANTHROPIC_API_KEY`** enables a cached Claude “Builder snapshot” blurb that combines LinkedIn/GitHub/Farcaster hints with those signals (still factual, no key = UI explains how to enable).
 
@@ -180,10 +180,17 @@ If **`GITHUB_GRAPHQL_TOKEN`** is missing on **Preview** deployments, add it in t
 
 `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` stays **`buildry-18c42.firebaseapp.com`** unless you configure a **custom auth domain** in Firebase.
 
-### 6) LinkedIn / other OAuth
+### 6) LinkedIn / GitHub — redirect URI must match Firebase
 
-LinkedIn (and similar) redirect URIs often stay the Firebase handler, e.g.  
-`https://buildry-18c42.firebaseapp.com/__/auth/handler` — add that in the LinkedIn app if not already.
+LinkedIn’s **“The redirect_uri does not match the registered value”** means the URL in your LinkedIn app is not **byte-for-byte** the same as what Firebase sends. It is almost always:
+
+`https://<YOUR_PROJECT_ID>.firebaseapp.com/__/auth/handler`
+
+**Not** `https://buildry.in/...` unless you have configured a **custom Firebase Auth domain** and LinkedIn lists that domain’s handler instead.
+
+Use the same pattern for **GitHub OAuth App → Authorization callback URL**.
+
+The **Settings → Socials** page shows a **Copy** button for the exact callback URL from `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`.
 
 ---
 
@@ -274,11 +281,24 @@ Buildry links LinkedIn to your **existing** Firebase account (Google/email) from
 
 Sign in with Google → **Settings** → **Socials** → **Connect LinkedIn**. The app uses a **full-page redirect** (not a popup) so strict browser **Cross-Origin-Opener-Policy** rules do not break the flow. After LinkedIn sends you back, you should land on **Settings** with the Socials tab focused and a confirmation message. If the profile URL does not auto-fill, paste your public URL and click **Save URL**.
 
+### 5) “redirect_uri does not match” (LinkedIn)
+
+1. Open **Settings → Socials** on Buildry and copy the **Firebase OAuth callback** URL (or build it from `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`).
+2. LinkedIn Developers → your app → **Auth** → **Authorized redirect URLs** → add that URL **exactly** (https, no trailing slash, correct subdomain).
+3. Ensure the **Client ID** in that same LinkedIn app is what you pasted into Firebase **OpenID Connect** (not an old / duplicate app).
+
+---
+
+## Farcaster (website vs Mini Apps)
+
+- **This Next.js app** uses **`@farcaster/auth-kit`** (QR / Sign in with Farcaster on the **open web**). Register your domain (e.g. `buildry.in`) in the [Farcaster developer portal](https://farcaster.xyz/~/developers) and keep **`NEXT_PUBLIC_APP_DOMAIN`** aligned (apex vs `www` matters for SIWE).
+- **[`sdk.actions.signIn`](https://miniapps.farcaster.xyz/docs/sdk/actions/sign-in)** in the **Mini Apps SDK** is for experiences **running inside Warpcast**, not for replacing Auth Kit on a normal website.
+
 ---
 
 ## GitHub (Settings → Socials)
 
-Buildry links GitHub to your **existing** Firebase account from **Settings → Socials → Connect GitHub** (`GithubAuthProvider` + `linkWithPopup`). Your public GitHub username is written to `github_username` for profile stats and repo imports.
+Buildry links GitHub to your **existing** Firebase account from **Settings → Socials → Connect GitHub** (`GithubAuthProvider` + **full-page redirect**). Your public GitHub username is written to `github_username` for profile stats and repo imports.
 
 ### 1) GitHub OAuth App
 
