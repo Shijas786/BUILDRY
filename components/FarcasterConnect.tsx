@@ -125,9 +125,14 @@ export default function FarcasterConnect({
   onConnected: (profile: any) => void
   onError?: (message: string) => void
 }) {
-  const [nonce] = React.useState(
-    () => `buildry-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`
-  )
+  const [nonce] = React.useState(() => {
+    // SIWE (EIP-4361) requires nonce to be alphanumeric only — no hyphens.
+    const rand =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID().replace(/-/g, '')
+        : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+    return rand.slice(0, 16)
+  })
 
   const [config, setConfig] = React.useState<ReturnType<typeof buildAuthKitConfig> | null>(null)
 
