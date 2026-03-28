@@ -60,14 +60,40 @@ type SignInSuccess = {
   verifications?: string[]
 }
 
+/** Only treat Auth Kit’s restored session as “ours” if it matches what we already store on the Buildry profile. */
+function authKitSessionMatchesSavedProfile(
+  kitFid: number,
+  kitUsernameRaw: string,
+  savedFid: number | null | undefined,
+  savedHandle: string | null | undefined
+): boolean {
+  const handleNorm = (savedHandle || '').replace(/^@/, '').trim().toLowerCase()
+  const hasSavedLink = typeof savedFid === 'number' || handleNorm.length > 0
+  if (!hasSavedLink) {
+    return false
+  }
+  if (typeof savedFid === 'number') {
+    return kitFid === savedFid
+  }
+  if (kitUsernameRaw.startsWith('!')) {
+    return false
+  }
+  const ku = kitUsernameRaw.replace(/^@/, '').trim().toLowerCase()
+  return ku === handleNorm
+}
+
 function InnerConnect({
   onConnected,
   onError,
   nonce,
+  linkedFarcasterFid,
+  linkedFarcasterHandle,
 }: {
   onConnected: (profile: any) => void
   onError?: (message: string) => void
   nonce: string
+  linkedFarcasterFid?: number | null
+  linkedFarcasterHandle?: string | null
 }) {
   const { isAuthenticated, profile } = useProfile()
   const reported = React.useRef(false)
@@ -102,6 +128,9 @@ function InnerConnect({
     const fid = profile?.fid
     if (fid == null || typeof fid !== 'number' || !Number.isFinite(fid)) return
     const rawName = typeof profile?.username === 'string' ? profile.username.trim() : ''
+    if (!authKitSessionMatchesSavedProfile(fid, rawName, linkedFarcasterFid, linkedFarcasterHandle)) {
+      return
+    }
     reported.current = true
     onConnected({
       username: rawName || `!${fid}`,
@@ -112,7 +141,7 @@ function InnerConnect({
       custody: profile.custody,
       verifications: profile.verifications,
     })
-  }, [isAuthenticated, profile, onConnected])
+  }, [isAuthenticated, profile, onConnected, linkedFarcasterFid, linkedFarcasterHandle])
 
   return (
     <div className="farcaster-connect-kit [&_button]:w-full [&_button]:min-h-[40px] [&_button]:rounded-xl [&_button]:text-[10px] [&_button]:font-black [&_button]:uppercase [&_button]:tracking-widest">
@@ -137,9 +166,14 @@ function InnerConnect({
 export default function FarcasterConnect({
   onConnected,
   onError,
+  linkedFarcasterFid = null,
+  linkedFarcasterHandle = null,
 }: {
   onConnected: (profile: any) => void
   onError?: (message: string) => void
+  /** When set, Auth Kit’s background session only syncs if the FID matches (page refresh with an existing link). */
+  linkedFarcasterFid?: number | null
+  linkedFarcasterHandle?: string | null
 }) {
   const [nonce] = React.useState(() => {
     // SIWE (EIP-4361) requires nonce to be alphanumeric only — no hyphens.
@@ -164,7 +198,13 @@ export default function FarcasterConnect({
 
   return (
     <AuthKitProvider config={config}>
-      <InnerConnect nonce={nonce} onConnected={onConnected} onError={onError} />
+      <InnerConnect
+        nonce={nonce}
+        onConnected={onConnected}
+        onError={onError}
+        linkedFarcasterFid={linkedFarcasterFid}
+        linkedFarcasterHandle={linkedFarcasterHandle}
+      />
     </AuthKitProvider>
   )
 }

@@ -7,6 +7,7 @@ import {
   getRedirectResult,
   linkWithPopup,
   linkWithRedirect,
+  unlink,
   type UserCredential,
 } from 'firebase/auth'
 import { getFirebaseAuthHandlerUrl, getFirebaseOAuthRedirectUrls } from '@/lib/firebaseAuthHandlerUrl'
@@ -175,6 +176,24 @@ export async function linkLinkedInToProfile(): Promise<{
     }
   } catch (e: unknown) {
     return { error: linkedInLinkErrorMessage(e) }
+  }
+}
+
+/** Removes GitHub from the Firebase user so a different account can be linked (Settings → Socials). */
+export async function unlinkGitHubProviderFromCurrentUser(): Promise<{ error: string | null }> {
+  if (!firebaseAuth?.currentUser) {
+    return { error: null }
+  }
+  const u = firebaseAuth.currentUser
+  const hasGithub = u.providerData.some((p) => p.providerId === 'github.com')
+  if (!hasGithub) {
+    return { error: null }
+  }
+  try {
+    await unlink(u, 'github.com')
+    return { error: null }
+  } catch (e: unknown) {
+    return { error: githubLinkErrorMessage(e) }
   }
 }
 

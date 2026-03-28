@@ -6,7 +6,7 @@ import { useRoleStore, type UserRole } from '@/store/role'
 import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { FS } from '@/lib/firestoreCollections'
 import { onAuthStateChanged } from 'firebase/auth'
-import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
@@ -52,6 +52,7 @@ export default function SettingsPage() {
     github_verified: false,
     twitter_handle: '',
     farcaster_handle: '',
+    farcaster_fid: null as number | null,
     linkedin_url: '',
     linkedin_data: null as Record<string, unknown> | null,
     github_data: null as Record<string, unknown> | null,
@@ -99,6 +100,7 @@ export default function SettingsPage() {
           github_verified: Boolean(data.github_verified),
           twitter_handle: data.twitter_handle || '',
           farcaster_handle: data.farcaster_handle || '',
+          farcaster_fid: typeof data.farcaster_fid === 'number' ? data.farcaster_fid : null,
           linkedin_url: data.linkedin_url || '',
           linkedin_data: data.linkedin_data || null,
           github_data: data.github_data || null,
@@ -130,7 +132,6 @@ export default function SettingsPage() {
   }, [user])
 
   const [oauthReturnBanner, setOauthReturnBanner] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
-  const [githubRelink, setGithubRelink] = useState(false)
 
   useEffect(() => {
     if (!user?.id || !firebaseDb) return
@@ -179,7 +180,6 @@ export default function SettingsPage() {
             ...(r.githubUsername ? { github_username: r.githubUsername } : {}),
             ...(r.githubData && Object.keys(r.githubData).length > 0 ? { github_data: r.githubData } : {}),
           }))
-          setGithubRelink(false)
           setActiveTab('socials')
           setOauthReturnBanner({
             kind: 'ok',
@@ -388,13 +388,7 @@ export default function SettingsPage() {
             />
           )}
           {activeTab === 'socials' && (
-            <SocialsTab
-              profile={profile}
-              setProfile={setProfile}
-              userId={user?.id}
-              githubRelink={githubRelink}
-              setGithubRelink={setGithubRelink}
-            />
+            <SocialsTab profile={profile} setProfile={setProfile} userId={user?.id} />
           )}
           {activeTab === 'skills' && (
             <SkillsTab profile={profile} setProfile={setProfile} />
@@ -541,27 +535,12 @@ function githubAccountLinkState(
   return { linked, handleLine }
 }
 
-function SocialsTab({
-  profile,
-  setProfile,
-  userId,
-  githubRelink,
-  setGithubRelink,
-}: {
-  profile: any
-  setProfile: any
-  userId?: string
-  githubRelink: boolean
-  setGithubRelink: (v: boolean) => void
-}) {
+function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile: any; userId?: string }) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
   const [socialHint, setSocialHint] = useState<string | null>(null)
   const linkedInOAuthOff = linkedInOAuthComingSoon()
-  /** Show Auth Kit again to replace an existing Farcaster link */
-  const [farcasterRelink, setFarcasterRelink] = useState(false)
   const [farcasterConnectKey, setFarcasterConnectKey] = useState(0)
-  const [githubConnectKey, setGithubConnectKey] = useState(0)
   const [firebaseAuthHasGithub, setFirebaseAuthHasGithub] = useState(false)
   useEffect(() => {
     if (!firebaseAuth) {
@@ -624,6 +603,76 @@ function SocialsTab({
         return
       }
       setSocialHint('Redirecting to GitHub…')
+    } finally {
+      setLoadingProvider(null)
+    }
+  }
+
+  const disconnectGitHub = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('github_disconnect')
+    setSocialError(null)
+    setSocialHint(null)
+    try {
+      const { unlinkGitHubProviderFromCurrentUser } = await import('@/lib/socialLink')
+      const { error: unlinkErr } = await unlinkGitHubProviderFromCurrentUser()
+      if (unlinkErr) {
+        setSocialError(unlinkErr)
+        return
+      }
+      await setDoc(
+        doc(firebaseDb, FS.BUILDER_PROFILES, userId),
+        {
+          github_username: deleteField(),
+          github_data: deleteField(),
+          github_verified: deleteField(),
+          updated_at: Date.now(),
+        },
+        { merge: true }
+      )
+      setProfile((p: any) => ({
+        ...p,
+        github_username: '',
+        github_data: null,
+        github_verified: false,
+      }))
+      setSocialHint('GitHub removed. You can connect another account below.')
+    } finally {
+      setLoadingProvider(null)
+    }
+  }
+
+  const disconnectFarcaster = async () => {
+    if (!userId || !firebaseDb) return
+    setLoadingProvider('farcaster_disconnect')
+    setSocialError(null)
+    setSocialHint(null)
+    try {
+      await setDoc(
+        doc(firebaseDb, FS.BUILDER_PROFILES, userId),
+        {
+          farcaster_handle: deleteField(),
+          farcaster_fid: deleteField(),
+          farcaster_bio: deleteField(),
+          farcaster_display_name: deleteField(),
+          farcaster_avatar: deleteField(),
+          farcaster_data: deleteField(),
+          farcaster_followers: deleteField(),
+          farcaster_following: deleteField(),
+          farcaster_power_badge: deleteField(),
+          farcaster_verified_addresses: deleteField(),
+          updated_at: Date.now(),
+        },
+        { merge: true }
+      )
+      setProfile((p: any) => ({
+        ...p,
+        farcaster_handle: '',
+        farcaster_fid: null,
+        farcaster_data: null,
+      }))
+      setFarcasterConnectKey((k) => k + 1)
+      setSocialHint('Farcaster removed from your profile. Connect again to use a different account.')
     } finally {
       setLoadingProvider(null)
     }
@@ -709,7 +758,6 @@ function SocialsTab({
           farcaster_avatar: fcProfile.pfpUrl || p.farcaster_avatar,
           ...(fcProfile.pfpUrl ? { avatar_url: fcProfile.pfpUrl } : {}),
         }))
-        setFarcasterRelink(false)
       } finally {
         setLoadingProvider(null)
       }
@@ -795,14 +843,16 @@ function SocialsTab({
             <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">🐙</div>
             <div className="flex-1 min-w-0 space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GitHub</p>
-              {ghLink.linked && !githubRelink ? (
+              {ghLink.linked ? (
                 <>
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Linked</p>
                   <p className="text-xs font-bold text-slate-600 truncate">{ghLink.handleLine}</p>
+                  <p className="text-[10px] text-slate-400">
+                    To use a different GitHub user, disconnect first — Buildry cannot attach two GitHub logins at once.
+                  </p>
                 </>
               ) : (
                 <input
-                  key={githubConnectKey}
                   value={profile.github_username || ''}
                   onChange={(e) => setProfile((p: any) => ({ ...p, github_username: e.target.value }))}
                   placeholder="username (e.g. octocat)"
@@ -811,27 +861,15 @@ function SocialsTab({
               )}
             </div>
             <div className="w-full sm:w-52 shrink-0 flex flex-col gap-2 sm:items-stretch">
-              {ghLink.linked && !githubRelink ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGithubRelink(true)
-                      setGithubConnectKey((k) => k + 1)
-                    }}
-                    className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
-                  >
-                    Change account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveGithubUsername}
-                    disabled={loadingProvider === 'github_save'}
-                    className="w-full min-h-[40px] rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
-                  >
-                    {loadingProvider === 'github_save' ? '…' : 'Save username'}
-                  </button>
-                </>
+              {ghLink.linked ? (
+                <button
+                  type="button"
+                  onClick={disconnectGitHub}
+                  disabled={loadingProvider === 'github_disconnect'}
+                  className="w-full min-h-[40px] rounded-xl border border-red-200 bg-white text-[10px] font-black uppercase tracking-widest text-red-700 hover:bg-red-50 disabled:opacity-40"
+                >
+                  {loadingProvider === 'github_disconnect' ? '…' : 'Disconnect GitHub'}
+                </button>
               ) : (
                 <>
                   <button
@@ -850,15 +888,6 @@ function SocialsTab({
                   >
                     {loadingProvider === 'github_save' ? '…' : 'Save username'}
                   </button>
-                  {githubRelink && ghLink.linked ? (
-                    <button
-                      type="button"
-                      onClick={() => setGithubRelink(false)}
-                      className="w-full py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600"
-                    >
-                      Cancel
-                    </button>
-                  ) : null}
                 </>
               )}
             </div>
@@ -963,18 +992,20 @@ function SocialsTab({
             </p>
           </div>
           <div className="w-full sm:w-52 shrink-0 space-y-2">
-            {profile.farcaster_handle && !farcasterRelink ? (
+            {profile.farcaster_handle ? (
               <div className="space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Linked</p>
+                <p className="text-[10px] text-slate-400">
+                  Disconnect to link a different Farcaster — the sign-in widget remembers your last Warpcast session until
+                  you remove the link here.
+                </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setFarcasterRelink(true)
-                    setFarcasterConnectKey((k) => k + 1)
-                  }}
-                  className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+                  onClick={disconnectFarcaster}
+                  disabled={loadingProvider === 'farcaster_disconnect'}
+                  className="w-full min-h-[40px] rounded-xl border border-red-200 bg-white text-[10px] font-black uppercase tracking-widest text-red-700 hover:bg-red-50 disabled:opacity-40"
                 >
-                  Change account
+                  {loadingProvider === 'farcaster_disconnect' ? '…' : 'Disconnect Farcaster'}
                 </button>
               </div>
             ) : loadingProvider === 'farcaster' ? (
@@ -982,24 +1013,13 @@ function SocialsTab({
                 Saving…
               </div>
             ) : (
-              <div className="space-y-2">
-                <FarcasterConnect
-                  key={farcasterConnectKey}
-                  onConnected={connectFarcaster}
-                  onError={(m) =>
-                    setSocialError(m == null || m === '' ? 'Farcaster sign-in failed' : String(m))
-                  }
-                />
-                {farcasterRelink && profile.farcaster_handle ? (
-                  <button
-                    type="button"
-                    onClick={() => setFarcasterRelink(false)}
-                    className="w-full py-2 text-[10px] font-bold text-slate-400 hover:text-slate-600"
-                  >
-                    Cancel
-                  </button>
-                ) : null}
-              </div>
+              <FarcasterConnect
+                key={farcasterConnectKey}
+                onConnected={connectFarcaster}
+                onError={(m) =>
+                  setSocialError(m == null || m === '' ? 'Farcaster sign-in failed' : String(m))
+                }
+              />
             )}
           </div>
         </div>
