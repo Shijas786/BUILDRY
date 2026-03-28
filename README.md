@@ -64,6 +64,8 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 # Optional: only if Firebase OIDC Provider ID is not `linkedin` (default client id is oidc.linkedin)
 # NEXT_PUBLIC_FIREBASE_LINKEDIN_PROVIDER_ID=oidc.linkedin
+# While LinkedIn has not approved your app’s OpenID Connect product, hide broken OAuth and show “coming soon” in Settings:
+# NEXT_PUBLIC_LINKEDIN_OAUTH_COMING_SOON=1
 
 # Firebase Admin (server routes)
 FIREBASE_PROJECT_ID=
@@ -253,6 +255,8 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 ## LinkedIn (Settings → Socials)
 
 Buildry links LinkedIn to your **existing** Firebase account (Google/email) from **Settings → Socials → Connect LinkedIn**. Firebase often **does not** show a “LinkedIn” tile in the provider list — use **Custom providers → OpenID Connect** instead. The app uses `OAuthProvider('oidc.linkedin')` by default (`linkWithPopup`). If you choose a different Provider ID in Firebase, set `NEXT_PUBLIC_FIREBASE_LINKEDIN_PROVIDER_ID=oidc.yourid` in `.env.local`.
+
+**LinkedIn product access pending:** If LinkedIn has not approved **Sign In with LinkedIn using OpenID Connect** for your app yet, OAuth will fail for everyone. Set **`NEXT_PUBLIC_LINKEDIN_OAUTH_COMING_SOON=1`** in Vercel (and locally if you want). Settings → Socials will show a **coming soon** message, disable **Connect LinkedIn**, and users can still **paste their profile URL** and **Save URL**. Remove the variable or set it to `0` when LinkedIn approves your app.
 
 ### 1) LinkedIn Developer app
 

@@ -504,10 +504,16 @@ function ProfileTab({ profile, setProfile, activeRole, setActiveRole, usernameSt
 
 /* ─── Socials Tab ──────────────────────────────── */
 
+function linkedInOAuthComingSoon(): boolean {
+  const v = process.env.NEXT_PUBLIC_LINKEDIN_OAUTH_COMING_SOON?.trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 'yes'
+}
+
 function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile: any; userId?: string }) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
   const [socialHint, setSocialHint] = useState<string | null>(null)
+  const linkedInOAuthOff = linkedInOAuthComingSoon()
   /** Show Auth Kit again to replace an existing Farcaster link */
   const [farcasterRelink, setFarcasterRelink] = useState(false)
   const [farcasterConnectKey, setFarcasterConnectKey] = useState(0)
@@ -864,6 +870,16 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
             <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">💼</div>
             <div className="flex-1 min-w-0 space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LinkedIn</p>
+              {linkedInOAuthOff ? (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-[10px] text-amber-950 leading-relaxed space-y-1">
+                  <p className="font-black uppercase tracking-widest text-amber-800">One-click connect — coming soon</p>
+                  <p>
+                    LinkedIn only grants OpenID Connect after they approve your app’s product access. Until then, OAuth
+                    sign-in won’t work. Add your public profile link below and click <span className="font-semibold">Save
+                    URL</span> — your profile will still show LinkedIn on Buildry.
+                  </p>
+                </div>
+              ) : null}
               <input
                 value={profile.linkedin_url || ''}
                 onChange={(e) => setProfile((p: any) => ({ ...p, linkedin_url: e.target.value }))}
@@ -871,22 +887,43 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                 className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 placeholder-slate-300"
               />
               <p className="text-[10px] text-slate-400">
-                Uses Firebase <span className="font-semibold text-slate-500">OpenID Connect</span> (Issuer{' '}
-                https://www.linkedin.com/oauth, Provider ID <span className="font-mono">linkedin</span>) with a{' '}
-                <span className="font-semibold text-slate-500">full-page redirect</span> so browser security policies do
-                not block the flow like they can with popups.
+                {linkedInOAuthOff ? (
+                  <>
+                    When LinkedIn approves your app, set{' '}
+                    <span className="font-mono text-slate-500">NEXT_PUBLIC_LINKEDIN_OAUTH_COMING_SOON=0</span> (or remove
+                    it) in hosting env to turn <span className="font-semibold text-slate-500">Connect LinkedIn</span> back
+                    on.
+                  </>
+                ) : (
+                  <>
+                    Uses Firebase <span className="font-semibold text-slate-500">OpenID Connect</span> (Issuer{' '}
+                    https://www.linkedin.com/oauth, Provider ID <span className="font-mono">linkedin</span>) with a{' '}
+                    <span className="font-semibold text-slate-500">full-page redirect</span> so browser security policies
+                    do not block the flow like they can with popups.
+                  </>
+                )}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end">
-            <button
-              type="button"
-              onClick={connectLinkedInOAuth}
-              disabled={loadingProvider === 'linkedin_oauth'}
-              className="px-4 py-2.5 rounded-xl bg-[#0A66C2] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
-            >
-              {loadingProvider === 'linkedin_oauth' ? '…' : 'Connect LinkedIn'}
-            </button>
+            {linkedInOAuthOff ? (
+              <button
+                type="button"
+                disabled
+                className="px-4 py-2.5 rounded-xl bg-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest cursor-not-allowed"
+              >
+                Connect LinkedIn — soon
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={connectLinkedInOAuth}
+                disabled={loadingProvider === 'linkedin_oauth'}
+                className="px-4 py-2.5 rounded-xl bg-[#0A66C2] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+              >
+                {loadingProvider === 'linkedin_oauth' ? '…' : 'Connect LinkedIn'}
+              </button>
+            )}
             <button
               type="button"
               onClick={saveLinkedInUrl}
