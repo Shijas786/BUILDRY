@@ -728,10 +728,10 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
           <div className="mb-4 p-3 rounded-xl bg-slate-900 text-slate-200 text-[10px] leading-relaxed space-y-2">
             <p className="font-black uppercase tracking-widest text-slate-400">Firebase OAuth callback (LinkedIn + GitHub)</p>
             <p>
-              If LinkedIn says <span className="text-amber-200 font-semibold">redirect_uri does not match</span> or GitHub
-              rejects the callback, add this <span className="font-semibold">exact</span> URL in each app’s developer
-              settings (not <span className="line-through opacity-70">buildry.in</span> unless Firebase uses a custom auth
-              domain):
+              LinkedIn and GitHub must allow this <span className="font-semibold">exact</span> redirect (not{' '}
+              <span className="line-through opacity-70">buildry.in</span> unless Firebase uses a custom auth domain). If
+              LinkedIn shows <span className="text-amber-200 font-semibold">Bummer, something went wrong</span> or{' '}
+              <span className="text-amber-200 font-semibold">redirect_uri does not match</span>, fix the checklist below.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <code className="flex-1 min-w-0 break-all text-[9px] bg-slate-800 px-2 py-1.5 rounded-lg text-emerald-200">
@@ -749,6 +749,37 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                 Copy
               </button>
             </div>
+            <ul className="list-disc pl-4 space-y-1 text-slate-300">
+              <li>
+                <a
+                  href="https://www.linkedin.com/developers/apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-violet-300 font-semibold underline"
+                >
+                  LinkedIn Developers
+                </a>
+                → your app → <span className="font-semibold text-white">Auth</span> →{' '}
+                <span className="font-semibold text-white">Authorized redirect URLs for your app</span> → add the URL above
+                (https, no trailing slash).
+              </li>
+              <li>
+                Same app → <span className="font-semibold text-white">Products</span> → enable{' '}
+                <span className="font-semibold text-white">Sign In with LinkedIn using OpenID Connect</span> (required for
+                Firebase OIDC — legacy “Sign In with LinkedIn” alone is not enough).
+              </li>
+              <li>
+                Firebase Console → Authentication → Sign-in method → your OpenID Connect provider →{' '}
+                <span className="font-semibold text-white">Client ID</span> and <span className="font-semibold text-white">Secret</span>{' '}
+                must be from <span className="font-semibold text-white">this same</span> LinkedIn app (compare the{' '}
+                <span className="font-mono text-emerald-200/90">client_id</span> in LinkedIn’s URL bar with the Client ID in
+                LinkedIn’s app settings).
+              </li>
+              <li>
+                Firebase → Authentication → Settings → <span className="font-semibold text-white">Authorized domains</span> →
+                include <span className="font-mono">buildry.in</span> so you can return to the site after OAuth.
+              </li>
+            </ul>
           </div>
         )
       })()}
