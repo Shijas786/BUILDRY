@@ -3,7 +3,16 @@ const path = require('path');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async redirects() {
-    return [{ source: '/onboarding', destination: '/feed', permanent: false }]
+    return [
+      // Redirect www → apex so SIWE domain always matches farcaster.json (buildry.in)
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.buildry.in' }],
+        destination: 'https://buildry.in/:path*',
+        permanent: true,
+      },
+      { source: '/onboarding', destination: '/feed', permanent: false },
+    ]
   },
   images: {
     remotePatterns: [
