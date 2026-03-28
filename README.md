@@ -182,9 +182,10 @@ If **`GITHUB_GRAPHQL_TOKEN`** is missing on **Preview** deployments, add it in t
 
 ### 6) LinkedIn / GitHub — redirect URI must match Firebase
 
-LinkedIn’s **“The redirect_uri does not match the registered value”** means the URL in your LinkedIn app is not **byte-for-byte** the same as what Firebase sends. It is almost always:
+LinkedIn’s **“The redirect_uri does not match the registered value”** means the URL in your LinkedIn app is not **byte-for-byte** the same as what Firebase sends. Register **both**:
 
-`https://<YOUR_PROJECT_ID>.firebaseapp.com/__/auth/handler`
+- `https://<YOUR_PROJECT_ID>.firebaseapp.com/__/auth/handler`
+- `https://<YOUR_PROJECT_ID>.web.app/__/auth/handler`
 
 **Not** `https://buildry.in/...` unless you have configured a **custom Firebase Auth domain** and LinkedIn lists that domain’s handler instead.
 
@@ -257,11 +258,16 @@ Buildry links LinkedIn to your **existing** Firebase account (Google/email) from
 
 1. [LinkedIn Developers](https://www.linkedin.com/developers/apps) → create or open your app.
 2. Under **Products**, add **Sign In with LinkedIn using OpenID Connect**.
-3. **Auth** tab → **Authorized redirect URLs for your app** — add **exactly** (replace project id if yours differs):
+3. **Auth** tab → **Authorized redirect URLs for your app** — add **both** (replace project id if yours differs), https, no trailing slash:
 
-   `https://buildry-18c42.firebaseapp.com/__/auth/handler`
+   - `https://buildry-18c42.firebaseapp.com/__/auth/handler`
+   - `https://buildry-18c42.web.app/__/auth/handler`
+
+   The browser may show a long Firebase URL with `apiKey`, `linkViaRedirect`, and `redirectUrl=https://buildry.in/...` — that is expected; LinkedIn still only validates the **handler** origin + path above.
 
 4. Copy **Client ID** and **Client Secret**.
+
+5. If LinkedIn shows a generic **“Bummer, something went wrong”** but redirect URLs look correct, set **`NEXT_PUBLIC_LINKEDIN_OIDC_SKIP_EMAIL=1`** in Vercel (removes the `email` OIDC scope until LinkedIn fully provisions it on your app).
 
 ### 2) Firebase — OpenID Connect (not a “LinkedIn” row)
 

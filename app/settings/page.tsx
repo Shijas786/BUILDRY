@@ -9,7 +9,7 @@ import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where } from '
 import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
-import { getFirebaseAuthHandlerUrl } from '@/lib/firebaseAuthHandlerUrl'
+import { getFirebaseOAuthRedirectUrls } from '@/lib/firebaseAuthHandlerUrl'
 
 type SettingsTab = 'profile' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
 
@@ -722,33 +722,43 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
         Warpcast Mini Apps SDK.
       </p>
       {(() => {
-        const callbackUrl = getFirebaseAuthHandlerUrl()
-        if (!callbackUrl) return null
+        const callbackUrls = getFirebaseOAuthRedirectUrls()
+        if (!callbackUrls.length) return null
         return (
           <div className="mb-4 p-3 rounded-xl bg-slate-900 text-slate-200 text-[10px] leading-relaxed space-y-2">
             <p className="font-black uppercase tracking-widest text-slate-400">Firebase OAuth callback (LinkedIn + GitHub)</p>
             <p>
-              LinkedIn and GitHub must allow this <span className="font-semibold">exact</span> redirect (not{' '}
-              <span className="line-through opacity-70">buildry.in</span> unless Firebase uses a custom auth domain). If
-              LinkedIn shows <span className="text-amber-200 font-semibold">Bummer, something went wrong</span> or{' '}
-              <span className="text-amber-200 font-semibold">redirect_uri does not match</span>, fix the checklist below.
+              The long URL you see in the browser (with <span className="font-mono text-emerald-200/90">apiKey</span>,{' '}
+              <span className="font-mono text-emerald-200/90">linkViaRedirect</span>,{' '}
+              <span className="font-mono text-emerald-200/90">redirectUrl=…buildry.in</span>) is normal — LinkedIn only
+              cares that the <span className="font-semibold text-white">redirect_uri</span> matches what you registered.
+              Add <span className="font-semibold text-white">every</span> URL below to LinkedIn (and GitHub) — both
+              domains, https, <span className="font-semibold text-white">no trailing slash</span>.
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="flex-1 min-w-0 break-all text-[9px] bg-slate-800 px-2 py-1.5 rounded-lg text-emerald-200">
-                {callbackUrl}
-              </code>
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(callbackUrl)
-                  setSocialHint('Callback URL copied to clipboard.')
-                  setTimeout(() => setSocialHint(null), 2500)
-                }}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[9px] font-black uppercase tracking-widest"
-              >
-                Copy
-              </button>
-            </div>
+            {callbackUrls.map((callbackUrl) => (
+              <div key={callbackUrl} className="flex flex-wrap items-center gap-2">
+                <code className="flex-1 min-w-0 break-all text-[9px] bg-slate-800 px-2 py-1.5 rounded-lg text-emerald-200">
+                  {callbackUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(callbackUrl)
+                    setSocialHint('Copied redirect URL.')
+                    setTimeout(() => setSocialHint(null), 2500)
+                  }}
+                  className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[9px] font-black uppercase tracking-widest"
+                >
+                  Copy
+                </button>
+              </div>
+            ))}
+            <p className="text-slate-400">
+              If LinkedIn still shows a generic error: set{' '}
+              <span className="font-mono text-emerald-200/90">NEXT_PUBLIC_LINKEDIN_OIDC_SKIP_EMAIL=1</span> in Vercel env
+              (removes the <span className="font-mono">email</span> scope) — some apps need that until email is enabled on
+              the OpenID product.
+            </p>
             <ul className="list-disc pl-4 space-y-1 text-slate-300">
               <li>
                 <a
@@ -760,8 +770,8 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
                   LinkedIn Developers
                 </a>
                 → your app → <span className="font-semibold text-white">Auth</span> →{' '}
-                <span className="font-semibold text-white">Authorized redirect URLs for your app</span> → add the URL above
-                (https, no trailing slash).
+                <span className="font-semibold text-white">Authorized redirect URLs for your app</span> → add{' '}
+                <span className="font-semibold text-white">both</span> URLs above.
               </li>
               <li>
                 Same app → <span className="font-semibold text-white">Products</span> → enable{' '}

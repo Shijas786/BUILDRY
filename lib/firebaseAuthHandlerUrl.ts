@@ -9,3 +9,15 @@ export function getFirebaseAuthHandlerUrl(): string {
   if (!host) return ''
   return `https://${host}/__/auth/handler`
 }
+
+/** LinkedIn/GitHub should allow every URL returned here (usually firebaseapp.com; also web.app for some flows). */
+export function getFirebaseOAuthRedirectUrls(): string[] {
+  const primary = getFirebaseAuthHandlerUrl()
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim()
+  const webApp =
+    projectId && /^[a-z0-9-]+$/i.test(projectId)
+      ? `https://${projectId}.web.app/__/auth/handler`
+      : ''
+  const out = [primary, webApp].filter(Boolean)
+  return out.length ? Array.from(new Set(out)) : []
+}

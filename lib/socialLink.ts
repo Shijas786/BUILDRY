@@ -9,7 +9,7 @@ import {
   linkWithRedirect,
   type UserCredential,
 } from 'firebase/auth'
-import { getFirebaseAuthHandlerUrl } from '@/lib/firebaseAuthHandlerUrl'
+import { getFirebaseAuthHandlerUrl, getFirebaseOAuthRedirectUrls } from '@/lib/firebaseAuthHandlerUrl'
 import { firebaseAuth } from '@/lib/firebaseClient'
 
 /** Must match Firebase Console → Authentication → OpenID Connect → Provider ID `linkedin` → full id `oidc.linkedin`. */
@@ -64,11 +64,11 @@ function linkedinProfileFromCredential(cred: UserCredential): {
 
 /** Shown when LinkedIn/GitHub return redirect_uri errors (usually wrong URL in developer console). */
 export function oauthRedirectConfigurationHint(): string {
-  const url = getFirebaseAuthHandlerUrl()
-  if (!url) {
-    return 'Set NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN in env, then add https://<project>.firebaseapp.com/__/auth/handler to LinkedIn and GitHub OAuth apps.'
+  const urls = getFirebaseOAuthRedirectUrls()
+  if (!urls.length) {
+    return 'Set NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN in env, then add https://<project>.firebaseapp.com/__/auth/handler (and often https://<project>.web.app/__/auth/handler) to LinkedIn and GitHub OAuth apps.'
   }
-  return `In LinkedIn and GitHub OAuth settings, set the authorized redirect / callback URL to exactly: ${url} (no trailing slash, not your custom domain unless Firebase uses a custom auth domain).`
+  return `In LinkedIn and GitHub OAuth settings, add each authorized redirect URL exactly (no trailing slash): ${urls.join(' · ')}`
 }
 
 function linkedInLinkErrorMessage(e: unknown): string {
@@ -137,7 +137,10 @@ export async function startLinkedInLinkRedirect(): Promise<{ error: string | nul
   const provider = new OAuthProvider(LINKEDIN_FIREBASE_PROVIDER_ID)
   provider.addScope('openid')
   provider.addScope('profile')
-  provider.addScope('email')
+  // Email can make LinkedIn reject the whole authorize request if the app’s OpenID product
+  // doesn’t expose it yet — try without email if you still see LinkedIn’s generic error page.
+  const skipEmail = process.env.NEXT_PUBLIC_LINKEDIN_OIDC_SKIP_EMAIL === '1'
+  if (!skipEmail) provider.addScope('email')
 
   try {
     await linkWithRedirect(firebaseAuth.currentUser, provider)
