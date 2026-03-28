@@ -2,7 +2,6 @@
 
 import React from 'react'
 import Link from 'next/link'
-import Navbar from '@/components/Navbar'
 import TrustCard from '@/components/TrustCard'
 import TrustBadge from '@/components/TrustBadge'
 import TradePanel from '@/components/TradePanel'
@@ -22,7 +21,6 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
   if (tokenLoading) {
     return (
       <div style={{ minHeight: '100vh', background: '#fff' }}>
-        <Navbar />
         <div style={{ maxWidth: 1020, margin: '0 auto', padding: 16, display: 'flex', gap: 16 }}>
           <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[1, 2, 3].map(i => <SkeletonTokenCard key={i} />)}
@@ -38,7 +36,6 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
   if (tokenError || !token) {
     return (
       <div style={{ minHeight: '100vh', background: '#fff' }}>
-        <Navbar />
         <div style={{ maxWidth: 480, margin: '80px auto', padding: '0 16px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
           <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Token not found</div>
@@ -53,8 +50,6 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff' }}>
-      <Navbar />
-
       <main
         style={{
           maxWidth: 1020, margin: '0 auto', padding: '20px 16px 80px',

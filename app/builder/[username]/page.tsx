@@ -1,6 +1,5 @@
 import React from 'react'
 import Link from 'next/link'
-import Navbar from '@/components/Navbar'
 import { getProfile } from '@/lib/talent'
 import { getTokensByCreator } from '@/lib/bags'
 import mockProjects from '@/lib/mockProjects.json'
@@ -16,7 +15,6 @@ export default async function BuilderProfile({ params }: { params: { username: s
   if (!profile) {
     return (
       <div className="min-h-screen bg-white text-slate-900 px-8">
-        <Navbar />
         <main className="max-w-xl mx-auto py-48 text-center space-y-12">
           <div className="w-24 h-24 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-center text-4xl mx-auto shadow-sm">🕵️‍♂️</div>
           <div className="space-y-4">
@@ -46,8 +44,6 @@ export default async function BuilderProfile({ params }: { params: { username: s
 
   return (
     <div className="min-h-screen bg-white text-slate-900 px-8">
-      <Navbar />
-
       <main className="max-w-7xl mx-auto py-16">
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row gap-12 items-start mb-20">

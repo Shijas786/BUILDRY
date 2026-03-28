@@ -4,12 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRoleStore, NAV_BY_ROLE, type UserRole } from '@/store/role'
-import { useAuth } from '@/context/AuthProvider'
-import { useAppKitAccount, useDisconnect } from '@reown/appkit/react'
-import { firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
-import { doc, getDoc } from 'firebase/firestore'
 import BuildryWordmark from '@/components/BuildryWordmark'
-import { FS } from '@/lib/firestoreCollections'
 
 const ROLE_META: Record<UserRole, { label: string; icon: React.ReactNode; color: string }> = {
   developer: {
@@ -46,33 +41,8 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 export default function Sidebar() {
   const pathname = usePathname()
   const { activeRole, setActiveRole, sidebarExpanded, toggleSidebar } = useRoleStore()
-  const { user, signOut } = useAuth()
-  const { isConnected } = useAppKitAccount()
-  const { disconnect } = useDisconnect()
-  const [profileUsername, setProfileUsername] = React.useState<string | null>(null)
   const navItems = NAV_BY_ROLE[activeRole]
   const roleMeta = ROLE_META[activeRole]
-  const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
-
-  const handleLogout = async () => {
-    await signOut()
-    if (isConnected) disconnect()
-  }
-
-  React.useEffect(() => {
-    if (!user?.id || !isFirebaseConfigured || !firebaseDb) {
-      setProfileUsername(null)
-      return
-    }
-
-    getDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id)).then((snapshot) => {
-      if (!snapshot.exists()) {
-        setProfileUsername(null)
-        return
-      }
-      setProfileUsername((snapshot.data() as any)?.username || null)
-    })
-  }, [user?.id])
 
   return (
     <aside
@@ -134,7 +104,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 pb-8 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -160,65 +130,6 @@ export default function Sidebar() {
           )
         })}
       </nav>
-
-      {/* Bottom: Settings + Profile */}
-      <div className="px-3 py-4 border-t border-slate-100 space-y-1 shrink-0">
-        <Link
-          href="/settings"
-          className={`flex items-center gap-3 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all ${
-            sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-          }`}
-          title="Settings"
-        >
-          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          {sidebarExpanded && (
-            <span className="text-[11px] font-bold tracking-wide">Settings</span>
-          )}
-        </Link>
-
-        {user && (
-          <>
-            <Link
-              href={profileHref}
-              className={`flex items-center gap-3 rounded-xl hover:bg-slate-50 transition-all ${
-                sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-              }`}
-              title="Profile"
-            >
-              <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 shrink-0">
-                {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-              </div>
-              {sidebarExpanded && (
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-slate-900 truncate">{user.name || 'Your Profile'}</p>
-                  <p className="text-[9px] text-slate-400 truncate">{user.email}</p>
-                </div>
-              )}
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className={`w-full flex items-center gap-3 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all ${
-                sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-              }`}
-              title="Log out"
-            >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              {sidebarExpanded && <span className="text-[11px] font-bold tracking-wide">Log out</span>}
-            </button>
-          </>
-        )}
-      </div>
     </aside>
   )
 }
