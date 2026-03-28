@@ -111,8 +111,11 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const displayName = user?.name || (address ? address.slice(0, 6) : 'User')
-  const displayAddr = address ? fmtAddr(address) : user?.email || ''
+  const displayName = user?.name?.trim() || (address ? address.slice(0, 6) : 'User')
+  const walletLine = isConnected && address ? fmtAddr(address) : null
+  /** Menu header: name only — never show email here. */
+  const signedInHeadline =
+    user?.name?.trim() || walletLine || 'Builder'
   const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
 
   useEffect(() => {
@@ -195,9 +198,9 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
         {!compact && (
           <div className="text-left hidden sm:block pr-1 min-w-0 max-w-[120px] lg:max-w-[140px]">
             <p className="text-[13px] font-bold text-slate-900 leading-tight truncate">{displayName}</p>
-            <p className="text-[10px] font-medium text-slate-400 leading-tight font-mono truncate">
-              {isConnected && address ? fmtAddr(address) : displayAddr}
-            </p>
+            {walletLine ? (
+              <p className="text-[10px] font-medium text-slate-400 leading-tight font-mono truncate">{walletLine}</p>
+            ) : null}
           </div>
         )}
         <svg
@@ -225,10 +228,12 @@ export function NavbarAccountCluster({ menuOpen = 'below', compact = false }: Na
           className={`absolute ${menuPos} w-[min(calc(100vw-2rem),280px)] max-w-[min(100vw-2rem,280px)] bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-900/5 py-2 z-[200] fade-in`}
         >
           <div className="px-4 py-3 border-b border-slate-100">
-            <p className="text-[11px] font-medium text-slate-400 mb-1">Connected:</p>
-            <p className="text-[13px] font-semibold text-slate-900 font-mono tracking-tight break-all">
-              {isConnected && address ? fmtAddr(address) : user?.email || displayAddr || '—'}
-            </p>
+            <p className="text-[13px] font-semibold text-slate-900 truncate">{signedInHeadline}</p>
+            {user?.name?.trim() && walletLine ? (
+              <p className="text-[11px] font-medium text-slate-400 mt-1 font-mono tracking-tight truncate">
+                {walletLine}
+              </p>
+            ) : null}
           </div>
 
           <div className="py-1 px-1.5">
