@@ -29,19 +29,45 @@ import { buildContributionsSnapshot } from '@/lib/builderContributions'
 import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 
-function effectiveGithubLogin(profile: Record<string, unknown> | null | undefined): string | null {
-  if (!profile) return null
-  const u =
-    normalizeGithubLogin(profile.github_username as string | undefined) ||
-    normalizeGithubLogin(profile.githubUsername as string | undefined)
-  if (u) return u
-  const gd = profile.github_data as Record<string, unknown> | undefined
+function githubLoginFromStoredOAuth(gd: Record<string, unknown> | undefined): string | null {
   if (!gd || typeof gd !== 'object') return null
-  const fromLogin =
+  return (
     normalizeGithubLogin(typeof gd.login === 'string' ? gd.login : undefined) ||
-    normalizeGithubLogin(typeof gd.username === 'string' ? gd.username : undefined)
-  if (fromLogin) return fromLogin
-  return normalizeGithubLogin(typeof gd.html_url === 'string' ? gd.html_url : undefined)
+    normalizeGithubLogin(typeof gd.username === 'string' ? gd.username : undefined) ||
+    normalizeGithubLogin(typeof gd.html_url === 'string' ? gd.html_url : undefined)
+  )
+}
+
+/** First path segment after github.com/ from manual project repo URLs (owner login or org). */
+function githubLoginFromManualProjects(projects: { github_url?: string | null }[]): string | null {
+  for (const p of projects) {
+    const url = p.github_url
+    if (typeof url !== 'string' || !url.trim()) continue
+    const login = normalizeGithubLogin(url)
+    if (login) return login
+  }
+  return null
+}
+
+function githubLoginFromWebsiteField(website: unknown): string | null {
+  if (typeof website !== 'string' || !website.includes('github.com')) return null
+  return normalizeGithubLogin(website)
+}
+
+/**
+ * Resolve GitHub login for API calls: explicit fields → OAuth payload → website (only if URL contains github.com) → project repo URLs.
+ */
+function effectiveGithubLogin(
+  profile: Record<string, unknown> | null | undefined,
+  manualProjects: { github_url?: string | null }[] = []
+): string | null {
+  const fromProfile =
+    normalizeGithubLogin(profile?.github_username as string | undefined) ||
+    normalizeGithubLogin(profile?.githubUsername as string | undefined) ||
+    githubLoginFromStoredOAuth(profile?.github_data as Record<string, unknown> | undefined) ||
+    githubLoginFromWebsiteField(profile?.website)
+  if (fromProfile) return fromProfile
+  return githubLoginFromManualProjects(manualProjects)
 }
 
 export type BuilderProfilePayload = Awaited<ReturnType<typeof loadBuilderProfilePayload>>
@@ -131,7 +157,7 @@ export async function loadBuilderProfilePayload(username: string) {
         ? getFarcasterProfileByFid(fcParsed.fid)
         : getFarcasterProfileByUsername(fcParsed.value)
 
-  const ghLogin = effectiveGithubLogin(profile)
+  const ghLogin = effectiveGithubLogin(profile as Record<string, unknown> | null | undefined, projects)
 
   const [
     githubStats,
