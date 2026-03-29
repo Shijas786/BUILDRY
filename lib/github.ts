@@ -1,5 +1,19 @@
 import axios from 'axios'
 
+/** Strip @ / whitespace; reject obvious non-handles. Use before every GitHub API call. */
+export function normalizeGithubLogin(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  let t = String(raw).trim()
+  if (!t) return null
+  if (t.includes('github.com/')) {
+    const m = t.match(/github\.com\/([^/?#]+)/i)
+    t = m?.[1]?.trim() || t
+  }
+  t = t.replace(/^@+/, '')
+  if (!t || /\s/.test(t)) return null
+  return t
+}
+
 /** PAT for REST (same env vars as GraphQL). Unauthenticated `/users` hits 60 req/h/IP — authenticated is much higher. */
 function githubRestHeaders(): Record<string, string> {
   const token =
@@ -49,9 +63,10 @@ export interface GitHubContributionSummary {
 }
 
 export async function getGitHubStats(username: string): Promise<GitHubStats | null> {
-  if (!username) return null
+  const login = normalizeGithubLogin(username)
+  if (!login) return null
   try {
-    const { data: user } = await axios.get(`https://api.github.com/users/${username}`, {
+    const { data: user } = await axios.get(`https://api.github.com/users/${login}`, {
       timeout: 8000,
       headers: githubRestHeaders(),
     })
@@ -61,7 +76,7 @@ export async function getGitHubStats(username: string): Promise<GitHubStats | nu
 
     try {
       const { data: repos } = await axios.get(
-        `https://api.github.com/users/${username}/repos?per_page=100&sort=updated`,
+        `https://api.github.com/users/${login}/repos?per_page=100&sort=updated`,
         { timeout: 8000, headers: githubRestHeaders() }
       )
       for (const repo of repos) {
@@ -86,16 +101,14 @@ export async function getGitHubStats(username: string): Promise<GitHubStats | nu
 }
 
 export async function getGitHubRepoProjects(username: string): Promise<GitHubRepoProject[]> {
-  if (!username) return []
+  const login = normalizeGithubLogin(username)
+  if (!login) return []
   try {
-    const { data: repos } = await axios.get(
-      `https://api.github.com/users/${username}/repos`,
-      {
-        params: { per_page: 100, sort: 'updated' },
-        timeout: 10000,
-        headers: { Accept: 'application/vnd.github.v3+json' },
-      }
-    )
+    const { data: repos } = await axios.get(`https://api.github.com/users/${login}/repos`, {
+      params: { per_page: 100, sort: 'updated' },
+      timeout: 10000,
+      headers: githubRestHeaders(),
+    })
     const normalized: GitHubRepoProject[] = (repos || []).map((r: any) => ({
       id: r.id,
       name: r.name,
@@ -135,17 +148,34 @@ export type GitHubCommitTotalsGraphql = {
   yearsIncluded: number[]
 }
 
+export type GitHubGraphqlCommitsOutcome = {
+  totals: GitHubCommitTotalsGraphql | null
+  /** First GraphQL error message (token misconfigured, forbidden, user not found, etc.). */
+  error?: string
+}
+
+function githubPatForGraphql(): string | null {
+  return (
+    process.env.GITHUB_GRAPHQL_TOKEN?.trim() ||
+    process.env.GITHUUB_GRAPHQL_TOKEN?.trim() ||
+    process.env.GITHUB_TOKEN?.trim() ||
+    null
+  )
+}
+
+export function isGithubPatConfigured(): boolean {
+  return !!githubPatForGraphql()
+}
+
 /**
  * Real commit totals from GitHub GraphQL `contributionsCollection` (same family as the green graph).
- * Requires a server token: `GITHUB_GRAPHQL_TOKEN` or `GITHUB_TOKEN` (classic PAT: `read:user` is enough for public profiles).
- * Without a token this returns null — public REST cannot expose this.
+ * Requires a server token: `GITHUB_GRAPHQL_TOKEN` or `GITHUB_TOKEN` (classic PAT with **`read:user`** recommended).
+ * Fine-grained PATs must allow **read** access to user data needed for GraphQL user lookup.
  */
-export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHubCommitTotalsGraphql | null> {
-  const token =
-    process.env.GITHUB_GRAPHQL_TOKEN?.trim() ||
-    process.env.GITHUUB_GRAPHQL_TOKEN?.trim() || // legacy typo in some deployments
-    process.env.GITHUB_TOKEN?.trim()
-  if (!token || !login?.trim()) return null
+export async function getGitHubCommitTotalsGraphqlWithMeta(rawLogin: string): Promise<GitHubGraphqlCommitsOutcome> {
+  const token = githubPatForGraphql()
+  const login = normalizeGithubLogin(rawLogin)
+  if (!token || !login) return { totals: null }
 
   const now = new Date()
   const currentYear = now.getUTCFullYear()
@@ -155,6 +185,7 @@ export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHu
   let totalCommits = 0
   const yearsIncluded: number[] = []
   let loginValid = false
+  let firstError: string | undefined
 
   for (const y of years) {
     const from = `${y}-01-01T00:00:00Z`
@@ -176,7 +207,7 @@ export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHu
               }
             }
           `,
-          variables: { login: login.trim(), from, to },
+          variables: { login, from, to },
         },
         {
           headers: {
@@ -187,10 +218,14 @@ export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHu
         }
       )
 
-      if (data.errors?.length) continue
+      if (data.errors?.length) {
+        const msg = data.errors.map((e) => e.message).join('; ')
+        if (!firstError) firstError = msg
+        continue
+      }
       const user = data.data?.user
       if (!user) {
-        if (!loginValid) return null
+        if (!firstError) firstError = `GitHub user not found: ${login}`
         continue
       }
       loginValid = true
@@ -199,18 +234,28 @@ export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHu
         totalCommits += n
         yearsIncluded.push(y)
       }
-    } catch {
-      continue
+    } catch (e: unknown) {
+      const msg = axios.isAxiosError(e) ? `${e.message}${e.response?.status ? ` (${e.response.status})` : ''}` : 'request failed'
+      if (!firstError) firstError = msg
     }
   }
 
-  if (!loginValid) return null
+  if (!loginValid) {
+    return { totals: null, error: firstError }
+  }
 
-  return { totalCommits, yearsIncluded }
+  return { totals: { totalCommits, yearsIncluded }, error: firstError }
+}
+
+/** @deprecated Prefer getGitHubCommitTotalsGraphqlWithMeta for error visibility. */
+export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHubCommitTotalsGraphql | null> {
+  const { totals } = await getGitHubCommitTotalsGraphqlWithMeta(login)
+  return totals
 }
 
 export async function getGitHubContributionSummary(username: string): Promise<GitHubContributionSummary | null> {
-  if (!username) return null
+  const login = normalizeGithubLogin(username)
+  if (!login) return null
   try {
     const today = new Date()
     const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
@@ -223,14 +268,22 @@ export async function getGitHubContributionSummary(username: string): Promise<Gi
       pointsMap.set(formatDateUTC(dt), 0)
     }
 
-    // Public-only contribution approximation (works without private OAuth token)
-    const { data: events } = await axios.get(`https://api.github.com/users/${username}/events/public`, {
-      params: { per_page: 100 },
-      timeout: 10000,
-      headers: githubRestHeaders(),
-    })
+    // Public events — GitHub only exposes ~300 most recent; paginate to fill the 365d grid better.
+    const headers = githubRestHeaders()
+    const allEvents: { created_at: string; type: string }[] = []
+    for (let page = 1; page <= 3; page += 1) {
+      const { data: pageEvents } = await axios.get(`https://api.github.com/users/${login}/events/public`, {
+        params: { per_page: 100, page },
+        timeout: 10000,
+        headers,
+      })
+      const arr = pageEvents || []
+      if (!arr.length) break
+      allEvents.push(...arr)
+      if (arr.length < 100) break
+    }
 
-    for (const ev of events || []) {
+    for (const ev of allEvents) {
       const date = formatDateUTC(new Date(ev.created_at))
       if (!pointsMap.has(date)) continue
       const bump = ev.type === 'PushEvent' ? 2 : 1

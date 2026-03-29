@@ -51,6 +51,8 @@ interface ProfileData {
   tokens: any[]
   followersCount: number
   contributions?: BuilderContributionsSnapshot
+  github_pat_configured?: boolean
+  github_graphql_error?: string | null
 }
 
 type Tab = 'posts' | 'projects' | 'tokens' | 'activity' | 'services'
@@ -635,6 +637,8 @@ export default function ProfilePage() {
               profile={p}
               githubContributionSummary={data?.githubContributionSummary}
               contributions={data?.contributions}
+              githubPatConfigured={data?.github_pat_configured}
+              githubGraphqlError={data?.github_graphql_error}
             />
           )}
           {activeTab === 'services' && <ServicesTab profile={p} />}

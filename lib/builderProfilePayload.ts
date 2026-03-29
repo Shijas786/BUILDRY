@@ -2,7 +2,11 @@ import {
   getGitHubStats,
   getGitHubRepoProjects,
   getGitHubContributionSummary,
-  getGitHubCommitTotalsGraphql,
+  getGitHubCommitTotalsGraphqlWithMeta,
+  isGithubPatConfigured,
+  normalizeGithubLogin,
+  type GitHubCommitTotalsGraphql,
+  type GitHubGraphqlCommitsOutcome,
 } from '@/lib/github'
 import {
   getHeliusTransactions,
@@ -24,6 +28,15 @@ import {
 import { buildContributionsSnapshot } from '@/lib/builderContributions'
 import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
+
+function effectiveGithubLogin(profile: Record<string, unknown> | null | undefined): string | null {
+  if (!profile) return null
+  const u = normalizeGithubLogin(profile.github_username as string | undefined)
+  if (u) return u
+  const gd = profile.github_data as Record<string, unknown> | undefined
+  const login = gd && typeof gd.login === 'string' ? normalizeGithubLogin(gd.login) : null
+  return login
+}
 
 export type BuilderProfilePayload = Awaited<ReturnType<typeof loadBuilderProfilePayload>>
 
@@ -112,21 +125,25 @@ export async function loadBuilderProfilePayload(username: string) {
         ? getFarcasterProfileByFid(fcParsed.fid)
         : getFarcasterProfileByUsername(fcParsed.value)
 
+  const ghLogin = effectiveGithubLogin(profile)
+
   const [
     githubStats,
     githubRepos,
     githubContributionSummary,
-    githubCommitTotalsGraphql,
+    graphqlCommitsOutcome,
     heliusTxns,
     solanaDeployments,
     evmDeployments,
     creatorTokens,
     farcasterEnriched,
   ] = await Promise.all([
-    profile?.github_username ? getGitHubStats(profile.github_username) : Promise.resolve(null),
-    profile?.github_username ? getGitHubRepoProjects(profile.github_username) : Promise.resolve([]),
-    profile?.github_username ? getGitHubContributionSummary(profile.github_username) : Promise.resolve(null),
-    profile?.github_username ? getGitHubCommitTotalsGraphql(profile.github_username) : Promise.resolve(null),
+    ghLogin ? getGitHubStats(ghLogin) : Promise.resolve(null),
+    ghLogin ? getGitHubRepoProjects(ghLogin) : Promise.resolve([]),
+    ghLogin ? getGitHubContributionSummary(ghLogin) : Promise.resolve(null),
+    ghLogin
+      ? getGitHubCommitTotalsGraphqlWithMeta(ghLogin)
+      : Promise.resolve({ totals: null } as GitHubGraphqlCommitsOutcome),
     wallet ? getHeliusTransactions(wallet) : Promise.resolve(0),
     wallet ? getSolanaDeploymentStats(wallet) : Promise.resolve({ deployedPrograms: 0, walletAgeDays: 0 }),
     evmWallet
@@ -141,12 +158,15 @@ export async function loadBuilderProfilePayload(username: string) {
     farcasterEnrichedPromise,
   ])
 
+  const githubCommitTotalsGraphql = graphqlCommitsOutcome.totals
+  const githubGraphqlError = graphqlCommitsOutcome.totals ? null : graphqlCommitsOutcome.error ?? null
+
   const githubShowcase =
-    profile && profile.github_username
+    profile && ghLogin
       ? enrichGithubShowcase(
           githubStats,
           profile.github_data as Record<string, unknown> | undefined,
-          profile.github_username
+          ghLogin
         )
       : null
 
@@ -207,6 +227,8 @@ export async function loadBuilderProfilePayload(username: string) {
   return {
     profile: profile || null,
     github: githubStats,
+    github_pat_configured: isGithubPatConfigured(),
+    github_graphql_error: githubGraphqlError,
     socialShowcase,
     contributions,
     onchain: {

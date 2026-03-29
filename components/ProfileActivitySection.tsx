@@ -105,6 +105,10 @@ export type ProfileActivitySectionProps = {
   profile: any
   githubContributionSummary: any
   contributions?: BuilderContributionsSnapshot
+  /** Server has GITHUB_TOKEN / GITHUB_GRAPHQL_TOKEN (not the secret). */
+  githubPatConfigured?: boolean
+  /** Short GraphQL failure reason when PAT is set but commit totals missing. */
+  githubGraphqlError?: string | null
 }
 
 export default function ProfileActivitySection({
@@ -113,6 +117,8 @@ export default function ProfileActivitySection({
   profile,
   githubContributionSummary,
   contributions,
+  githubPatConfigured = false,
+  githubGraphqlError,
 }: ProfileActivitySectionProps) {
   const solTx = onchain?.transactions ?? profile?.sol_transactions ?? 0
   const evmTx = onchain?.evmDeployments?.transactionCount ?? 0
@@ -129,6 +135,17 @@ export default function ProfileActivitySection({
   const points = githubContributionSummary?.points as { date: string; count: number }[] | undefined
   const series180 = lastNDaysCounts(points, 180)
   const sum180 = series180.reduce((a, b) => a + b, 0)
+
+  const graphqlCommitsHint =
+    commitTotal != null
+      ? null
+      : githubPatConfigured && githubGraphqlError
+        ? githubGraphqlError.length > 120
+          ? `${githubGraphqlError.slice(0, 117)}…`
+          : githubGraphqlError
+        : githubPatConfigured
+          ? 'Could not load commit totals (check GitHub username matches your login).'
+          : 'Add GITHUB_TOKEN or GITHUB_GRAPHQL_TOKEN on the server (classic PAT: read:user). Redeploy.'
 
   const totalTxDisplay = solTx + evmTx
   const gasPrimary = gasEth != null && gasEth !== '' ? `${gasEth} ETH` : '—'
@@ -194,7 +211,7 @@ export default function ProfileActivitySection({
           breakdown={
             commitTotal != null
               ? [{ label: 'GitHub (GraphQL)', value: `${commitTotal.toLocaleString()} commits` }]
-              : [{ label: 'GitHub (GraphQL)', value: 'Configure GITHUB_TOKEN for totals' }]
+              : [{ label: 'GitHub (GraphQL)', value: graphqlCommitsHint || '—' }]
           }
           footer="365D · calendar rules"
           extra={<ActivitySparkline counts={series180.length ? series180 : lastNDaysCounts(points, 365)} variant="line" />}
