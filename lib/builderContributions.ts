@@ -57,23 +57,36 @@ export function buildContributionsSnapshot(params: {
   mergedProjectCount: number
   manualProjectCount: number
   githubRepoProjectCount: number
+  /** Sum of stars on imported repo cards (when user API failed). */
+  githubStarsFromRepos?: number
+  /** Languages from imported repos (when user API failed). */
+  githubLanguagesFromRepos?: string[]
   postsCount: number
 }): BuilderContributionsSnapshot {
   const gh = params.githubStats
   const ghc = params.githubContributionSummary
   const gqlCommits = params.githubCommitTotalsGraphql
 
+  const hasGitHubSignal =
+    gh != null ||
+    ghc != null ||
+    gqlCommits != null ||
+    params.githubRepoProjectCount > 0
+
+  const starsFallback = params.githubStarsFromRepos ?? 0
+  const langsFallback = (params.githubLanguagesFromRepos ?? []).slice(0, 6)
+
   return {
-    github: gh
+    github: hasGitHubSignal
       ? {
-          publicRepos: gh.publicRepos,
-          totalStars: gh.totalStars,
-          followers: gh.followers,
+          publicRepos: gh?.publicRepos ?? params.githubRepoProjectCount,
+          totalStars: gh?.totalStars ?? starsFallback,
+          followers: gh?.followers ?? 0,
           activityPoints365d: ghc?.totalContributions ?? 0,
           activeDays365d: ghc?.activeDays ?? 0,
           currentStreakDays: ghc?.currentStreak ?? 0,
           longestStreakDays: ghc?.longestStreak ?? 0,
-          topLanguages: gh.topLanguages || [],
+          topLanguages: gh?.topLanguages?.length ? gh.topLanguages : langsFallback,
           graphqlCommitContributionsTotal: gqlCommits?.totalCommits ?? null,
           graphqlCommitContributionsYears: gqlCommits?.yearsIncluded ?? null,
         }

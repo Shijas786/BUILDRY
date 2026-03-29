@@ -12,12 +12,11 @@ import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
 
-type SettingsTab = 'editProfile' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
+type SettingsTab = 'editProfile' | 'socials' | 'projects' | 'availability' | 'wallets'
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'editProfile', label: 'Edit profile' },
   { id: 'socials', label: 'Socials' },
-  { id: 'skills', label: 'Skills & stack' },
   { id: 'projects', label: 'Projects' },
   { id: 'availability', label: 'Availability' },
   { id: 'wallets', label: 'Wallets' },
@@ -389,9 +388,6 @@ export default function SettingsPage() {
           {activeTab === 'socials' && (
             <SocialsTab profile={profile} setProfile={setProfile} userId={user?.id} />
           )}
-          {activeTab === 'skills' && (
-            <SkillsTab profile={profile} setProfile={setProfile} />
-          )}
           {activeTab === 'projects' && (
             <ProjectsTab projects={projects} setProjects={setProjects} showAdd={showAddProject} setShowAdd={setShowAddProject} userId={user?.id} />
           )}
@@ -664,6 +660,8 @@ function EditProfileTab({
           <Field label="Website" value={profile.website} onChange={(v) => setProfile((p: any) => ({ ...p, website: v }))} placeholder="https://yoursite.com" />
         </div>
       </Section>
+
+      <SkillsTab profile={profile} setProfile={setProfile} />
     </div>
   )
 }

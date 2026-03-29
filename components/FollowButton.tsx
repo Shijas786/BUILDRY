@@ -8,6 +8,8 @@ export default function FollowButton({ builderId }: { builderId: string }) {
   const [following, setFollowing] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  if (user?.id && user.id === builderId) return null
+
   const handleToggle = async () => {
     if (!user?.id) return
     setLoading(true)

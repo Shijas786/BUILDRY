@@ -100,6 +100,7 @@ TAPESTRY_API_KEY=
 # Optional AI layer
 CHAINGPT_API_KEY=
 # Claude (Anthropic) — public builder profile “Builder snapshot” narrative on /profile/[username]
+# Add in Vercel → Settings → Environment Variables (Production), then redeploy. Not NEXT_PUBLIC_*.
 ANTHROPIC_API_KEY=
 # Optional override, default claude-3-5-haiku-20241022
 # ANTHROPIC_MODEL=

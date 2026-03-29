@@ -165,6 +165,11 @@ export async function loadBuilderProfilePayload(username: string) {
     farcasterFromConnect: farcasterStored,
   }
 
+  const githubStarsFromRepos = githubRepos.reduce((sum, r) => sum + (r.stars || 0), 0)
+  const githubLanguagesFromRepos = Array.from(
+    new Set(githubRepos.map((r) => r.language).filter((lang): lang is string => Boolean(lang)))
+  )
+
   const mergedProjects = [
     ...(projects || []).map((p: any) => ({ ...p, source: 'manual' })),
     ...githubRepos.map((repo: any) => ({
@@ -194,6 +199,8 @@ export async function loadBuilderProfilePayload(username: string) {
     mergedProjectCount: mergedProjects.length,
     manualProjectCount: projects.length,
     githubRepoProjectCount: githubRepos.length,
+    githubStarsFromRepos,
+    githubLanguagesFromRepos,
     postsCount: posts.length,
   })
 

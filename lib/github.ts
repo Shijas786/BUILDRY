@@ -1,5 +1,16 @@
 import axios from 'axios'
 
+/** PAT for REST (same env vars as GraphQL). Unauthenticated `/users` hits 60 req/h/IP — authenticated is much higher. */
+function githubRestHeaders(): Record<string, string> {
+  const token =
+    process.env.GITHUB_GRAPHQL_TOKEN?.trim() ||
+    process.env.GITHUUB_GRAPHQL_TOKEN?.trim() ||
+    process.env.GITHUB_TOKEN?.trim()
+  const h: Record<string, string> = { Accept: 'application/vnd.github.v3+json' }
+  if (token) h.Authorization = `Bearer ${token}`
+  return h
+}
+
 export interface GitHubStats {
   username: string
   publicRepos: number
@@ -42,7 +53,7 @@ export async function getGitHubStats(username: string): Promise<GitHubStats | nu
   try {
     const { data: user } = await axios.get(`https://api.github.com/users/${username}`, {
       timeout: 8000,
-      headers: { Accept: 'application/vnd.github.v3+json' },
+      headers: githubRestHeaders(),
     })
 
     let totalStars = 0
@@ -51,7 +62,7 @@ export async function getGitHubStats(username: string): Promise<GitHubStats | nu
     try {
       const { data: repos } = await axios.get(
         `https://api.github.com/users/${username}/repos?per_page=100&sort=updated`,
-        { timeout: 8000, headers: { Accept: 'application/vnd.github.v3+json' } }
+        { timeout: 8000, headers: githubRestHeaders() }
       )
       for (const repo of repos) {
         totalStars += repo.stargazers_count || 0
@@ -216,7 +227,7 @@ export async function getGitHubContributionSummary(username: string): Promise<Gi
     const { data: events } = await axios.get(`https://api.github.com/users/${username}/events/public`, {
       params: { per_page: 100 },
       timeout: 10000,
-      headers: { Accept: 'application/vnd.github.v3+json' },
+      headers: githubRestHeaders(),
     })
 
     for (const ev of events || []) {

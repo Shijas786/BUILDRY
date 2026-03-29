@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
+import { useAuth } from '@/context/AuthProvider'
 import ProfileActivitySection from '@/components/ProfileActivitySection'
 import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
@@ -164,9 +165,20 @@ function AiBuilderNarrative({
   }
   if (state.status === 'config') {
     return (
-      <div className="mb-8 p-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500">
-        AI builder summary is off. Set <span className="font-mono">ANTHROPIC_API_KEY</span> on the server to enable Claude-powered
-        profile copy from LinkedIn, GitHub, Farcaster, and on-chain signals.
+      <div className="mb-8 p-4 rounded-2xl border border-dashed border-indigo-200/80 bg-indigo-50/30 text-xs text-slate-600 leading-relaxed">
+        <p className="font-semibold text-slate-800 mb-2">AI builder snapshot is not enabled on this deployment.</p>
+        <p className="mb-2">
+          Add <span className="font-mono text-[11px] bg-white/80 px-1 rounded">ANTHROPIC_API_KEY</span> as a{' '}
+          <strong>server</strong> secret (Vercel → Project → Settings → Environment Variables → Production), then redeploy.
+          Use a key from{' '}
+          <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-semibold underline underline-offset-2">
+            console.anthropic.com
+          </a>
+          . See <span className="font-mono text-[11px]">README.md</span> → Environment Variables.
+        </p>
+        <p className="text-[11px] text-slate-500">
+          Claude then generates the short “Builder snapshot” from LinkedIn, GitHub, Farcaster, and public on-chain signals.
+        </p>
       </div>
     )
   }
@@ -320,6 +332,7 @@ function ConnectedSocialShowcase({
 }
 
 export default function ProfilePage() {
+  const { user } = useAuth()
   const params = useParams()
   const username = params.username as string
   const [data, setData] = useState<ProfileData | null>(null)
@@ -434,13 +447,13 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
-      {/* Banner */}
-      <div className="h-56 bg-gradient-to-br from-slate-100 to-slate-50 relative">
-        {p.banner_url && <img src={p.banner_url} alt="" className="w-full h-full object-cover" />}
+      {/* Banner — taller so cover art reads clearly below the sidebar */}
+      <div className="relative min-h-[13rem] h-[min(38vh,22rem)] sm:min-h-[15rem] sm:h-[min(40vh,24rem)] md:min-h-[17rem] md:h-[min(42vh,26rem)] bg-gradient-to-br from-slate-100 to-slate-50">
+        {p.banner_url && <img src={p.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
       </div>
 
       {/* Profile header */}
-      <div className="max-w-6xl mx-auto px-6 md:px-8 -mt-14 relative z-10">
+      <div className="max-w-6xl mx-auto px-6 md:px-8 -mt-16 sm:-mt-[4.5rem] md:-mt-20 relative z-10">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 md:p-8 mb-6">
         <div className="flex items-end gap-6 mb-5">
           <div className="w-28 h-28 rounded-3xl bg-white border-4 border-white shadow-xl overflow-hidden shrink-0">
@@ -468,7 +481,16 @@ export default function ProfilePage() {
             <p className="text-xs font-black uppercase tracking-widest text-slate-300 mb-1">@{p.username || username}</p>
             {p.tagline && <p className="text-sm text-slate-500 truncate">{p.tagline}</p>}
           </div>
-          <FollowButton builderId={p.id} />
+          {user?.id === p.id ? (
+            <Link
+              href="/settings"
+              className="shrink-0 px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-black shadow-lg shadow-slate-900/10 transition-all active:scale-95"
+            >
+              Edit profile
+            </Link>
+          ) : (
+            <FollowButton builderId={p.id} />
+          )}
         </div>
 
         {/* Bio + socials */}
@@ -534,8 +556,14 @@ export default function ProfilePage() {
           <InfoGroup
             title="Code Proof"
             items={[
-              { label: 'GitHub Stars', value: github?.totalStars || p.github_stars || 0 },
-              { label: 'Repos', value: github?.publicRepos || p.github_repos || 0 },
+              {
+                label: 'GitHub Stars',
+                value: github?.totalStars ?? data?.contributions?.github?.totalStars ?? p.github_stars ?? 0,
+              },
+              {
+                label: 'Repos',
+                value: github?.publicRepos ?? data?.contributions?.github?.publicRepos ?? p.github_repos ?? 0,
+              },
             ]}
           />
           <InfoGroup
@@ -549,15 +577,25 @@ export default function ProfilePage() {
 
         <BuilderContributionsGrid c={data?.contributions} />
 
-        {/* Skills */}
-        {p.skills && p.skills.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap mb-8">
-            {p.skills.map((s: string) => (
-              <span key={s} className="px-3 py-1 rounded-md bg-slate-100/80 text-[10px] font-bold text-slate-600 border border-slate-200/60">{s}</span>
-            ))}
-            {github?.topLanguages?.filter((l: string) => !p.skills.includes(l)).slice(0, 4).map((l: string) => (
-              <span key={l} className="px-3 py-1 rounded-md bg-blue-50 text-[10px] font-bold text-blue-600 border border-blue-100">{l}</span>
-            ))}
+        {/* Skills & stack (edit in Settings → Edit profile) */}
+        {((p.skills && p.skills.length > 0) || (github?.topLanguages && github.topLanguages.length > 0)) && (
+          <div className="mb-8">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-2">Skills & stack</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(p.skills || []).map((s: string) => (
+                <span key={s} className="px-3 py-1 rounded-md bg-slate-100/80 text-[10px] font-bold text-slate-600 border border-slate-200/60">
+                  {s}
+                </span>
+              ))}
+              {github?.topLanguages
+                ?.filter((l: string) => !(p.skills || []).includes(l))
+                .slice(0, 6)
+                .map((l: string) => (
+                  <span key={l} className="px-3 py-1 rounded-md bg-blue-50 text-[10px] font-bold text-blue-600 border border-blue-100">
+                    {l}
+                  </span>
+                ))}
+            </div>
           </div>
         )}
         </div>
