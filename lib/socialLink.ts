@@ -121,7 +121,7 @@ function githubLinkErrorMessage(e: unknown): string {
     return 'GitHub window was closed before finishing.'
   }
   if (err.code === 'auth/popup-blocked') {
-    return 'Your browser blocked the popup. Use “Connect GitHub” (redirect) or allow popups for this site.'
+    return 'Your browser blocked the GitHub popup. Allow popups for this site, or try Connect GitHub again (Settings falls back to a full-page redirect when the popup is blocked).'
   }
   return err.message || 'Could not connect GitHub.'
 }
@@ -203,6 +203,8 @@ export async function unlinkGitHubProviderFromCurrentUser(): Promise<{ error: st
  */
 export async function linkGitHubToProfile(): Promise<{
   error: string | null
+  /** Firebase `auth/*` code when `error` is set — e.g. `auth/popup-blocked` for redirect fallback. */
+  errorCode?: string
   githubUsername?: string
   githubData?: Record<string, unknown>
 }> {
@@ -211,6 +213,8 @@ export async function linkGitHubToProfile(): Promise<{
   }
 
   const provider = new GithubAuthProvider()
+  provider.addScope('read:user')
+  provider.addScope('user:email')
 
   try {
     const cred = await linkWithPopup(firebaseAuth.currentUser, provider)
@@ -230,7 +234,8 @@ export async function linkGitHubToProfile(): Promise<{
       githubData: profile,
     }
   } catch (e: unknown) {
-    return { error: githubLinkErrorMessage(e) }
+    const code = (e as { code?: string }).code
+    return { error: githubLinkErrorMessage(e), ...(code ? { errorCode: code } : {}) }
   }
 }
 

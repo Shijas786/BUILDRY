@@ -138,9 +138,9 @@ export default function SettingsPage() {
     ;(async () => {
       const { completeSocialOAuthRedirect } = await import('@/lib/socialLink')
       const r = await completeSocialOAuthRedirect()
-      if (cancelled) return
+
       if (!r.handled) {
-        if (r.error) setOauthReturnBanner({ kind: 'err', msg: r.error })
+        if (r.error && !cancelled) setOauthReturnBanner({ kind: 'err', msg: r.error })
         return
       }
 
@@ -149,19 +149,23 @@ export default function SettingsPage() {
           const patch: Record<string, unknown> = { updated_at: Date.now() }
           if (r.linkedinUrl) patch.linkedin_url = r.linkedinUrl
           if (r.linkedinData && Object.keys(r.linkedinData).length > 0) patch.linkedin_data = r.linkedinData
+          // Always persist: getRedirectResult() already consumed Firebase’s one-shot redirect state.
+          // React Strict Mode can set `cancelled` before this runs; skipping setDoc would drop the link.
           await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
-          setProfile((p: any) => ({
-            ...p,
-            ...(r.linkedinUrl ? { linkedin_url: r.linkedinUrl } : {}),
-            ...(r.linkedinData ? { linkedin_data: r.linkedinData } : {}),
-          }))
-          setActiveTab('socials')
-          setOauthReturnBanner({
-            kind: 'ok',
-            msg: r.linkedinUrl
-              ? 'LinkedIn connected.'
-              : 'LinkedIn linked. Add your profile URL under Socials if needed.',
-          })
+          if (!cancelled) {
+            setProfile((p: any) => ({
+              ...p,
+              ...(r.linkedinUrl ? { linkedin_url: r.linkedinUrl } : {}),
+              ...(r.linkedinData ? { linkedin_data: r.linkedinData } : {}),
+            }))
+            setActiveTab('socials')
+            setOauthReturnBanner({
+              kind: 'ok',
+              msg: r.linkedinUrl
+                ? 'LinkedIn connected.'
+                : 'LinkedIn linked. Add your profile URL under Socials if needed.',
+            })
+          }
           return
         }
 
@@ -173,25 +177,29 @@ export default function SettingsPage() {
           if (r.githubUsername) patch.github_username = r.githubUsername
           if (r.githubData && Object.keys(r.githubData).length > 0) patch.github_data = r.githubData
           await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, user.id), patch, { merge: true })
-          setProfile((p: any) => ({
-            ...p,
-            github_verified: true,
-            ...(r.githubUsername ? { github_username: r.githubUsername } : {}),
-            ...(r.githubData && Object.keys(r.githubData).length > 0 ? { github_data: r.githubData } : {}),
-          }))
-          setActiveTab('socials')
-          setOauthReturnBanner({
-            kind: 'ok',
-            msg: r.githubUsername
-              ? `GitHub connected as @${r.githubUsername}.`
-              : 'GitHub linked. Enter your username above and Save if it did not auto-fill.',
-          })
+          if (!cancelled) {
+            setProfile((p: any) => ({
+              ...p,
+              github_verified: true,
+              ...(r.githubUsername ? { github_username: r.githubUsername } : {}),
+              ...(r.githubData && Object.keys(r.githubData).length > 0 ? { github_data: r.githubData } : {}),
+            }))
+            setActiveTab('socials')
+            setOauthReturnBanner({
+              kind: 'ok',
+              msg: r.githubUsername
+                ? `GitHub connected as @${r.githubUsername}.`
+                : 'GitHub linked. Enter your username above and Save if it did not auto-fill.',
+            })
+          }
         }
       } catch {
-        setOauthReturnBanner({
-          kind: 'err',
-          msg: 'Could not save the social link to your profile. Check Firestore rules and your connection.',
-        })
+        if (!cancelled) {
+          setOauthReturnBanner({
+            kind: 'err',
+            msg: 'Could not save the social link to your profile. Check Firestore rules and your connection.',
+          })
+        }
       }
     })()
     return () => {
@@ -755,13 +763,41 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
     setSocialError(null)
     setSocialHint(null)
     try {
-      const { startGitHubLinkRedirect } = await import('@/lib/socialLink')
-      const { error } = await startGitHubLinkRedirect()
-      if (error) {
-        setSocialError(error)
+      const { linkGitHubToProfile, startGitHubLinkRedirect } = await import('@/lib/socialLink')
+      const pr = await linkGitHubToProfile()
+      if (!pr.error) {
+        const patch: Record<string, unknown> = {
+          updated_at: Date.now(),
+          github_verified: true,
+        }
+        if (pr.githubUsername) patch.github_username = pr.githubUsername
+        if (pr.githubData && Object.keys(pr.githubData).length > 0) patch.github_data = pr.githubData
+        await setDoc(doc(firebaseDb, FS.BUILDER_PROFILES, userId), patch, { merge: true })
+        setProfile((p: any) => ({
+          ...p,
+          github_verified: true,
+          ...(pr.githubUsername ? { github_username: pr.githubUsername } : {}),
+          ...(pr.githubData && Object.keys(pr.githubData).length > 0 ? { github_data: pr.githubData } : {}),
+        }))
+        setActiveTab('socials')
+        setOauthReturnBanner({
+          kind: 'ok',
+          msg: pr.githubUsername
+            ? `GitHub connected as @${pr.githubUsername}.`
+            : 'GitHub linked. Enter your username above and Save if it did not auto-fill.',
+        })
         return
       }
-      setSocialHint('Redirecting to GitHub…')
+      if (pr.errorCode === 'auth/popup-blocked') {
+        setSocialHint('Popup blocked — using a full-page redirect instead…')
+        const { error } = await startGitHubLinkRedirect()
+        if (error) {
+          setSocialError(error)
+          setSocialHint(null)
+        }
+        return
+      }
+      setSocialError(pr.error)
     } finally {
       setLoadingProvider(null)
     }
