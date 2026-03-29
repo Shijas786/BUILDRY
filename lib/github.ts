@@ -253,24 +253,130 @@ export async function getGitHubCommitTotalsGraphql(login: string): Promise<GitHu
   return totals
 }
 
-export async function getGitHubContributionSummary(username: string): Promise<GitHubContributionSummary | null> {
-  const login = normalizeGithubLogin(username)
-  if (!login) return null
-  try {
-    const today = new Date()
-    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
-    start.setUTCDate(start.getUTCDate() - 364)
+function buildLast365DaysPointsMap(): Map<string, number> {
+  const today = new Date()
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  start.setUTCDate(start.getUTCDate() - 364)
+  const pointsMap = new Map<string, number>()
+  for (let i = 0; i < 365; i += 1) {
+    const dt = new Date(start)
+    dt.setUTCDate(start.getUTCDate() + i)
+    pointsMap.set(formatDateUTC(dt), 0)
+  }
+  return pointsMap
+}
 
-    const pointsMap = new Map<string, number>()
-    for (let i = 0; i < 365; i += 1) {
-      const dt = new Date(start)
-      dt.setUTCDate(start.getUTCDate() + i)
-      pointsMap.set(formatDateUTC(dt), 0)
+function contributionSummaryFromPointsMap(pointsMap: Map<string, number>): GitHubContributionSummary {
+  const points = Array.from(pointsMap.entries()).map(([date, count]) => ({ date, count }))
+  const totalContributions = points.reduce((sum, p) => sum + p.count, 0)
+  const activeDays = points.filter((p) => p.count > 0).length
+
+  let longestStreak = 0
+  let run = 0
+  for (let i = 0; i < points.length; i += 1) {
+    if (points[i].count > 0) {
+      run += 1
+      if (run > longestStreak) longestStreak = run
+    } else {
+      run = 0
+    }
+  }
+  let currentStreak = 0
+  for (let i = points.length - 1; i >= 0; i -= 1) {
+    if (points[i].count > 0) currentStreak += 1
+    else break
+  }
+
+  return {
+    totalContributions,
+    activeDays,
+    longestStreak,
+    currentStreak,
+    points,
+  }
+}
+
+/**
+ * Same contribution counts as GitHub’s green graph (public rules), for the given date range.
+ * Requires the same PAT as other GraphQL calls (`read:user` on a classic PAT).
+ */
+async function tryGitHubContributionSummaryGraphql(
+  login: string,
+  pointsMap: Map<string, number>,
+  fromIso: string,
+  toIso: string,
+  token: string
+): Promise<GitHubContributionSummary | null> {
+  try {
+    const { data } = await axios.post<{
+      data?: {
+        user?: {
+          contributionsCollection?: {
+            contributionCalendar?: {
+              totalContributions?: number
+              weeks?: { contributionDays?: { date: string; contributionCount: number }[] }[]
+            }
+          }
+        }
+      }
+      errors?: { message: string }[]
+    }>(
+      'https://api.github.com/graphql',
+      {
+        query: `
+          query($login: String!, $from: DateTime!, $to: DateTime!) {
+            user(login: $login) {
+              contributionsCollection(from: $from, to: $to) {
+                contributionCalendar {
+                  totalContributions
+                  weeks {
+                    contributionDays {
+                      date
+                      contributionCount
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `,
+        variables: { login, from: fromIso, to: toIso },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 12000,
+      }
+    )
+
+    if (data.errors?.length) return null
+    const user = data.data?.user
+    if (!user) return null
+    const calendar = user.contributionsCollection?.contributionCalendar
+    if (!calendar) return null
+    const weeks = calendar.weeks || []
+
+    for (const w of weeks) {
+      for (const day of w.contributionDays || []) {
+        const d = typeof day.date === 'string' ? day.date.slice(0, 10) : ''
+        if (!d || !pointsMap.has(d)) continue
+        const n = day.contributionCount
+        if (typeof n === 'number' && n >= 0) pointsMap.set(d, n)
+      }
     }
 
-    // Public events — GitHub only exposes ~300 most recent; paginate to fill the 365d grid better.
-    const headers = githubRestHeaders()
-    const allEvents: { created_at: string; type: string }[] = []
+    return contributionSummaryFromPointsMap(pointsMap)
+  } catch {
+    return null
+  }
+}
+
+async function contributionSummaryFromPublicEvents(login: string, pointsMap: Map<string, number>): Promise<GitHubContributionSummary> {
+  const headers = githubRestHeaders()
+  const allEvents: { created_at: string; type: string }[] = []
+  try {
     for (let page = 1; page <= 3; page += 1) {
       const { data: pageEvents } = await axios.get(`https://api.github.com/users/${login}/events/public`, {
         params: { per_page: 100, page },
@@ -282,42 +388,41 @@ export async function getGitHubContributionSummary(username: string): Promise<Gi
       allEvents.push(...arr)
       if (arr.length < 100) break
     }
-
-    for (const ev of allEvents) {
-      const date = formatDateUTC(new Date(ev.created_at))
-      if (!pointsMap.has(date)) continue
-      const bump = ev.type === 'PushEvent' ? 2 : 1
-      pointsMap.set(date, (pointsMap.get(date) || 0) + bump)
-    }
-
-    const points = Array.from(pointsMap.entries()).map(([date, count]) => ({ date, count }))
-    const totalContributions = points.reduce((sum, p) => sum + p.count, 0)
-    const activeDays = points.filter((p) => p.count > 0).length
-
-    let longestStreak = 0
-    let currentStreak = 0
-    let run = 0
-    for (let i = 0; i < points.length; i += 1) {
-      if (points[i].count > 0) {
-        run += 1
-        if (run > longestStreak) longestStreak = run
-      } else {
-        run = 0
-      }
-    }
-    for (let i = points.length - 1; i >= 0; i -= 1) {
-      if (points[i].count > 0) currentStreak += 1
-      else break
-    }
-
-    return {
-      totalContributions,
-      activeDays,
-      longestStreak,
-      currentStreak,
-      points,
-    }
   } catch {
-    return null
+    /* rate limits / network — still return empty grid so the UI heatmap renders */
   }
+
+  for (const ev of allEvents) {
+    const date = formatDateUTC(new Date(ev.created_at))
+    if (!pointsMap.has(date)) continue
+    const bump = ev.type === 'PushEvent' ? 2 : 1
+    pointsMap.set(date, (pointsMap.get(date) || 0) + bump)
+  }
+
+  return contributionSummaryFromPointsMap(pointsMap)
+}
+
+/**
+ * 365-day contribution grid + totals. With a server PAT, uses GraphQL `contributionCalendar` (matches GitHub’s graph).
+ * Without a token (or if GraphQL fails), falls back to scoring from public events; on events API failure, returns zeros instead of null.
+ */
+export async function getGitHubContributionSummary(username: string): Promise<GitHubContributionSummary | null> {
+  const login = normalizeGithubLogin(username)
+  if (!login) return null
+
+  const today = new Date()
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  start.setUTCDate(start.getUTCDate() - 364)
+  const fromIso = `${formatDateUTC(start)}T00:00:00Z`
+  const toIso = today.toISOString()
+
+  const token = githubPatForGraphql()
+  if (token) {
+    const map = buildLast365DaysPointsMap()
+    const gql = await tryGitHubContributionSummaryGraphql(login, map, fromIso, toIso, token)
+    if (gql) return gql
+  }
+
+  const mapFallback = buildLast365DaysPointsMap()
+  return contributionSummaryFromPublicEvents(login, mapFallback)
 }

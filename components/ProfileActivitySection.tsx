@@ -219,7 +219,7 @@ export default function ProfileActivitySection({
 
         <ActivityTile
           title="GitHub contributions"
-          titleHint="Activity score from public events over the last 365 days (approximation of the contribution graph)."
+          titleHint="With a server GitHub PAT, uses GraphQL contribution counts (same family as the green graph). Otherwise an estimate from recent public events (~300 max)."
           primary={activity365.toLocaleString()}
           breakdown={[
             { label: '365d activity points', value: activity365.toLocaleString() },

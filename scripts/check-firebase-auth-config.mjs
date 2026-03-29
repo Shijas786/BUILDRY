@@ -155,6 +155,24 @@ async function main() {
     console.log(`  ${k}: ${process.env[k] ? 'set' : 'MISSING'}`)
   }
 
+  const authDomain =
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || `${projectId}.firebaseapp.com`
+  const initUrl = `https://${authDomain.replace(/^https?:\/\//, '')}/__/firebase/init.json`
+  console.log('\nAuth helper config URL (should be HTTP 200 after Hosting deploy):')
+  console.log(`  ${initUrl}`)
+  try {
+    const initRes = await fetch(initUrl, { method: 'HEAD', redirect: 'follow' })
+    if (initRes.ok) {
+      console.log(`  ✓ ${initRes.status} — GitHub/redirect OAuth helper can load config.`)
+    } else {
+      console.log(
+        `  ⚠ ${initRes.status} — run \`npm run firebase:deploy:hosting\` so __/firebase/init.json is served (see README § Firebase Hosting).`
+      )
+    }
+  } catch (e) {
+    console.log(`  ⚠ Could not reach init.json (${e.message}).`)
+  }
+
   console.log('\nNote: Vercel/production env is not checked by this script.\n')
 }
 

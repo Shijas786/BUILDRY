@@ -144,7 +144,19 @@ Firebase Console → **Authentication** → **Settings** → **Authorized domain
 
 (Keep `localhost` for local dev.)
 
-### 3b) Firebase — Firestore rules & indexes
+### 3b) Firebase Hosting — required for GitHub / redirect OAuth
+
+The Auth redirect page at `https://<project-id>.firebaseapp.com/__/auth/handler` loads **`__/firebase/init.json`** from the same host. That file is a [reserved Hosting URL](https://firebase.google.com/docs/hosting/reserved-urls) and is **only served after you deploy Firebase Hosting** for the project. If `init.json` returns **404**, GitHub (and similar) link flows fail in the handler with a console error like `GET .../init.json 404`.
+
+After linking the CLI (`npx firebase login`) and with `.firebaserc` pointing at your project:
+
+```bash
+npm run firebase:deploy:hosting
+```
+
+This deploys the minimal static site in **`firebase-hosting-public/`** (the real app stays on Vercel). You only need to redeploy Hosting when you add Firebase web apps or change config in a way that requires updating reserved config (rare).
+
+### 3c) Firebase — Firestore rules & indexes
 
 The repo includes **`firestore.rules`** and **`firestore.indexes.json`**. After cloning or changing them, deploy to your **production** Firebase project (same project as `NEXT_PUBLIC_FIREBASE_PROJECT_ID`):
 
@@ -162,6 +174,7 @@ If a query fails at runtime, the browser or server log usually links to the **Fi
 
 | Item | Notes |
 |------|--------|
+| Hosting deployed | Run `npm run firebase:deploy:hosting` so `__/firebase/init.json` exists for the Auth redirect handler (GitHub / `linkWithRedirect`). |
 | Rules deployed | Client SDK needs rules that allow **your own** `users/{uid}`, **`builder_profiles/{uid}`** writes, and **`projects`** for your `builder_id`. The default in this repo matches the app; **deny-all** rules break sign-in/settings. |
 | Admin env on Vercel | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (multiline key: paste with `\n` for newlines, or use JSON service account in a secret manager). |
 | Client env | All `NEXT_PUBLIC_FIREBASE_*` vars from the Firebase project settings. |

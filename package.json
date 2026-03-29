@@ -13,6 +13,7 @@
     "vercel:prod": "vercel --prod",
     "vercel:env-sync": "node scripts/sync-vercel-env.mjs",
     "firebase:deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes",
+    "firebase:deploy:hosting": "firebase deploy --only hosting",
     "firebase:deploy:storage": "firebase deploy --only storage",
     "firebase:check:auth": "node scripts/check-firebase-auth-config.mjs"
   },

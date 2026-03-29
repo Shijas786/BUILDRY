@@ -1,4 +1,5 @@
 .vercel
+.firebase/
 .DS_Store
 *.tsbuildinfo
 .env*.local

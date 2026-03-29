@@ -36,8 +36,12 @@ function effectiveGithubLogin(profile: Record<string, unknown> | null | undefine
     normalizeGithubLogin(profile.githubUsername as string | undefined)
   if (u) return u
   const gd = profile.github_data as Record<string, unknown> | undefined
-  const login = gd && typeof gd.login === 'string' ? normalizeGithubLogin(gd.login) : null
-  return login
+  if (!gd || typeof gd !== 'object') return null
+  const fromLogin =
+    normalizeGithubLogin(typeof gd.login === 'string' ? gd.login : undefined) ||
+    normalizeGithubLogin(typeof gd.username === 'string' ? gd.username : undefined)
+  if (fromLogin) return fromLogin
+  return normalizeGithubLogin(typeof gd.html_url === 'string' ? gd.html_url : undefined)
 }
 
 export type BuilderProfilePayload = Awaited<ReturnType<typeof loadBuilderProfilePayload>>
