@@ -779,13 +779,11 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
           ...(pr.githubUsername ? { github_username: pr.githubUsername } : {}),
           ...(pr.githubData && Object.keys(pr.githubData).length > 0 ? { github_data: pr.githubData } : {}),
         }))
-        setActiveTab('socials')
-        setOauthReturnBanner({
-          kind: 'ok',
-          msg: pr.githubUsername
+        setSocialHint(
+          pr.githubUsername
             ? `GitHub connected as @${pr.githubUsername}.`
-            : 'GitHub linked. Enter your username above and Save if it did not auto-fill.',
-        })
+            : 'GitHub linked. Enter your username above and Save if it did not auto-fill.'
+        )
         return
       }
       if (pr.errorCode === 'auth/popup-blocked') {
