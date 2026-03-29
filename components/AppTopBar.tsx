@@ -222,7 +222,11 @@ export function NavbarAccountCluster({
   const signedInHeadline = forSidebar
     ? user?.name?.trim() || 'Builder'
     : user?.name?.trim() || walletLine || 'Builder'
-  const profileHref = profileUsername ? `/profile/${profileUsername}` : '/settings'
+  const profileHref = profileUsername
+    ? `/profile/${encodeURIComponent(profileUsername)}`
+    : user?.id
+      ? `/profile/${encodeURIComponent(user.id)}`
+      : '/settings'
 
   useEffect(() => {
     if (!user?.id || !isFirebaseConfigured || !firebaseDb) {
