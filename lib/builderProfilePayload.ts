@@ -31,7 +31,9 @@ import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 
 function effectiveGithubLogin(profile: Record<string, unknown> | null | undefined): string | null {
   if (!profile) return null
-  const u = normalizeGithubLogin(profile.github_username as string | undefined)
+  const u =
+    normalizeGithubLogin(profile.github_username as string | undefined) ||
+    normalizeGithubLogin(profile.githubUsername as string | undefined)
   if (u) return u
   const gd = profile.github_data as Record<string, unknown> | undefined
   const login = gd && typeof gd.login === 'string' ? normalizeGithubLogin(gd.login) : null

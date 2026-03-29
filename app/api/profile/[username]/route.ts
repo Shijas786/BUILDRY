@@ -7,6 +7,9 @@ export async function GET(
 ) {
   const body = await loadBuilderProfilePayload(params.username)
   return NextResponse.json(body, {
-    headers: { 'Cache-Control': 's-maxage=120, stale-while-revalidate=60' },
+    headers: {
+      // Short CDN TTL so token/env fixes show up quickly; browsers should also skip cache (see profile page fetch).
+      'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=60',
+    },
   })
 }

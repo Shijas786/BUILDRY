@@ -347,8 +347,8 @@ export default function ProfilePage() {
   }>({ status: 'idle' })
 
   useEffect(() => {
-    fetch(`/api/profile/${username}`)
-      .then(r => r.json())
+    fetch(`/api/profile/${encodeURIComponent(username)}`, { cache: 'no-store' })
+      .then((r) => r.json())
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false))
