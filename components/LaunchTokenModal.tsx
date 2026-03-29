@@ -154,8 +154,8 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
             <div className="space-y-4 pt-4">
                {[
                  { label: 'Blockchain', val: 'Solana (Mainnet)' },
-                 { label: 'Platform Fee', val: '0.05 SOL' },
-                 { label: 'Reputation Tie', val: 'Verified Identity' },
+                 { label: 'Fee share (est.)', val: '1% Buildry · 99% creator' },
+                 { label: 'Reputation tie', val: 'Verified identity' },
                ].map((item, i) => (
                  <div key={i} className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>

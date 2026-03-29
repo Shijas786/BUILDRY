@@ -25,15 +25,21 @@ export type BuilderContributionsSnapshot = {
   } | null
   solana: {
     wallet: string | null
-    /** Sampled tx count from Helius (limited page). */
+    /** How many verified Solana addresses were summed. */
+    verifiedWalletCount: number
+    /** Sampled tx count from Helius (limited page), summed across verified Solana wallets. */
     heliusTransactionsSampled: number
-    /** Heuristic from recent txs (deploy/create patterns). */
+    /** Heuristic from recent txs (deploy/create patterns), summed across wallets. */
     programsDeployedEstimate: number
     walletAgeDaysEstimate: number
   }
   evm: {
     wallet: string | null
-    /** Heuristic: contract-creation style txs (Etherscan). */
+    /** How many verified EVM addresses were summed. */
+    verifiedWalletCount: number
+    /** Outgoing / sampled tx counts summed across verified EVM wallets (Alchemy + Etherscan). */
+    transactionCountEstimate: number
+    /** Heuristic: contract-creation style txs, summed across wallets. */
     contractsDeployedEstimate: number
     walletAgeDaysEstimate: number
   }
@@ -62,6 +68,8 @@ export function buildContributionsSnapshot(params: {
   /** Languages from imported repos (when user API failed). */
   githubLanguagesFromRepos?: string[]
   postsCount: number
+  verifiedSolanaWalletCount: number
+  verifiedEvmWalletCount: number
 }): BuilderContributionsSnapshot {
   const gh = params.githubStats
   const ghc = params.githubContributionSummary
@@ -93,12 +101,15 @@ export function buildContributionsSnapshot(params: {
       : null,
     solana: {
       wallet: params.wallet,
+      verifiedWalletCount: params.verifiedSolanaWalletCount,
       heliusTransactionsSampled: params.heliusTxns,
       programsDeployedEstimate: params.solanaDeployments.deployedPrograms,
       walletAgeDaysEstimate: params.solanaDeployments.walletAgeDays,
     },
     evm: {
       wallet: params.evmWallet,
+      verifiedWalletCount: params.verifiedEvmWalletCount,
+      transactionCountEstimate: params.evmDeployments.transactionCount,
       contractsDeployedEstimate: params.evmDeployments.deployedContracts,
       walletAgeDaysEstimate: params.evmDeployments.walletAgeDays,
     },

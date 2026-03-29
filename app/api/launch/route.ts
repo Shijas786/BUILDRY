@@ -10,22 +10,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing required token fields.' }, { status: 400 })
     }
 
-    // Version 3.1 Architecture: Proof-Backed Launchpad & Freelance Hub
-    // Instead of charging massive protocol fees, Buildry takes a 1-2% stake 
-    // in the builder's token success. The remaining fees are algorithmically 
-    // reinvested into liquidity and visibility to create sustainable token value.
+    // Simulated fee split (real launches use app/actions/bags.ts + PLATFORM_FEE_BPS).
     const bagsFeeConfig = {
       tokenMint: 'derived_mint_address',
       feeClaimers: [
         {
           provider: 'wallet',
           address: 'REPU_TREASURY_STAKE_ADDRESS',
-          bps: 150 // 1.5% protocol stake (Aligning incentives: we only win if they succeed)
+          bps: 100 // 1% protocol fee share
         },
         {
           provider: 'twitter',
           id: builderTwitter || 'unknown',
-          bps: 9850 // 98.5% reinvested organically back to the builder and liquidity loops
+          bps: 9900 // remainder to builder side of the split
         }
       ]
     }

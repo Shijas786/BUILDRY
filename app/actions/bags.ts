@@ -22,10 +22,10 @@ export async function prepareLaunchTransaction(
     const bags = new BagsSDK(apiKey, connection)
     const walletPk = new PublicKey(walletBase58)
     const platformWalletBase58 = process.env.PLATFORM_TREASURY_WALLET?.trim()
-    const platformFeeRaw = Number(process.env.PLATFORM_FEE_BPS ?? 150)
+    const platformFeeRaw = Number(process.env.PLATFORM_FEE_BPS ?? 100)
     const platformFeeBps = Number.isFinite(platformFeeRaw)
       ? Math.max(0, Math.min(10000, Math.floor(platformFeeRaw)))
-      : 150
+      : 100
 
     const feeClaimers: { user: PublicKey; userBps: number }[] = []
     if (platformWalletBase58 && platformFeeBps > 0) {

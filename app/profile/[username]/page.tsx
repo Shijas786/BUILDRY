@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
 import { useAuth } from '@/context/AuthProvider'
 import ProfileActivitySection from '@/components/ProfileActivitySection'
+import BagsLaunchBadge from '@/components/BagsLaunchBadge'
 import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
@@ -77,74 +78,119 @@ function BuilderContributionsGrid({ c }: { c: BuilderContributionsSnapshot | und
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-3">
         Ship log <span className="font-normal normal-case text-slate-400">(public signals, estimates)</span>
       </p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {c.github && (
-          <>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">GitHub repos</p>
-              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.publicRepos}</p>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stars received</p>
-              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.totalStars.toLocaleString()}</p>
-            </div>
-            {c.github.graphqlCommitContributionsTotal != null && (
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                  Commits (GitHub graph)
-                </p>
-                <p className="text-lg font-black text-slate-900 tabular-nums">
-                  {c.github.graphqlCommitContributionsTotal.toLocaleString()}
-                </p>
-                <p className="text-[9px] text-slate-400 mt-0.5">
-                  {c.github.graphqlCommitContributionsYears?.length
-                    ? `totalCommitContributions · last ${c.github.graphqlCommitContributionsYears.length} calendar yrs`
-                    : 'totalCommitContributions (GraphQL)'}
-                </p>
-              </div>
+      <div className="flex flex-col gap-6 md:flex-row md:items-stretch md:gap-0">
+        {/* Code + Buildry product signals */}
+        <div className="min-w-0 flex-1 md:pr-6">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+            Code &amp; projects
+          </p>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            {c.github && (
+              <>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">GitHub repos</p>
+                  <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.publicRepos}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stars received</p>
+                  <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.totalStars.toLocaleString()}</p>
+                </div>
+                {c.github.graphqlCommitContributionsTotal != null && (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      Commits (GitHub graph)
+                    </p>
+                    <p className="text-lg font-black text-slate-900 tabular-nums">
+                      {c.github.graphqlCommitContributionsTotal.toLocaleString()}
+                    </p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">
+                      {c.github.graphqlCommitContributionsYears?.length
+                        ? `totalCommitContributions · last ${c.github.graphqlCommitContributionsYears.length} calendar yrs`
+                        : 'totalCommitContributions (GraphQL)'}
+                    </p>
+                  </div>
+                )}
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">365d activity</p>
+                  <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.activityPoints365d}</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5">from public events (not raw commits)</p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active days</p>
+                  <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.activeDays365d}</p>
+                </div>
+              </>
             )}
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">365d activity</p>
-              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.activityPoints365d}</p>
-              <p className="text-[9px] text-slate-400 mt-0.5">from public events (not raw commits)</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Projects listed</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.projects.total}</p>
+              <p className="text-[9px] text-slate-400 mt-0.5">
+                {c.projects.manual} manual · {c.projects.fromGitHub} GitHub
+              </p>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Active days</p>
-              <p className="text-lg font-black text-slate-900 tabular-nums">{c.github.activeDays365d}</p>
-            </div>
-          </>
-        )}
-        <div className="p-3 rounded-xl bg-violet-50/50 border border-violet-100">
-          <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-1">Solana · Helius</p>
-          <p className="text-lg font-black text-slate-900 tabular-nums">{c.solana.heliusTransactionsSampled}</p>
-          <p className="text-[9px] text-slate-500 mt-0.5">tx sample</p>
-          {c.solana.wallet && (
-            <p className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={c.solana.wallet}>
-              {shortAddr(c.solana.wallet)}
-            </p>
-          )}
+          </div>
         </div>
-        <div className="p-3 rounded-xl bg-violet-50/50 border border-violet-100">
-          <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-1">Programs (est.)</p>
-          <p className="text-lg font-black text-slate-900 tabular-nums">{c.solana.programsDeployedEstimate}</p>
-          <p className="text-[9px] text-slate-500 mt-0.5">deploy/create heuristic</p>
-        </div>
-        <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
-          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">EVM contracts (est.)</p>
-          <p className="text-lg font-black text-slate-900 tabular-nums">{c.evm.contractsDeployedEstimate}</p>
-          <p className="text-[9px] text-slate-500 mt-0.5">Etherscan mainnet</p>
-          {c.evm.wallet && (
-            <p className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={c.evm.wallet}>
-              {shortAddr(c.evm.wallet)}
-            </p>
-          )}
-        </div>
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Projects listed</p>
-          <p className="text-lg font-black text-slate-900 tabular-nums">{c.projects.total}</p>
-          <p className="text-[9px] text-slate-400 mt-0.5">
-            {c.projects.manual} manual · {c.projects.fromGitHub} GitHub
+
+        <div
+          className="h-1.5 shrink-0 rounded-full bg-slate-900 md:hidden"
+          aria-hidden
+        />
+        <div
+          className="hidden w-1.5 shrink-0 rounded-full bg-slate-900 md:block self-stretch min-h-[8rem]"
+          aria-hidden
+        />
+
+        {/* On-chain footprint */}
+        <div className="min-w-0 flex-1 md:pl-6">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+            On-chain footprint
           </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-xl bg-violet-50/50 border border-violet-100">
+              <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-1">Solana · Helius</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.solana.heliusTransactionsSampled}</p>
+              <p className="text-[9px] text-slate-500 mt-0.5">
+                tx sample
+                {c.solana.verifiedWalletCount > 1 ? ` · ${c.solana.verifiedWalletCount} wallets` : ''}
+              </p>
+              {c.solana.wallet && (
+                <p className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={c.solana.wallet}>
+                  {shortAddr(c.solana.wallet)}
+                </p>
+              )}
+            </div>
+            <div className="p-3 rounded-xl bg-violet-50/50 border border-violet-100">
+              <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-1">Programs (est.)</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.solana.programsDeployedEstimate}</p>
+              <p className="text-[9px] text-slate-500 mt-0.5">
+                deploy/create heuristic
+                {c.solana.verifiedWalletCount > 1 ? ` · ${c.solana.verifiedWalletCount} wallets` : ''}
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+              <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">EVM txs (est.)</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">
+                {c.evm.transactionCountEstimate.toLocaleString()}
+              </p>
+              <p className="text-[9px] text-slate-500 mt-0.5">
+                nonces + L1 sample
+                {c.evm.verifiedWalletCount > 1 ? ` · ${c.evm.verifiedWalletCount} wallets` : ''}
+              </p>
+              {c.evm.wallet && (
+                <p className="text-[9px] font-mono text-slate-400 mt-1 truncate" title={c.evm.wallet}>
+                  {shortAddr(c.evm.wallet)}
+                </p>
+              )}
+            </div>
+            <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+              <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">EVM contracts (est.)</p>
+              <p className="text-lg font-black text-slate-900 tabular-nums">{c.evm.contractsDeployedEstimate}</p>
+              <p className="text-[9px] text-slate-500 mt-0.5">
+                Alchemy + Etherscan
+                {c.evm.verifiedWalletCount > 1 ? ` · ${c.evm.verifiedWalletCount} wallets` : ''}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -426,6 +472,8 @@ export default function ProfilePage() {
   }
 
   const hasTokens = (data?.tokens?.length || 0) > 0
+  const primaryBagsMint =
+    hasTokens && data?.tokens?.[0]?.mint ? String(data.tokens[0].mint) : null
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'posts', label: 'Posts', count: data?.posts.length },
     { id: 'projects', label: 'Projects', count: data?.projects.length },
@@ -458,27 +506,31 @@ export default function ProfilePage() {
       <div className="max-w-6xl mx-auto px-6 md:px-8 -mt-16 sm:-mt-[4.5rem] md:-mt-20 relative z-10">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 md:p-8 mb-6">
         <div className="flex items-end gap-6 mb-5">
-          <div className="w-28 h-28 rounded-3xl bg-white border-4 border-white shadow-xl overflow-hidden shrink-0">
-            {(p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl) ? (
-              <img
-                src={p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-slate-100 flex items-center justify-center text-3xl font-black text-slate-300">
-                {(p.username || '?').charAt(0).toUpperCase()}
-              </div>
-            )}
+          <div className="relative shrink-0">
+            <div className="w-28 h-28 rounded-3xl bg-white border-4 border-white shadow-xl overflow-hidden">
+              {(p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl) ? (
+                <img
+                  src={p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-slate-100 flex items-center justify-center text-3xl font-black text-slate-300">
+                  {(p.username || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            {hasTokens && <BagsLaunchBadge mint={primaryBagsMint} variant="float" />}
           </div>
           <div className="flex-1 min-w-0 pb-2">
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
               <h1 className="text-3xl font-black text-slate-900 tracking-tight truncate">
                 {p.username || p.users?.name || username}
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-50 text-slate-400 ring-1 ring-slate-200">
                 {p.users?.account_type || 'builder'}
               </span>
+              {hasTokens && <BagsLaunchBadge mint={primaryBagsMint} variant="inline" />}
             </div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-300 mb-1">@{p.username || username}</p>
             {p.tagline && <p className="text-sm text-slate-500 truncate">{p.tagline}</p>}
@@ -542,40 +594,6 @@ export default function ProfilePage() {
         />
 
         <AiBuilderNarrative state={aiNarrative} />
-
-        {/* Reputation stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <InfoGroup
-            title="Activity"
-            items={[
-              {
-                label: 'GitHub (365d)',
-                value: data?.contributions?.github?.activityPoints365d ?? data?.githubContributionSummary?.totalContributions ?? 0,
-              },
-              { label: 'Followers', value: data?.followersCount || 0 },
-            ]}
-          />
-          <InfoGroup
-            title="Code Proof"
-            items={[
-              {
-                label: 'GitHub Stars',
-                value: github?.totalStars ?? data?.contributions?.github?.totalStars ?? p.github_stars ?? 0,
-              },
-              {
-                label: 'Repos',
-                value: github?.publicRepos ?? data?.contributions?.github?.publicRepos ?? p.github_repos ?? 0,
-              },
-            ]}
-          />
-          <InfoGroup
-            title="Onchain Footprint"
-            items={[
-              { label: 'Onchain Txns', value: onchain?.transactions || p.sol_transactions || 0 },
-              { label: 'EVM Contracts', value: onchain?.evmDeployments?.deployedContracts || 0 },
-            ]}
-          />
-        </div>
 
         <BuilderContributionsGrid c={data?.contributions} />
 
@@ -653,19 +671,6 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
       <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">{label}</p>
       <p className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-    </div>
-  )
-}
-
-function InfoGroup({ title, items }: { title: string; items: { label: string; value: number | string }[] }) {
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4">
-      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-3">{title}</p>
-      <div className="grid grid-cols-2 gap-3">
-        {items.map((item) => (
-          <StatCard key={item.label} label={item.label} value={item.value} />
-        ))}
-      </div>
     </div>
   )
 }

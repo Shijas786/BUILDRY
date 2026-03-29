@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useAuth } from '@/context/AuthProvider'
 import { firebaseAuth, firebaseDb, firebaseStorage, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { FS } from '@/lib/firestoreCollections'
 import { onAuthStateChanged } from 'firebase/auth'
-import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { addDoc, collection, deleteField, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore'
 import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
@@ -67,6 +67,24 @@ export default function SettingsPage() {
   })
   const [projects, setProjects] = useState<any[]>([])
   const [showAddProject, setShowAddProject] = useState(false)
+
+  /** Deep link from /projects: `/settings?tab=projects&add=1` opens the add-project form. */
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return
+    const q = new URLSearchParams(window.location.search)
+    const tab = q.get('tab')
+    const add = q.get('add')
+    if (tab === 'projects' || add === '1') {
+      setActiveTab('projects')
+    }
+    if (add === '1') {
+      setShowAddProject(true)
+    }
+    if (tab || add) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
   const completionScore = [
     profile.username,
     profile.bio,
@@ -1276,19 +1294,22 @@ function SkillsTab({ profile, setProfile }: { profile: any; setProfile: any }) {
 
 /* ─── Projects Tab ──────────────────────────────── */
 
+const PROJECT_FORM_EMPTY = {
+  title: '',
+  description: '',
+  github_url: '',
+  live_url: '',
+  category: 'DeFi',
+  status: 'building',
+  tags: '',
+  image_url: '',
+}
+
 function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
   projects: any[]; setProjects: any; showAdd: boolean; setShowAdd: any; userId?: string
 }) {
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    github_url: '',
-    live_url: '',
-    category: 'DeFi',
-    status: 'building',
-    tags: '',
-    image_url: '',
-  })
+  const [form, setForm] = useState({ ...PROJECT_FORM_EMPTY })
+  const [editingId, setEditingId] = useState<string | null>(null)
   const projectImageRef = useRef<HTMLInputElement>(null)
   const [projectImageUploading, setProjectImageUploading] = useState(false)
   const [projectImageErr, setProjectImageErr] = useState<string | null>(null)
@@ -1336,6 +1357,83 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
     }
   }
 
+  const closeProjectForm = () => {
+    setEditingId(null)
+    setShowAdd(false)
+    setForm({ ...PROJECT_FORM_EMPTY })
+    setProjectImageErr(null)
+  }
+
+  const toggleAddProject = () => {
+    if (showAdd && editingId === null) {
+      closeProjectForm()
+      return
+    }
+    setEditingId(null)
+    setForm({ ...PROJECT_FORM_EMPTY })
+    setProjectImageErr(null)
+    setShowAdd(true)
+  }
+
+  const startEdit = (proj: any) => {
+    setShowAdd(false)
+    setEditingId(proj.id)
+    setForm({
+      title: proj.title || '',
+      description: proj.description || '',
+      github_url: proj.github_url || '',
+      live_url: proj.live_url || '',
+      category: proj.category || 'DeFi',
+      status: proj.status || 'building',
+      tags: Array.isArray(proj.tags) ? proj.tags.join(', ') : '',
+      image_url: proj.image_url || '',
+    })
+    setProjectImageErr(null)
+  }
+
+  const handleRemove = async (id: string) => {
+    if (!firebaseDb) return
+    if (!window.confirm('Remove this project from your profile?')) return
+    await deleteDoc(doc(firebaseDb, FS.PROJECTS, id))
+    setProjects((prev: any[]) => prev.filter((p: any) => p.id !== id))
+    if (editingId === id) closeProjectForm()
+  }
+
+  const handleUpdate = async () => {
+    if (!userId || !form.title || !firebaseDb || !editingId) return
+    const db = firebaseDb
+    const tags = form.tags.split(',').map((t) => t.trim()).filter(Boolean)
+    await updateDoc(doc(db, FS.PROJECTS, editingId), {
+      title: form.title,
+      description: form.description,
+      github_url: form.github_url || null,
+      live_url: form.live_url || null,
+      image_url: form.image_url || null,
+      category: form.category,
+      status: form.status,
+      tags,
+      updated_at: Date.now(),
+    })
+    setProjects((prev: any[]) =>
+      prev.map((p: any) =>
+        p.id === editingId
+          ? {
+              ...p,
+              title: form.title,
+              description: form.description,
+              github_url: form.github_url,
+              live_url: form.live_url,
+              image_url: form.image_url,
+              category: form.category,
+              status: form.status,
+              tags,
+            }
+          : p
+      )
+    )
+    closeProjectForm()
+  }
+
   const handleAdd = async () => {
     if (!userId || !form.title || !firebaseDb) return
     const db = firebaseDb
@@ -1366,33 +1464,28 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
       },
       ...prev,
     ])
-    setForm({
-      title: '',
-      description: '',
-      github_url: '',
-      live_url: '',
-      category: 'DeFi',
-      status: 'building',
-      tags: '',
-      image_url: '',
-    })
-    setProjectImageErr(null)
-    setShowAdd(false)
+    closeProjectForm()
   }
+
+  const formOpen = showAdd || editingId !== null
 
   return (
     <Section title="Your Projects">
       <p className="text-xs text-slate-400 mb-6">Showcase what you've built. Projects appear on your public profile.</p>
 
       <button
-        onClick={() => setShowAdd(!showAdd)}
+        type="button"
+        onClick={toggleAddProject}
         className="w-full py-5 mb-6 border border-dashed border-slate-200 hover:border-slate-300 hover:bg-white rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all"
       >
         + Add a Project
       </button>
 
-      {showAdd && (
+      {formOpen && (
         <div className="p-6 rounded-2xl border border-slate-200 bg-white mb-6 space-y-4 fade-in">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            {editingId ? 'Edit project' : 'New project'}
+          </p>
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Project image</p>
             <input
@@ -1471,10 +1564,16 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
               className="h-11 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none placeholder-slate-300" />
           </div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowAdd(false)} className="px-5 py-2 text-sm font-bold text-slate-400">Cancel</button>
-            <button onClick={handleAdd} disabled={!form.title || projectImageUploading}
-              className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-30">
-              Add Project
+            <button type="button" onClick={closeProjectForm} className="px-5 py-2 text-sm font-bold text-slate-400">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={editingId ? handleUpdate : handleAdd}
+              disabled={!form.title || projectImageUploading}
+              className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-30"
+            >
+              {editingId ? 'Save changes' : 'Add Project'}
             </button>
           </div>
         </div>
@@ -1489,13 +1588,25 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
       ) : (
         <div className="space-y-4">
           {projects.map((proj, i) => (
-            <div key={proj.id || i} className="p-5 rounded-2xl border border-slate-100 bg-white flex items-start justify-between gap-4">
+            <div
+              key={proj.id || i}
+              role="button"
+              tabIndex={0}
+              onClick={() => startEdit(proj)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  startEdit(proj)
+                }
+              }}
+              className="p-5 rounded-2xl border border-slate-100 bg-white flex items-start justify-between gap-4 cursor-pointer hover:border-slate-200 transition-colors text-left"
+            >
               {proj.image_url ? (
-                <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 pointer-events-none">
                   <img src={proj.image_url} alt="" className="w-full h-full object-cover" />
                 </div>
               ) : null}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 pointer-events-none">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`w-2 h-2 rounded-full ${proj.status === 'launched' ? 'bg-emerald-500' : proj.status === 'building' ? 'bg-amber-500' : 'bg-slate-300'}`} />
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{proj.status}</span>
@@ -1510,14 +1621,32 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
                     ))}
                   </div>
                 )}
+                <p className="text-[9px] font-bold text-slate-300 mt-2">Click to edit</p>
               </div>
-              <div className="flex items-center gap-3 shrink-0 ml-4">
-                {proj.github_url && (
-                  <a href={proj.github_url} target="_blank" rel="noopener" className="text-[10px] font-bold text-slate-400 hover:text-slate-600">GitHub</a>
-                )}
-                {proj.live_url && (
-                  <a href={proj.live_url} target="_blank" rel="noopener" className="text-[10px] font-bold text-blue-500 hover:text-blue-700">Live</a>
-                )}
+              <div
+                className="flex flex-col items-end gap-2 shrink-0 ml-4"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3">
+                  {proj.github_url && (
+                    <a href={proj.github_url} target="_blank" rel="noopener" className="text-[10px] font-bold text-slate-400 hover:text-slate-600">
+                      GitHub
+                    </a>
+                  )}
+                  {proj.live_url && (
+                    <a href={proj.live_url} target="_blank" rel="noopener" className="text-[10px] font-bold text-blue-500 hover:text-blue-700">
+                      Live
+                    </a>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(proj.id)}
+                  className="text-[10px] font-bold text-red-500 hover:text-red-700"
+                >
+                  Remove
+                </button>
               </div>
             </div>
           ))}

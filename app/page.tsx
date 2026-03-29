@@ -121,7 +121,7 @@ export default function LandingPage() {
             />
             <FeatureCard
               title="Token Launch"
-              description="Launch your project's token via Bags Protocol with 1-click. Trading fees are algorithmically reinvested."
+              description="Launch your token via Bags with one flow. Trading fees follow your Bags rules—often reinforcing liquidity and backers."
               tag="Web3"
             />
             <FeatureCard

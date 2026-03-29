@@ -86,10 +86,14 @@ SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 # Bags
 BAGS_API_KEY=
 PLATFORM_TREASURY_WALLET=
-PLATFORM_FEE_BPS=150
+PLATFORM_FEE_BPS=100
 
 # Reputation / data providers
 HELIUS_API_KEY=
+# Multi-chain EVM (outgoing nonce + transfer sample per network). Enable chains in Alchemy dashboard.
+ALCHEMY_API_KEY=
+# Optional: Zerion wallet APIs (tx history, portfolio, etc.) — https://developers.zerion.io
+ZERION_API_KEY=
 ETHERSCAN_API_KEY=
 NEYNAR_API_KEY=
 TAPESTRY_API_KEY=
@@ -111,7 +115,7 @@ Notes:
 - Keep `.env.local` out of git.
 - **Farcaster “Sign in” (QR / phone scan):** In the [Farcaster developer portal](https://farcaster.xyz/~/developers), the app domain must match the **exact hostname** users open (e.g. `buildry.in` **or** `www.buildry.in` — they are not interchangeable). Auth Kit now sends SIWE using `window.location.hostname` and `origin`, so if Warpcast shows **“Sign in failed”** after you tap Sign in, add the host you actually use to the Farcaster app, or redirect all traffic to one canonical host on Vercel. `NEXT_PUBLIC_APP_DOMAIN` is still used for SSR placeholders and docs; optional: `NEXT_PUBLIC_OPTIMISM_RPC_URL`, `NEXT_PUBLIC_FARCASTER_AUTH_RELAY`.
 - **Public profile “Connected profiles”:** LinkedIn uses stored OIDC fields (`linkedin_data`). GitHub merges the public GitHub API with the OAuth snapshot (`github_data`). Farcaster uses **Neynar** (`NEYNAR_API_KEY`) for live followers/bio when possible; without a key, the card still shows data saved at connect time.
-- **Ship log + AI snapshot:** `/api/profile/[user]` includes a **`contributions`** object (GitHub repos/stars/365d public-activity score from events, optional GraphQL **`totalCommitContributions`** sum over the last five calendar years when **`GITHUB_GRAPHQL_TOKEN`** or **`GITHUB_TOKEN`** is set, Helius-sampled Solana txs + deploy heuristic, Etherscan-mainnet contract-creation heuristic, project/post counts). **`ANTHROPIC_API_KEY`** enables a cached Claude “Builder snapshot” blurb that combines LinkedIn/GitHub/Farcaster hints with those signals (still factual, no key = UI explains how to enable).
+- **Ship log + AI snapshot:** `/api/profile/[user]` includes a **`contributions`** object (GitHub repos/stars/365d public-activity score from events, optional GraphQL **`totalCommitContributions`** sum over the last five calendar years when **`GITHUB_GRAPHQL_TOKEN`** or **`GITHUB_TOKEN`** is set, Helius-sampled Solana txs + deploy heuristic, optional **`ALCHEMY_API_KEY`** multi-chain EVM rollups, Etherscan-mainnet contract-creation + gas when **`ETHERSCAN_API_KEY`** is set, project/post counts). **`ANTHROPIC_API_KEY`** enables a cached Claude “Builder snapshot” blurb that combines LinkedIn/GitHub/Farcaster hints with those signals (still factual, no key = UI explains how to enable).
 
 ---
 

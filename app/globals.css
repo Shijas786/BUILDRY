@@ -181,6 +181,56 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Post-launch celebration */
+@keyframes launch-check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.launch-check-pop {
+  animation: launch-check-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes launch-confetti-fall {
+  0% {
+    transform: translate3d(0, -10%, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--dx, 0), 105vh, 0) rotate(640deg);
+    opacity: 0;
+  }
+}
+.launch-confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  top: -5%;
+  animation: launch-confetti-fall 2.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch-check-pop {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .launch-confetti-piece {
+    animation: none !important;
+    opacity: 0;
+  }
+}
+
 /* Animations */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(6px); }

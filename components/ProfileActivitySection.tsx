@@ -1,7 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
+import { chainIconSrc } from '@/lib/chainIcons'
 
 function InfoHint({ title }: { title?: string }) {
   return (
@@ -55,6 +56,31 @@ function BreakdownHeader() {
   )
 }
 
+export type ActivityBreakdownRow = { label: string; value: string; iconSrc?: string }
+
+function BreakdownRowIcon({ iconSrc, label }: { iconSrc?: string; label: string }) {
+  const [failed, setFailed] = useState(false)
+  const letter = label.replace(/[^a-zA-Z0-9]/g, '').charAt(0) || '·'
+  if (!iconSrc || failed) {
+    return (
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[8px] font-black uppercase text-slate-500 ring-1 ring-slate-200/80">
+        {letter}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={iconSrc}
+      alt=""
+      width={16}
+      height={16}
+      className="h-4 w-4 shrink-0 rounded-full object-cover ring-1 ring-slate-200/80 bg-white"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 function ActivityTile({
   title,
   titleHint,
@@ -66,7 +92,7 @@ function ActivityTile({
   title: string
   titleHint?: string
   primary: React.ReactNode
-  breakdown?: { label: string; value: string }[]
+  breakdown?: ActivityBreakdownRow[]
   footer?: string
   extra?: React.ReactNode
 }) {
@@ -80,10 +106,10 @@ function ActivityTile({
       {breakdown && breakdown.length > 0 && (
         <div className="space-y-3">
           <BreakdownHeader />
-          {breakdown.map((row) => (
-            <div key={row.label} className="flex items-center justify-between gap-3 text-[11px]">
+          {breakdown.map((row, idx) => (
+            <div key={`${idx}-${row.label}`} className="flex items-center justify-between gap-3 text-[11px]">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="h-4 w-4 shrink-0 rounded border border-slate-200 bg-slate-50" />
+                <BreakdownRowIcon iconSrc={row.iconSrc} label={row.label} />
                 <span className="truncate font-bold text-slate-600">{row.label}</span>
               </div>
               <span className="shrink-0 font-black tabular-nums text-slate-900">{row.value}</span>
@@ -125,6 +151,10 @@ export default function ProfileActivitySection({
   const gasEth = onchain?.evmDeployments?.gasEthEstimate as string | null | undefined
   const solPrograms = onchain?.solanaDeployments?.deployedPrograms ?? 0
   const evmContracts = onchain?.evmDeployments?.deployedContracts ?? 0
+  const evmChainsQueried = onchain?.evmDeployments?.evmChainsQueried
+  const evmByChain = onchain?.evmDeployments?.evmByChain
+  const verifiedSolWallets = onchain?.verifiedSolanaWalletCount ?? (onchain?.wallet ? 1 : 0)
+  const verifiedEvmWallets = onchain?.verifiedEvmWalletCount ?? (onchain?.evmWallet ? 1 : 0)
 
   const commitTotal = contributions?.github?.graphqlCommitContributionsTotal
   const activity365 = contributions?.github?.activityPoints365d ?? githubContributionSummary?.totalContributions ?? 0
@@ -150,6 +180,21 @@ export default function ProfileActivitySection({
   const totalTxDisplay = solTx + evmTx
   const gasPrimary = gasEth != null && gasEth !== '' ? `${gasEth} ETH` : '—'
 
+  const walletRollupNote =
+    verifiedEvmWallets > 1 || verifiedSolWallets > 1
+      ? ` Summed across ${verifiedSolWallets} verified Solana and ${verifiedEvmWallets} verified EVM address(es).`
+      : ''
+
+  const evmTxHint =
+    evmChainsQueried != null && evmChainsQueried > 0
+      ? `EVM: summed outgoing tx count (nonce) across ~${evmChainsQueried} Alchemy networks per address, plus Ethereum L1 sample from Etherscan when configured — not one uniform metric.`
+      : 'Ethereum: last page from Etherscan (not full lifetime). Enable ALCHEMY_API_KEY for multi-chain EVM nonces.'
+
+  const evmDeployHint =
+    evmChainsQueried != null && evmChainsQueried > 0
+      ? 'EVM: Zerion (when `ZERION_API_KEY` is set) counts `deploy` operations across chains; we take the higher of that total and Alchemy/Etherscan heuristics. L2: Alchemy null-`to` transfers (incl. zero-ETH). L1: Etherscan `contractAddress` / empty `to` in the tx sample.'
+      : 'EVM: With Zerion, `deploy` txs are counted multi-chain; otherwise Ethereum uses Etherscan creation rows in the sample.'
+
   return (
     <div className="space-y-10">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -171,23 +216,44 @@ export default function ProfileActivitySection({
 
         <ActivityTile
           title="Total transactions"
-          titleHint="Solana: recent sample from Helius. Ethereum: last page from Etherscan (not a full lifetime count)."
+          titleHint={`Solana: Helius tx sample per verified wallet, summed.${walletRollupNote} ${evmTxHint}`}
           primary={totalTxDisplay.toLocaleString()}
           breakdown={[
-            { label: 'Solana (sample)', value: Number(solTx).toLocaleString() },
-            { label: 'Ethereum L1 (recent)', value: Number(evmTx).toLocaleString() },
+            {
+              label: `Solana (sample${verifiedSolWallets > 1 ? ` · ${verifiedSolWallets} wallets` : ''})`,
+              value: Number(solTx).toLocaleString(),
+              iconSrc: chainIconSrc('solana'),
+            },
+            {
+              label: `EVM (rollup${verifiedEvmWallets > 1 ? ` · ${verifiedEvmWallets} wallets` : ''})`,
+              value: Number(evmTx).toLocaleString(),
+              iconSrc: chainIconSrc('eth-mainnet'),
+            },
+            ...(evmByChain && evmByChain.length
+              ? evmByChain.slice(0, 8).map(
+                  (c: { name: string; slug: string; transactionCount: number; deployedContracts: number }) => ({
+                    label: c.name,
+                    value: `${c.transactionCount} tx · ${c.deployedContracts} deploy est.`,
+                    iconSrc: chainIconSrc(c.slug),
+                  })
+                )
+              : []),
+            ...(evmByChain && evmByChain.length > 8
+              ? [{ label: '…', value: `+${evmByChain.length - 8} more chains` }]
+              : []),
           ]}
-          footer="Recent sample"
+          footer={evmChainsQueried != null ? `${evmChainsQueried} EVM networks queried` : 'Recent sample'}
         />
 
         <ActivityTile
           title="Gas fees (est.)"
-          titleHint="Sum of gasUsed × gasPrice for Ethereum L1 txs returned by Etherscan (up to 1000)."
+          titleHint={`Sum of gasUsed × gasPrice for Ethereum L1 txs from Etherscan (up to 1000 per verified EVM wallet).${walletRollupNote}`}
           primary={gasPrimary}
           breakdown={[
             {
               label: 'Ethereum L1',
               value: gasEth != null && gasEth !== '' ? `${gasEth} ETH` : '—',
+              iconSrc: chainIconSrc('etherscan-mainnet'),
             },
           ]}
           footer="Etherscan window"
@@ -195,13 +261,21 @@ export default function ProfileActivitySection({
 
         <ActivityTile
           title="Deployments (est.)"
-          titleHint="Solana: deploy/create-style txs in sample. Ethereum: contract-creation txs in returned list."
+          titleHint={`Solana: deploy/create-style txs in Helius sample, summed per wallet.${walletRollupNote} ${evmDeployHint}`}
           primary={(solPrograms + evmContracts).toLocaleString()}
           breakdown={[
-            { label: 'Solana programs (est.)', value: `${solPrograms}` },
-            { label: 'Ethereum contracts (est.)', value: `${evmContracts}` },
+            {
+              label: `Solana programs (est.${verifiedSolWallets > 1 ? ` · ${verifiedSolWallets} wallets` : ''})`,
+              value: `${solPrograms}`,
+              iconSrc: chainIconSrc('solana'),
+            },
+            {
+              label: `EVM contracts (est.${verifiedEvmWallets > 1 ? ` · ${verifiedEvmWallets} wallets` : ''})`,
+              value: `${evmContracts}`,
+              iconSrc: chainIconSrc('eth-mainnet'),
+            },
           ]}
-          footer="Heuristic · recent data"
+          footer="Heuristic · sampled"
         />
 
         <ActivityTile

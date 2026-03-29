@@ -13,6 +13,8 @@ import {
   getHeliusTransactions,
   getSolanaDeploymentStats,
   getEvmDeploymentStats,
+  mergeEvmDeploymentStats,
+  mergeSolanaDeploymentStats,
 } from '@/lib/trust'
 import { getTokensByCreator } from '@/lib/bags'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
@@ -27,7 +29,7 @@ import {
   parseFarcasterHandle,
 } from '@/lib/socialShowcase'
 import { buildContributionsSnapshot } from '@/lib/builderContributions'
-import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
+import { allVerifiedWalletsFromProfile, primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 import { enrichGithubReposWithReadmeSummaries } from '@/lib/repoReadmeSummary'
 
@@ -147,9 +149,34 @@ export async function loadBuilderProfilePayload(username: string) {
     }
   }
 
-  const { sol_wallet: wallet, evm_wallet: evmWallet } = primaryWalletsFromProfile(
+  const primary = primaryWalletsFromProfile(profile as Record<string, unknown> | null | undefined)
+  const wallet = primary.sol_wallet
+  const evmWallet = primary.evm_wallet
+  const { solAddresses, evmAddresses } = allVerifiedWalletsFromProfile(
     profile as Record<string, unknown> | null | undefined
   )
+
+  const heliusAggregatedPromise =
+    solAddresses.length > 0
+      ? Promise.all(solAddresses.map((a) => getHeliusTransactions(a))).then((counts) =>
+          counts.reduce((s, n) => s + n, 0)
+        )
+      : Promise.resolve(0)
+
+  const solanaDeploymentsAggregatedPromise =
+    solAddresses.length > 0
+      ? Promise.all(solAddresses.map((a) => getSolanaDeploymentStats(a))).then(mergeSolanaDeploymentStats)
+      : Promise.resolve({ deployedPrograms: 0, walletAgeDays: 0 })
+
+  const evmDeploymentsAggregatedPromise =
+    evmAddresses.length > 0
+      ? Promise.all(evmAddresses.map((a) => getEvmDeploymentStats(a))).then(mergeEvmDeploymentStats)
+      : Promise.resolve({
+          deployedContracts: 0,
+          walletAgeDays: 0,
+          transactionCount: 0,
+          gasEthEstimate: null,
+        })
 
   const fcParsed = parseFarcasterHandle(profile?.farcaster_handle)
   const farcasterEnrichedPromise =
@@ -178,16 +205,9 @@ export async function loadBuilderProfilePayload(username: string) {
     ghLogin
       ? getGitHubCommitTotalsGraphqlWithMeta(ghLogin)
       : Promise.resolve({ totals: null } as GitHubGraphqlCommitsOutcome),
-    wallet ? getHeliusTransactions(wallet) : Promise.resolve(0),
-    wallet ? getSolanaDeploymentStats(wallet) : Promise.resolve({ deployedPrograms: 0, walletAgeDays: 0 }),
-    evmWallet
-      ? getEvmDeploymentStats(evmWallet)
-      : Promise.resolve({
-          deployedContracts: 0,
-          walletAgeDays: 0,
-          transactionCount: 0,
-          gasEthEstimate: null,
-        }),
+    heliusAggregatedPromise,
+    solanaDeploymentsAggregatedPromise,
+    evmDeploymentsAggregatedPromise,
     wallet ? getTokensByCreator(wallet) : Promise.resolve([]),
     farcasterEnrichedPromise,
   ])
@@ -271,6 +291,8 @@ export async function loadBuilderProfilePayload(username: string) {
     githubStarsFromRepos,
     githubLanguagesFromRepos,
     postsCount: posts.length,
+    verifiedSolanaWalletCount: solAddresses.length,
+    verifiedEvmWalletCount: evmAddresses.length,
   })
 
   return {
@@ -284,6 +306,8 @@ export async function loadBuilderProfilePayload(username: string) {
       transactions: heliusTxns,
       wallet,
       evmWallet,
+      verifiedSolanaWalletCount: solAddresses.length,
+      verifiedEvmWalletCount: evmAddresses.length,
       solanaDeployments,
       evmDeployments,
     },
