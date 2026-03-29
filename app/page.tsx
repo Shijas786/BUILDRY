@@ -6,7 +6,6 @@ import Navbar from '@/components/Navbar'
 import { useAuth } from '@/context/AuthProvider'
 import { useRouter } from 'next/navigation'
 import { openAuthModal } from '@/lib/openAuthModal'
-import TokenTicker from '@/components/TokenTicker'
 import BuildryWordmark from '@/components/BuildryWordmark'
 
 export default function LandingPage() {
@@ -19,14 +18,8 @@ export default function LandingPage() {
     }
   }, [user, loading, router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white text-slate-400 text-sm font-medium">
-        Loading…
-      </div>
-    )
-  }
-
+  // Do not gate the marketing page on auth `loading`. SSR and slow Firebase would otherwise
+  // leave everyone on a full-screen "Loading…" shell (see HTML view-source).
   if (user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-white text-slate-500 text-sm font-medium px-6">
@@ -39,9 +32,6 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 overflow-x-hidden">
       <Navbar />
-      <div className="max-w-6xl mx-auto px-8 pt-4">
-        <TokenTicker />
-      </div>
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-8 pt-32 pb-16 text-center relative">

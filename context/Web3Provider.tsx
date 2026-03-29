@@ -47,8 +47,9 @@ createAppKit({
     '--w3m-border-radius-master': '1px'
   },
   features: {
-    analytics: true
-  }
+    // Extra Reown/network work on every load; only enable in production.
+    analytics: process.env.NODE_ENV === 'production',
+  },
 })
 
 const queryClient = new QueryClient()

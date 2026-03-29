@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthProvider'
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
@@ -9,12 +10,17 @@ import BuildryWordmark from '@/components/BuildryWordmark'
 import { AppSearchField, NavbarAccountCluster } from '@/components/AppTopBar'
 
 export default function Navbar() {
-  const { user, loading } = useAuth()
+  const { user } = useAuth()
   const { address, isConnected } = useAppKitAccount()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'signup'>('login')
+  const [portalReady, setPortalReady] = useState(false)
 
   const isLoggedIn = !!user || (isConnected && !!address)
+
+  useEffect(() => {
+    setPortalReady(true)
+  }, [])
 
   useEffect(() => {
     const onOpenAuth = (e: Event) => {
@@ -40,9 +46,7 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          {loading ? (
-            <div className="h-10 w-24 rounded-xl bg-slate-50 animate-pulse" aria-hidden />
-          ) : isLoggedIn ? (
+          {isLoggedIn ? (
             <NavbarAccountCluster />
           ) : (
             <div className="flex items-center gap-3">
@@ -71,13 +75,16 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {showAuthModal && (
-        <AuthModal
-          key={authModalInitialMode}
-          initialMode={authModalInitialMode}
-          onClose={() => setShowAuthModal(false)}
-        />
-      )}
+      {showAuthModal &&
+        portalReady &&
+        createPortal(
+          <AuthModal
+            key={authModalInitialMode}
+            initialMode={authModalInitialMode}
+            onClose={() => setShowAuthModal(false)}
+          />,
+          document.body
+        )}
     </>
   )
 }
@@ -128,8 +135,11 @@ function AuthModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[10000] flex items-center justify-center p-4"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
     >
       <div
         className="bg-white rounded-3xl w-full max-w-md p-8 border border-slate-100 shadow-2xl fade-in"
@@ -139,7 +149,7 @@ function AuthModal({
           <div className="flex justify-center mb-4">
             <BuildryWordmark tone="dark" variant="full" className="max-w-[min(100%,320px)] sm:max-w-[360px]" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+          <h2 id="auth-modal-title" className="text-2xl font-black text-slate-900 tracking-tight">
             {mode === 'login' ? 'Welcome back' : 'Join Buildry'}
           </h2>
           <p className="text-sm text-slate-400 mt-1">Where founders build in public</p>

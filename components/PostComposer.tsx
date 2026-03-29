@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { useAuth } from '@/context/AuthProvider'
 import { firebaseStorage } from '@/lib/firebaseClient'
-import { uploadPostMediaFile, MAX_POST_MEDIA_MB } from '@/lib/uploadPostMediaClient'
+import { uploadPostMediaFile } from '@/lib/uploadPostMediaClient'
 
 const POST_TYPES = [
   { id: 'update', label: 'Update', color: 'bg-slate-100 text-slate-600' },
@@ -176,12 +176,6 @@ export default function PostComposer({ onPostCreated }: { onPostCreated?: () => 
                 </div>
               )}
               {mediaErr && <p className="text-[10px] font-medium text-red-600">{mediaErr}</p>}
-              {firebaseStorage && (
-                <p className="text-[10px] text-slate-400">
-                  Up to {MAX_POST_MEDIA_MB} MB per file. Large photos and oversized videos are compressed in your
-                  browser before upload (first video may download an encoder; compression can take a while).
-                </p>
-              )}
               {!firebaseStorage && (
                 <p className="text-[10px] text-amber-700">
                   Configure Firebase Storage to attach photos or videos to posts.

@@ -1,32 +1,59 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import BuilderCards from './BuilderCards'
 import mockProfiles from '@/lib/mockProfiles.json'
+import type { ExploreBuilderPublic } from '@/lib/exploreBuilders'
 
-function RightRail() {
-  const sortedProfiles = [...mockProfiles].sort((a, b) => {
-    const aScore =
-      a.builder_score?.points ||
-      (a.scores && (a.scores.find((s: any) => s.slug === 'builder_score_2025')?.points || 0)) ||
-      0
-    const bScore =
-      b.builder_score?.points ||
-      (b.scores && (b.scores.find((s: any) => s.slug === 'builder_score_2025')?.points || 0)) ||
-      0
-    return bScore - aScore
+type RailRow = ExploreBuilderPublic | (typeof mockProfiles)[number]
+
+function scoreFromExploreRow(p: RailRow): number {
+  const x = p as ExploreBuilderPublic & { scores?: { slug?: string; points?: number }[] }
+  return (
+    x.builder_score?.points ||
+    (x.scores && (x.scores.find((s) => s.slug === 'builder_score_2025')?.points || 0)) ||
+    0
+  )
+}
+
+function railDisplayName(p: RailRow): string {
+  const d = (p as { display_name?: string }).display_name
+  const n = (p as { name?: string }).name
+  return (typeof d === 'string' && d.trim()) || (typeof n === 'string' && n.trim()) || 'Builder'
+}
+
+function railProfileHref(p: RailRow): string {
+  if ('profileHref' in p && typeof (p as ExploreBuilderPublic).profileHref === 'string') {
+    return (p as ExploreBuilderPublic).profileHref
+  }
+  const slug = String((p as { name?: string }).name || '').replace(/^@/, '')
+  return `/builder/${encodeURIComponent(slug)}`
+}
+
+function RightRail({ firestoreBuilders }: { firestoreBuilders: ExploreBuilderPublic[] }) {
+  const mockOnly = mockProfiles.filter((m) => {
+    const h = String(m.name || '').trim().toLowerCase()
+    return h && !firestoreBuilders.some((f) => f.name.trim().toLowerCase() === h)
   })
+  const merged = [...firestoreBuilders, ...mockOnly].sort(
+    (a, b) => scoreFromExploreRow(b) - scoreFromExploreRow(a)
+  )
+  const sortedForRail: RailRow[] =
+    merged.length > 0
+      ? merged
+      : [...mockProfiles].sort((a, b) => scoreFromExploreRow(b) - scoreFromExploreRow(a))
 
-  const topBuilders = sortedProfiles.slice(0, 4).map((p) => ({
-    name: p.display_name || p.name || 'Builder',
-    avatar: p.image_url || '',
+  const topBuilders = sortedForRail.slice(0, 4).map((p) => ({
+    name: railDisplayName(p),
+    avatar: (p as { image_url?: string }).image_url || '',
     amount: '$ 3k',
+    href: railProfileHref(p),
   }))
 
-  const updates = sortedProfiles.slice(4, 8).map((p, i) => ({
-    name: p.display_name || p.name || `Builder-${i + 1}`,
-    text: i % 2 === 0 ? 'shipped module v3.1' : 'new grant approved',
+  const updates = sortedForRail.slice(4, 8).map((p, i) => ({
+    name: railDisplayName(p),
+    text: i % 2 === 0 ? 'Updated profile on Buildry' : 'Joined the talent board',
     time: `${24 + i * 7}m`,
   }))
 
@@ -39,9 +66,13 @@ function RightRail() {
           </h3>
           <div className="space-y-6">
             {topBuilders.map((p, i) => (
-              <div key={i} className="flex items-center justify-between group cursor-pointer transition-all">
-                <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 overflow-hidden">
+              <Link
+                key={`${p.href}-${i}`}
+                href={p.href}
+                className="flex items-center justify-between group cursor-pointer transition-all hover:opacity-90"
+              >
+                <div className="flex items-center gap-5 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0">
                     {p.avatar ? (
                       <img src={p.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -50,19 +81,19 @@ function RightRail() {
                       </div>
                     )}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-[12px] font-black text-slate-900 uppercase tracking-tight max-w-[140px] truncate">
                       {p.name}
                     </h4>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight mt-0.5">
-                      Decentralized Node
+                      Buildry builder
                     </p>
                   </div>
                 </div>
-                <div className="text-[12px] font-black text-slate-900 tabular-nums italic font-mono whitespace-nowrap">
+                <div className="text-[12px] font-black text-slate-900 tabular-nums italic font-mono whitespace-nowrap shrink-0">
                   {p.amount}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -105,12 +136,30 @@ export default function BuilderShowcaseSection({
   showRightRail = true,
   cta = { href: '/explore', label: 'Explore Map' },
 }: BuilderShowcaseSectionProps) {
+  const [exploreBuilders, setExploreBuilders] = useState<ExploreBuilderPublic[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/explore/builders')
+      .then((r) => r.json())
+      .then((j: { builders?: ExploreBuilderPublic[] }) => {
+        if (cancelled) return
+        setExploreBuilders(Array.isArray(j.builders) ? j.builders : [])
+      })
+      .catch(() => {
+        if (!cancelled) setExploreBuilders([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <section className="max-w-[1600px] mx-auto px-8 lg:px-12 pb-24">
       <div
         className={`grid grid-cols-1 gap-14 items-start ${showRightRail ? 'xl:grid-cols-[1fr,320px]' : ''}`}
       >
-        <div className="space-y-14">
+        <div className="space-y-10">
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between px-6 border-l-4 border-slate-900 py-2 gap-6">
             <div>
               <h2 className="text-4xl md:text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
@@ -139,7 +188,7 @@ export default function BuilderShowcaseSection({
           </div>
 
           <div className="px-1">
-            <div className="flex gap-4 mb-8 overflow-x-auto pb-2">
+            <div className="flex gap-3 mb-5 overflow-x-auto pb-2">
               {['All Builders', 'Top Score', 'New Launches', 'Open for Work', 'Trending Tokens'].map((tab, i) => (
                 <button
                   key={tab}
@@ -154,11 +203,11 @@ export default function BuilderShowcaseSection({
                 </button>
               ))}
             </div>
-            <BuilderCards />
+            <BuilderCards firestoreBuilders={exploreBuilders} />
           </div>
         </div>
 
-        {showRightRail ? <RightRail /> : null}
+        {showRightRail ? <RightRail firestoreBuilders={exploreBuilders} /> : null}
       </div>
     </section>
   )

@@ -47,6 +47,77 @@ export interface GitHubRepoProject {
   pushedAt: string
   updatedAt: string
   isFork: boolean
+  /** Repository topics (requires a modern GitHub Accept header on list repos). */
+  topics: string[]
+  homepage: string | null
+}
+
+const MAX_CARD_DESCRIPTION_LEN = 240
+
+const MAX_README_FETCH_CHARS = 14_000
+
+/**
+ * Decoded default branch README (Markdown/plain). Null when missing or on error.
+ * Truncated to keep AI prompts bounded.
+ */
+export async function getGitHubReadmePlainText(owner: string, repo: string): Promise<string | null> {
+  const o = normalizeGithubLogin(owner)
+  const name = typeof repo === 'string' ? repo.trim() : ''
+  if (!o || !name) return null
+  try {
+    const { data, status } = await axios.get<{ content?: string; encoding?: string }>(
+      `https://api.github.com/repos/${encodeURIComponent(o)}/${encodeURIComponent(name)}/readme`,
+      {
+        headers: githubRestHeaders(),
+        timeout: 12000,
+        validateStatus: (s) => s === 200 || s === 404,
+      }
+    )
+    if (status === 404 || !data?.content || data.encoding !== 'base64') return null
+    const raw = Buffer.from(String(data.content).replace(/\s/g, ''), 'base64').toString('utf8').trim()
+    if (!raw) return null
+    return raw.length > MAX_README_FETCH_CHARS ? raw.slice(0, MAX_README_FETCH_CHARS) : raw
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Prefer GitHub's short description; otherwise compose topics, website, language, and stars
+ * so profile cards are not all the same generic line.
+ */
+export function formatGithubRepoCardDescription(repo: GitHubRepoProject): string {
+  const raw = repo.description?.trim()
+  if (raw) {
+    return raw.length > MAX_CARD_DESCRIPTION_LEN
+      ? `${raw.slice(0, MAX_CARD_DESCRIPTION_LEN - 1)}…`
+      : raw
+  }
+  const bits: string[] = []
+  if (repo.topics?.length) {
+    const t = repo.topics.slice(0, 8)
+    bits.push(`${t.join(', ')}${repo.topics.length > 8 ? '…' : ''}`)
+  }
+  if (repo.homepage?.trim()) {
+    try {
+      const url = repo.homepage.match(/^https?:\/\//i)
+        ? repo.homepage.trim()
+        : `https://${repo.homepage.trim()}`
+      const host = new URL(url).hostname.replace(/^www\./, '')
+      if (host) bits.push(`Live site: ${host}`)
+    } catch {
+      bits.push('Has a linked website')
+    }
+  }
+  if (repo.language) bits.push(`${repo.language} repo`)
+  if (repo.stars > 0) {
+    bits.push(`${repo.stars.toLocaleString()} GitHub star${repo.stars === 1 ? '' : 's'}`)
+  }
+  if (repo.forks > 0) {
+    bits.push(`${repo.forks.toLocaleString()} fork${repo.forks === 1 ? '' : 's'}`)
+  }
+  if (bits.length) return bits.join(' · ')
+  return 'Public repository on GitHub.'
 }
 
 export interface GitHubContributionPoint {
@@ -107,7 +178,11 @@ export async function getGitHubRepoProjects(username: string): Promise<GitHubRep
     const { data: repos } = await axios.get(`https://api.github.com/users/${login}/repos`, {
       params: { per_page: 100, sort: 'updated' },
       timeout: 10000,
-      headers: githubRestHeaders(),
+      headers: {
+        ...githubRestHeaders(),
+        // Ensures `topics` (and full repo metadata) on list responses.
+        Accept: 'application/vnd.github+json',
+      },
     })
     const normalized: GitHubRepoProject[] = (repos || []).map((r: any) => ({
       id: r.id,
@@ -120,6 +195,8 @@ export async function getGitHubRepoProjects(username: string): Promise<GitHubRep
       pushedAt: r.pushed_at || '',
       updatedAt: r.updated_at || '',
       isFork: !!r.fork,
+      topics: Array.isArray(r.topics) ? r.topics.filter((x: unknown) => typeof x === 'string' && x.trim()) : [],
+      homepage: typeof r.homepage === 'string' && r.homepage.trim() ? r.homepage.trim() : null,
     }))
     return normalized
       .filter((r) => !r.isFork)

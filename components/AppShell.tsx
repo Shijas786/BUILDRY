@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore } from '@/store/role'
 import Sidebar from './Sidebar'
+import DeploymentTicker from './DeploymentTicker'
 
 const PUBLIC_ROUTES = ['/', '/auth']
 
@@ -25,11 +26,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <Sidebar />
       <main
-        className={`flex-1 min-h-screen transition-all duration-300 ${
+        className={`flex-1 min-h-screen transition-all duration-300 flex flex-col ${
           sidebarExpanded ? 'ml-[240px]' : 'ml-[68px]'
         }`}
       >
-        {children}
+        <DeploymentTicker />
+        <div className="flex-1 min-h-0">{children}</div>
       </main>
     </div>
   )

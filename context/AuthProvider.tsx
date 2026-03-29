@@ -27,6 +27,18 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
+function optimisticAppUser(authUser: FirebaseUser): AppUser {
+  return {
+    id: authUser.uid,
+    email: authUser.email ?? null,
+    name: authUser.displayName || authUser.email?.split('@')[0] || 'builder',
+    avatar_url: authUser.photoURL ?? null,
+    account_type: null,
+    wallet_address: null,
+    created_at: new Date().toISOString(),
+  }
+}
+
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<{ user: { id: string } } | null>(null)
   const [user, setUser] = useState<AppUser | null>(null)
@@ -67,33 +79,33 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const unsub = onAuthStateChanged(firebaseAuth, async (authUser) => {
+    // If Firestore getDoc/setDoc hangs, we still unblock the UI (not a browser cache issue).
+    const bootTimer = window.setTimeout(() => setLoading(false), 12_000)
+
+    const unsub = onAuthStateChanged(firebaseAuth, (authUser) => {
+      window.clearTimeout(bootTimer)
       try {
         if (authUser?.uid) {
           setSession({ user: { id: authUser.uid } })
-          await fetchUser(authUser)
+          setUser(optimisticAppUser(authUser))
+          void fetchUser(authUser).catch(() => {
+            /* keep optimistic profile */
+          })
         } else {
           setSession(null)
           setUser(null)
         }
       } catch {
-        if (authUser?.uid) {
-          setUser({
-            id: authUser.uid,
-            email: authUser.email ?? null,
-            name: authUser.displayName || authUser.email?.split('@')[0] || 'builder',
-            avatar_url: authUser.photoURL ?? null,
-            account_type: null,
-            wallet_address: null,
-            created_at: new Date().toISOString(),
-          })
-        }
+        if (authUser?.uid) setUser(optimisticAppUser(authUser))
       } finally {
         setLoading(false)
       }
     })
 
-    return () => unsub()
+    return () => {
+      window.clearTimeout(bootTimer)
+      unsub()
+    }
   }, [fetchUser])
 
   const handleSignOut = async () => {

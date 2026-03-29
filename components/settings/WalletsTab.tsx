@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useAccount, useSignMessage } from 'wagmi'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
@@ -142,6 +142,17 @@ export default function SettingsWalletsTab({
   const [busy, setBusy] = useState<'evm' | 'sol' | null>(null)
   const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  /** User must click Connect before we show verify + adapter status (avoids injected Phantom looking “linked” when list is empty). */
+  const [evmFlowStarted, setEvmFlowStarted] = useState(false)
+  const [solFlowStarted, setSolFlowStarted] = useState(false)
+
+  useEffect(() => {
+    if (!isConnected || !wagmiAddress) setEvmFlowStarted(false)
+  }, [isConnected, wagmiAddress])
+
+  useEffect(() => {
+    if (!solConnected || !publicKey) setSolFlowStarted(false)
+  }, [solConnected, publicKey])
 
   const list: VerifiedWalletRow[] = Array.isArray(profile.verified_wallets) ? profile.verified_wallets : []
   const primaryEvm = profile.evm_wallet || list.find((w) => w.chain === 'evm')?.address
@@ -342,6 +353,21 @@ export default function SettingsWalletsTab({
   const isPrimary = (w: VerifiedWalletRow) =>
     w.chain === 'evm' ? w.address === primaryEvm : w.address === primarySol
 
+  const evmConnectedLower = wagmiAddress?.toLowerCase() ?? ''
+  const evmAlreadyInProfile =
+    !!evmConnectedLower &&
+    list.some((w) => w.chain === 'evm' && w.address.toLowerCase() === evmConnectedLower)
+
+  const solConnectedAddr = publicKey?.toBase58() ?? ''
+  const solAlreadyInProfile =
+    !!solConnectedAddr && list.some((w) => w.chain === 'sol' && w.address === solConnectedAddr)
+
+  const showEvmVerify = evmFlowStarted && isConnected && !!wagmiAddress && !evmAlreadyInProfile
+  const showSolVerify = solFlowStarted && solConnected && !!publicKey && !solAlreadyInProfile
+  const showAdapterFooter =
+    (evmFlowStarted && isConnected && !!wagmiAddress && !evmAlreadyInProfile) ||
+    (solFlowStarted && solConnected && !!solWallet?.adapter?.name && !solAlreadyInProfile)
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
       <header className="mb-8">
@@ -368,7 +394,8 @@ export default function SettingsWalletsTab({
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-5 py-12 text-center">
             <p className="text-sm font-semibold text-slate-700">No wallets linked yet</p>
             <p className="mt-1.5 text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-              Connect with Reown below, then use “Sign to verify” to add an address to this list.
+              Use “Connect EVM wallet” or “Connect Solana wallet” below. After your wallet is connected, “Sign to verify”
+              will appear so you can add an address to this list.
             </p>
           </div>
         ) : (
@@ -442,7 +469,10 @@ export default function SettingsWalletsTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => void open({ view: 'Connect', namespace: 'eip155' })}
+            onClick={() => {
+              setEvmFlowStarted(true)
+              void open({ view: 'Connect', namespace: 'eip155' })
+            }}
             className="flex items-center justify-center gap-2 h-12 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm font-bold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
           >
             <IconWalletOutline className="w-5 h-5 text-slate-500" />
@@ -450,49 +480,56 @@ export default function SettingsWalletsTab({
           </button>
           <button
             type="button"
-            onClick={() => void open({ view: 'Connect', namespace: 'solana' })}
+            onClick={() => {
+              setSolFlowStarted(true)
+              void open({ view: 'Connect', namespace: 'solana' })
+            }}
             className="flex items-center justify-center gap-2 h-12 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm font-bold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
           >
             <IconWalletOutline className="w-5 h-5 text-slate-500" />
             Connect Solana wallet
           </button>
         </div>
-        <p className="text-[11px] text-slate-400 leading-relaxed">
-          Reown opens the wallet chooser. For Solana, you can also use the Phantom modal via “Sign to verify” if your
-          adapter is not connected yet.
-        </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => void linkEvm()}
-            disabled={signing}
-            className="flex-1 h-11 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-black disabled:opacity-45 inline-flex items-center justify-center gap-2"
-          >
-            {(busy === 'evm' || evmSigning) && <Spinner className="h-4 w-4 text-white" />}
-            Sign to verify · EVM
-          </button>
-          <button
-            type="button"
-            onClick={() => void linkSol()}
-            disabled={signing}
-            className="flex-1 h-11 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-black disabled:opacity-45 inline-flex items-center justify-center gap-2"
-          >
-            {busy === 'sol' && <Spinner className="h-4 w-4 text-white" />}
-            Sign to verify · Solana
-          </button>
-        </div>
-        <p className="text-[11px] text-slate-400">
-          {isConnected && wagmiAddress && (
-            <span className="block font-mono text-slate-600 mb-1">Active EVM: {truncateMiddle(wagmiAddress, 8, 6)}</span>
-          )}
-          {solConnected && solWallet?.adapter?.name && (
-            <span className="block text-slate-600">
-              Solana adapter: {solWallet.adapter.name}
-              {publicKey ? ` · ${truncateMiddle(publicKey.toBase58(), 6, 4)}` : ''}
-            </span>
-          )}
-        </p>
+        {showEvmVerify || showSolVerify ? (
+          <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
+            {showEvmVerify ? (
+              <button
+                type="button"
+                onClick={() => void linkEvm()}
+                disabled={signing}
+                className="flex-1 h-11 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-black disabled:opacity-45 inline-flex items-center justify-center gap-2"
+              >
+                {(busy === 'evm' || evmSigning) && <Spinner className="h-4 w-4 text-white" />}
+                Sign to verify · EVM
+              </button>
+            ) : null}
+            {showSolVerify ? (
+              <button
+                type="button"
+                onClick={() => void linkSol()}
+                disabled={signing}
+                className="flex-1 h-11 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-black disabled:opacity-45 inline-flex items-center justify-center gap-2"
+              >
+                {busy === 'sol' && <Spinner className="h-4 w-4 text-white" />}
+                Sign to verify · Solana
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {showAdapterFooter ? (
+          <p className="text-[11px] text-slate-400">
+            {evmFlowStarted && isConnected && wagmiAddress && (
+              <span className="block font-mono text-slate-600 mb-1">Active EVM: {truncateMiddle(wagmiAddress, 8, 6)}</span>
+            )}
+            {solFlowStarted && solConnected && solWallet?.adapter?.name && (
+              <span className="block text-slate-600">
+                Solana adapter: {solWallet.adapter.name}
+                {publicKey ? ` · ${truncateMiddle(publicKey.toBase58(), 6, 4)}` : ''}
+              </span>
+            )}
+          </p>
+        ) : null}
       </section>
 
       <p className="mt-8 text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-6">

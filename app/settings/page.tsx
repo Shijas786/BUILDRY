@@ -560,13 +560,6 @@ function EditProfileTab({
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-6">
-              <Field
-                label="Photo URL (optional)"
-                value={profile.avatar_url}
-                onChange={(v) => setProfile((p: any) => ({ ...p, avatar_url: v }))}
-                placeholder="https://… or upload a file"
-              />
-
               <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banner</p>
                 <input
@@ -601,12 +594,6 @@ function EditProfileTab({
                     {bannerUploadErr}
                   </p>
                 )}
-                <Field
-                  label="Banner URL (optional)"
-                  value={profile.banner_url}
-                  onChange={(v) => setProfile((p: any) => ({ ...p, banner_url: v }))}
-                  placeholder="https://… or upload above"
-                />
               </div>
 
               {!firebaseStorage && (
@@ -1113,15 +1100,6 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
             <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg shrink-0">💼</div>
             <div className="flex-1 min-w-0 space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LinkedIn</p>
-              {linkedInOAuthOff ? (
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 text-[10px] text-amber-950 leading-relaxed space-y-1">
-                  <p className="font-black uppercase tracking-widest text-amber-800">One-click connect — coming soon</p>
-                  <p>
-                    LinkedIn sign-in from here isn’t available yet. Add your public profile link below and use{' '}
-                    <span className="font-semibold">Save URL</span> — it will still appear on your Buildry profile.
-                  </p>
-                </div>
-              ) : null}
               <input
                 value={profile.linkedin_url || ''}
                 onChange={(e) => setProfile((p: any) => ({ ...p, linkedin_url: e.target.value }))}
@@ -1169,19 +1147,6 @@ function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile:
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Farcaster</p>
             <p className="text-xs font-bold text-slate-600 truncate">
               {profile.farcaster_handle ? `@${profile.farcaster_handle}` : 'Not connected'}
-            </p>
-            <p className="text-[10px] text-slate-400">
-              Links your Farcaster identity to this profile (separate from how you log into Buildry). If sign-in fails in
-              Warpcast, check that your app’s domain in the{' '}
-              <a
-                href="https://farcaster.xyz/~/developers"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-violet-600 font-semibold hover:underline"
-              >
-                developer portal
-              </a>{' '}
-              matches the site URL you use (with or without <span className="font-mono">www</span>).
             </p>
           </div>
           <div className="w-full sm:w-52 shrink-0 space-y-2">
@@ -1314,24 +1279,104 @@ function SkillsTab({ profile, setProfile }: { profile: any; setProfile: any }) {
 function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
   projects: any[]; setProjects: any; showAdd: boolean; setShowAdd: any; userId?: string
 }) {
-  const [form, setForm] = useState({ title: '', description: '', github_url: '', live_url: '', category: 'DeFi', status: 'building', tags: '' })
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    github_url: '',
+    live_url: '',
+    category: 'DeFi',
+    status: 'building',
+    tags: '',
+    image_url: '',
+  })
+  const projectImageRef = useRef<HTMLInputElement>(null)
+  const [projectImageUploading, setProjectImageUploading] = useState(false)
+  const [projectImageErr, setProjectImageErr] = useState<string | null>(null)
+  const canUploadProjectImage = Boolean(firebaseStorage && userId)
+
+  const handleProjectImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    const input = e.target
+    if (!file || !firebaseStorage || !userId) return
+    setProjectImageErr(null)
+    if (!file.type.startsWith('image/')) {
+      setProjectImageErr('Choose an image (JPEG, PNG, WebP, or GIF).')
+      input.value = ''
+      return
+    }
+    const maxBytes = 8 * 1024 * 1024
+    if (file.size > maxBytes) {
+      setProjectImageErr('Max size is 8 MB.')
+      input.value = ''
+      return
+    }
+    const authed = firebaseAuth?.currentUser
+    if (!authed || authed.uid !== userId) {
+      setProjectImageErr('Sign in again to upload.')
+      input.value = ''
+      return
+    }
+    setProjectImageUploading(true)
+    try {
+      const rawExt = file.name.includes('.') ? file.name.split('.').pop() || 'jpg' : 'jpg'
+      const ext = rawExt.replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'jpg'
+      const path = `project-images/${userId}/${Date.now()}.${ext}`
+      const storageRef = ref(firebaseStorage, path)
+      await uploadBytes(storageRef, file, { contentType: file.type })
+      const url = await getDownloadURL(storageRef)
+      setForm((f) => ({ ...f, image_url: url }))
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      setProjectImageErr(
+        `${msg}. Check Storage rules and NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET (deploy: npm run firebase:deploy:storage).`
+      )
+    } finally {
+      setProjectImageUploading(false)
+      input.value = ''
+    }
+  }
 
   const handleAdd = async () => {
     if (!userId || !form.title || !firebaseDb) return
     const db = firebaseDb
+    const tags = form.tags.split(',').map((t) => t.trim()).filter(Boolean)
     const docRef = await addDoc(collection(db, FS.PROJECTS), {
       builder_id: userId,
       title: form.title,
       description: form.description,
       github_url: form.github_url || null,
       live_url: form.live_url || null,
+      image_url: form.image_url || null,
       category: form.category,
       status: form.status,
-      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+      tags,
       created_at: Date.now(),
     })
-    setProjects((prev: any[]) => [{ id: docRef.id, ...form, tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean) }, ...prev])
-    setForm({ title: '', description: '', github_url: '', live_url: '', category: 'DeFi', status: 'building', tags: '' })
+    setProjects((prev: any[]) => [
+      {
+        id: docRef.id,
+        title: form.title,
+        description: form.description,
+        github_url: form.github_url,
+        live_url: form.live_url,
+        image_url: form.image_url,
+        category: form.category,
+        status: form.status,
+        tags,
+      },
+      ...prev,
+    ])
+    setForm({
+      title: '',
+      description: '',
+      github_url: '',
+      live_url: '',
+      category: 'DeFi',
+      status: 'building',
+      tags: '',
+      image_url: '',
+    })
+    setProjectImageErr(null)
     setShowAdd(false)
   }
 
@@ -1348,6 +1393,56 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
 
       {showAdd && (
         <div className="p-6 rounded-2xl border border-slate-200 bg-white mb-6 space-y-4 fade-in">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Project image</p>
+            <input
+              ref={projectImageRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleProjectImageFile}
+            />
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+              <div className="aspect-video w-full sm:w-48 shrink-0 overflow-hidden rounded-xl border-2 border-slate-100 bg-slate-50">
+                {form.image_url ? (
+                  <img src={form.image_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full min-h-[100px] items-center justify-center px-2 text-center text-[10px] font-bold text-slate-300">
+                    Optional cover
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={!canUploadProjectImage || projectImageUploading}
+                  onClick={() => projectImageRef.current?.click()}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 w-fit"
+                >
+                  {projectImageUploading ? 'Uploading…' : 'Upload image'}
+                </button>
+                {form.image_url ? (
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, image_url: '' }))}
+                    className="text-left text-[10px] font-bold text-slate-400 hover:text-slate-600 w-fit"
+                  >
+                    Remove image
+                  </button>
+                ) : null}
+                {projectImageErr ? (
+                  <p className="text-[9px] font-medium text-red-600 max-w-xs" role="alert">
+                    {projectImageErr}
+                  </p>
+                ) : null}
+                {!firebaseStorage && (
+                  <p className="text-[9px] text-amber-700">
+                    Set storage bucket and run <span className="font-mono">npm run firebase:deploy:storage</span> to enable uploads.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Project name"
               className="h-11 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-200 placeholder-slate-300" />
@@ -1377,7 +1472,7 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
           </div>
           <div className="flex justify-end gap-3">
             <button onClick={() => setShowAdd(false)} className="px-5 py-2 text-sm font-bold text-slate-400">Cancel</button>
-            <button onClick={handleAdd} disabled={!form.title}
+            <button onClick={handleAdd} disabled={!form.title || projectImageUploading}
               className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-30">
               Add Project
             </button>
@@ -1394,8 +1489,13 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
       ) : (
         <div className="space-y-4">
           {projects.map((proj, i) => (
-            <div key={proj.id || i} className="p-5 rounded-2xl border border-slate-100 bg-white flex items-start justify-between">
-              <div className="min-w-0">
+            <div key={proj.id || i} className="p-5 rounded-2xl border border-slate-100 bg-white flex items-start justify-between gap-4">
+              {proj.image_url ? (
+                <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                  <img src={proj.image_url} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : null}
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`w-2 h-2 rounded-full ${proj.status === 'launched' ? 'bg-emerald-500' : proj.status === 'building' ? 'bg-amber-500' : 'bg-slate-300'}`} />
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{proj.status}</span>

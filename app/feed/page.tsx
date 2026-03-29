@@ -3,7 +3,6 @@
 import React from 'react'
 import PostComposer from '@/components/PostComposer'
 import FeedList from '@/components/FeedList'
-import TokenTicker from '@/components/TokenTicker'
 import { useAuth } from '@/context/AuthProvider'
 import { useRoleStore } from '@/store/role'
 import Link from 'next/link'
@@ -26,9 +25,6 @@ export default function FeedPage() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Real-time</span>
           </div>
-        </div>
-        <div className="mb-5">
-          <TokenTicker compact />
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1.45fr_0.75fr] gap-6 items-start">

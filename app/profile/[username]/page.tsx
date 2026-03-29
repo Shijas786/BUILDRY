@@ -701,7 +701,12 @@ function ProjectsTab({ projects }: { projects: any[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {projects.map(proj => (
-        <div key={proj.id} className="p-5 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all">
+        <div key={proj.id} className="p-5 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all overflow-hidden">
+          {proj.image_url ? (
+            <div className="aspect-[2/1] w-full -mx-5 -mt-5 mb-4 max-h-40 overflow-hidden bg-slate-100">
+              <img src={proj.image_url} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : null}
           <div className="flex items-center gap-2 mb-2">
             <span className={`w-2 h-2 rounded-full ${proj.status === 'launched' ? 'bg-emerald-500' : proj.status === 'building' ? 'bg-amber-500' : 'bg-slate-300'}`} />
             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">{proj.status}</span>

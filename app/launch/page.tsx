@@ -25,7 +25,7 @@ export default function LaunchStudio() {
           name,
           symbol,
           description,
-          builderTwitter: 'nicocarvalho', // Simulated talent protocol identity
+          builderTwitter: 'nicocarvalho', // Demo linked social (replace with real user)
           walletAddress: 'Wallet123'
         })
       })
@@ -60,7 +60,7 @@ export default function LaunchStudio() {
               <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
             <h1 className="text-4xl font-black mb-4">Token Deployed!</h1>
-            <p className="text-gray-500 text-lg mb-8">Your project is now officially live on the Bags Protocol and linked to your Talent Score. Generating sustainable yield.</p>
+            <p className="text-gray-500 text-lg mb-8">Your project is live on Bags. Fee routing follows your launch configuration.</p>
             <div className="bg-gray-50 p-4 rounded-xl font-mono text-sm text-gray-500 mb-8 break-all max-w-lg mx-auto border border-gray-200">
               Contract: {contractAddress}
             </div>
@@ -72,18 +72,22 @@ export default function LaunchStudio() {
           <div>
             <div className="mb-10 text-center">
               <h1 className="text-4xl font-black tracking-tight mb-4">Launch Your Project</h1>
-              <p className="text-gray-500 text-lg">Deploy your token directly through the Bags API. Your exact Talent Score and GitHub history will be permanently attached, and 80% of trading fees will algorithmically route to liquidity.</p>
+              <p className="text-gray-500 text-lg">
+                Deploy your token through the Bags API. Context from your Buildry profile and linked GitHub can surface on your launch, and trading fees are routed per your Bags fee settings (often mostly to liquidity).
+              </p>
             </div>
 
             <form onSubmit={handleDeploy} className="bg-white rounded-3xl p-8 md:p-12 border border-gray-100 shadow-xl relative overflow-hidden">
               <div className="space-y-6 relative z-10">
                 
-                {/* Auto-linked reputation banner */}
+                {/* Linked profile hint */}
                 <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex items-center gap-4 mb-8">
                   <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">✓</div>
                   <div>
-                    <div className="font-bold text-gray-900">Wallet Linked to Talent Passport</div>
-                    <div className="text-sm text-gray-500">Score: 84 • 342 Commits • Auditable History Active</div>
+                    <div className="font-bold text-gray-900">Wallet linked to your Buildry profile</div>
+                    <div className="text-sm text-gray-500">
+                      Builder score, commits, and linked accounts from Settings can show on your token page.
+                    </div>
                   </div>
                 </div>
 
