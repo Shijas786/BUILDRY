@@ -105,7 +105,6 @@ export type ProfileActivitySectionProps = {
   profile: any
   githubContributionSummary: any
   contributions?: BuilderContributionsSnapshot
-  talent: any
 }
 
 export default function ProfileActivitySection({
@@ -114,17 +113,18 @@ export default function ProfileActivitySection({
   profile,
   githubContributionSummary,
   contributions,
-  talent,
 }: ProfileActivitySectionProps) {
   const solTx = onchain?.transactions ?? profile?.sol_transactions ?? 0
   const evmTx = onchain?.evmDeployments?.transactionCount ?? 0
   const gasEth = onchain?.evmDeployments?.gasEthEstimate as string | null | undefined
   const solPrograms = onchain?.solanaDeployments?.deployedPrograms ?? 0
   const evmContracts = onchain?.evmDeployments?.deployedContracts ?? 0
-  const talentScore = talent?.score ?? profile?.overall_score ?? null
 
   const commitTotal = contributions?.github?.graphqlCommitContributionsTotal
   const activity365 = contributions?.github?.activityPoints365d ?? githubContributionSummary?.totalContributions ?? 0
+  const postsCount = contributions?.posts ?? 0
+  const projectsTotal = contributions?.projects?.total ?? 0
+  const signalTotal = activity365 + solTx + evmTx + postsCount
 
   const points = githubContributionSummary?.points as { date: string; count: number }[] | undefined
   const series180 = lastNDaysCounts(points, 180)
@@ -137,19 +137,19 @@ export default function ProfileActivitySection({
     <div className="space-y-10">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         <ActivityTile
-          title="Builder reputation"
-          titleHint="Public signals from Talent Protocol when the builder wallet is linked."
-          primary={talentScore != null && talentScore > 0 ? talentScore.toLocaleString() : '—'}
+          title="Buildry signals"
+          titleHint="Combined index from GitHub public-activity (365d), sampled on-chain txs, and posts on Buildry — not a third-party score."
+          primary={signalTotal > 0 ? signalTotal.toLocaleString() : '—'}
           breakdown={[
-            {
-              label: 'Talent Protocol',
-              value: talentScore != null && talentScore > 0 ? `${talentScore} pts` : 'Not linked / no score',
-            },
+            { label: 'GitHub activity (365d)', value: activity365.toLocaleString() },
+            { label: 'On-chain txs (sample)', value: (solTx + evmTx).toLocaleString() },
+            { label: 'Posts on Buildry', value: String(postsCount) },
+            { label: 'Projects listed', value: String(projectsTotal) },
             ...(github?.totalStars
-              ? [{ label: 'GitHub stars (repos)', value: Number(github.totalStars).toLocaleString() }]
+              ? [{ label: 'GitHub stars', value: Number(github.totalStars).toLocaleString() }]
               : []),
           ]}
-          footer="Live index"
+          footer="Our data only"
         />
 
         <ActivityTile

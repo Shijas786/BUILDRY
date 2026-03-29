@@ -126,7 +126,7 @@ export default function LandingPage() {
             />
             <FeatureCard
               title="Verified Reputation"
-              description="GitHub contributions, onchain activity, and Talent Protocol scores create a trust layer you can't fake."
+              description="GitHub contributions and on-chain activity we fetch directly create a trust layer you can inspect."
               tag="Trust"
             />
             <FeatureCard

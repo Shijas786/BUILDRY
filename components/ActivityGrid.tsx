@@ -4,7 +4,7 @@ import React from 'react'
 
 const ACTIVITY_TILES = [
   {
-    title: 'Talent Rewards (USD)',
+    title: 'Builder rewards (USD)',
     value: '6 USDC',
     breakdown: [
       { label: 'Wallet Connect Builder Rewards', val: '7.0K WCT' },

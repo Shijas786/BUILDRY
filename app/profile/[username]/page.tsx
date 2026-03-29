@@ -11,7 +11,6 @@ import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
 
 interface ProfileData {
   profile: any
-  talent: any
   github: any
   socialShowcase?: {
     linkedin: {
@@ -367,7 +366,6 @@ export default function ProfilePage() {
   if (loading) return <ProfileSkeleton />
 
   const p = data?.profile
-  const talent = data?.talent
   const github = data?.github
   const socialShowcase = data?.socialShowcase
   const onchain = data?.onchain
@@ -463,11 +461,6 @@ export default function ProfilePage() {
               <h1 className="text-3xl font-black text-slate-900 tracking-tight truncate">
                 {p.username || p.users?.name || username}
               </h1>
-              {p.talent_protocol_verified && (
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200">
-                  Verified
-                </span>
-              )}
               <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-50 text-slate-400 ring-1 ring-slate-200">
                 {p.users?.account_type || 'builder'}
               </span>
@@ -529,9 +522,12 @@ export default function ProfilePage() {
         {/* Reputation stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <InfoGroup
-            title="Reputation"
+            title="Activity"
             items={[
-              { label: 'Builder Score', value: talent?.score || p.overall_score || 0 },
+              {
+                label: 'GitHub (365d)',
+                value: data?.contributions?.github?.activityPoints365d ?? data?.githubContributionSummary?.totalContributions ?? 0,
+              },
               { label: 'Followers', value: data?.followersCount || 0 },
             ]}
           />
@@ -601,7 +597,6 @@ export default function ProfilePage() {
               profile={p}
               githubContributionSummary={data?.githubContributionSummary}
               contributions={data?.contributions}
-              talent={data?.talent}
             />
           )}
           {activeTab === 'services' && <ServicesTab profile={p} />}

@@ -11,9 +11,10 @@ import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
 
-type SettingsTab = 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
+type SettingsTab = 'basics' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
 
 const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'basics', label: 'Public page' },
   { id: 'socials', label: 'Socials' },
   { id: 'skills', label: 'Skills & stack' },
   { id: 'projects', label: 'Projects' },
@@ -31,7 +32,7 @@ function normalizeUsername(value: string): string {
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth()
-  const [activeTab, setActiveTab] = useState<SettingsTab>('socials')
+  const [activeTab, setActiveTab] = useState<SettingsTab>('basics')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
@@ -375,14 +376,17 @@ export default function SettingsPage() {
 
         {/* Tab content */}
         <div className="fade-in">
-          {activeTab === 'socials' && (
-            <SocialsTab
+          {activeTab === 'basics' && (
+            <PublicPageTab
               profile={profile}
               setProfile={setProfile}
               userId={user?.id}
               usernameStatus={usernameStatus}
               usernameMsg={usernameMsg}
             />
+          )}
+          {activeTab === 'socials' && (
+            <SocialsTab profile={profile} setProfile={setProfile} userId={user?.id} />
           )}
           {activeTab === 'skills' && (
             <SkillsTab profile={profile} setProfile={setProfile} />
@@ -398,6 +402,125 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ─── Public page (avatar, handle, bio) ───────── */
+
+function PublicPageTab({
+  profile,
+  setProfile,
+  userId,
+  usernameStatus,
+  usernameMsg,
+}: {
+  profile: any
+  setProfile: any
+  userId?: string
+  usernameStatus: UsernameStatus
+  usernameMsg: string
+}) {
+  const publicProfilePath = profile.username?.trim()
+    ? `/profile/${encodeURIComponent(profile.username.trim())}`
+    : userId
+      ? `/profile/${encodeURIComponent(userId)}`
+      : '/settings'
+
+  return (
+    <div className="space-y-10">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preview</p>
+          <p className="mt-1 text-sm text-slate-600 leading-relaxed">
+            This is what you edit for your public URL. Open it anytime from the sidebar account menu →{' '}
+            <span className="font-semibold text-slate-800">Profile</span>.
+          </p>
+        </div>
+        <Link
+          href={publicProfilePath}
+          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
+        >
+          View profile
+        </Link>
+      </div>
+
+      <Section title="Identity">
+        <div className="space-y-6">
+          <div className="flex items-center gap-6">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-100">
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-2xl font-black text-slate-300">{(profile.name || '?').charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="flex-1 space-y-2">
+              <Field
+                label="Avatar URL"
+                value={profile.avatar_url}
+                onChange={(v) => setProfile((p: any) => ({ ...p, avatar_url: v }))}
+                placeholder="https://github.com/username.png"
+              />
+              <Field
+                label="Banner URL"
+                value={profile.banner_url}
+                onChange={(v) => setProfile((p: any) => ({ ...p, banner_url: v }))}
+                placeholder="https://..."
+              />
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Basic info">
+        <div className="grid grid-cols-2 gap-6">
+          <Field label="Display Name" value={profile.name} onChange={(v) => setProfile((p: any) => ({ ...p, name: v }))} placeholder="Your name" />
+          <div>
+            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Username</label>
+            <input
+              value={profile.username}
+              onChange={(e) => setProfile((p: any) => ({ ...p, username: normalizeUsername(e.target.value) }))}
+              placeholder="unique_handle"
+              className="h-11 w-full rounded-xl border border-slate-100 bg-white px-4 text-sm font-medium text-slate-900 transition-all placeholder-slate-300 focus:border-slate-300 focus:outline-none"
+            />
+            {usernameMsg && (
+              <p
+                className={`mt-1.5 text-[10px] font-semibold ${
+                  usernameStatus === 'taken' || usernameStatus === 'invalid'
+                    ? 'text-red-500'
+                    : usernameStatus === 'checking'
+                      ? 'text-slate-400'
+                      : 'text-emerald-600'
+                }`}
+              >
+                {usernameMsg}
+              </p>
+            )}
+          </div>
+        </div>
+        <Field
+          label="Tagline"
+          value={profile.tagline}
+          onChange={(v) => setProfile((p: any) => ({ ...p, tagline: v }))}
+          placeholder="e.g. Solana Dev | DeFi Builder | Open Source"
+        />
+        <div>
+          <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Bio</label>
+          <textarea
+            value={profile.bio}
+            onChange={(e) => setProfile((p: any) => ({ ...p, bio: e.target.value }))}
+            placeholder="Tell the community about yourself, what you're building, your journey..."
+            rows={4}
+            className="w-full resize-none rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition-all placeholder-slate-300 focus:border-slate-300 focus:outline-none"
+          />
+          <p className="mt-1 text-right text-[9px] text-slate-300">{profile.bio.length}/500</p>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <Field label="Location" value={profile.location} onChange={(v) => setProfile((p: any) => ({ ...p, location: v }))} placeholder="City, Country" />
+          <Field label="Website" value={profile.website} onChange={(v) => setProfile((p: any) => ({ ...p, website: v }))} placeholder="https://yoursite.com" />
+        </div>
+      </Section>
     </div>
   )
 }
@@ -430,19 +553,7 @@ function githubAccountLinkState(
   return { linked, handleLine }
 }
 
-function SocialsTab({
-  profile,
-  setProfile,
-  userId,
-  usernameStatus,
-  usernameMsg,
-}: {
-  profile: any
-  setProfile: any
-  userId?: string
-  usernameStatus: UsernameStatus
-  usernameMsg: string
-}) {
+function SocialsTab({ profile, setProfile, userId }: { profile: any; setProfile: any; userId?: string }) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
   const [socialHint, setSocialHint] = useState<string | null>(null)
@@ -732,108 +843,8 @@ function SocialsTab({
     }
   }
 
-  const publicProfilePath = profile.username?.trim()
-    ? `/profile/${encodeURIComponent(profile.username.trim())}`
-    : userId
-      ? `/profile/${encodeURIComponent(userId)}`
-      : '/settings'
-
   return (
-    <div className="space-y-10">
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Public profile</p>
-          <p className="mt-1 text-sm text-slate-600 leading-relaxed">
-            Opens the same page others see. Use the account menu <span className="font-semibold text-slate-800">Profile</span>{' '}
-            in the sidebar for quick access.
-          </p>
-        </div>
-        <Link
-          href={publicProfilePath}
-          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
-        >
-          View profile
-        </Link>
-      </div>
-
-      <Section title="Identity">
-        <div className="space-y-6">
-          <div className="flex items-center gap-6">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-100">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-black text-slate-300">{(profile.name || '?').charAt(0).toUpperCase()}</span>
-              )}
-            </div>
-            <div className="flex-1 space-y-2">
-              <Field
-                label="Avatar URL"
-                value={profile.avatar_url}
-                onChange={(v) => setProfile((p: any) => ({ ...p, avatar_url: v }))}
-                placeholder="https://github.com/username.png"
-              />
-              <Field
-                label="Banner URL"
-                value={profile.banner_url}
-                onChange={(v) => setProfile((p: any) => ({ ...p, banner_url: v }))}
-                placeholder="https://..."
-              />
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="Basic info">
-        <div className="grid grid-cols-2 gap-6">
-          <Field label="Display Name" value={profile.name} onChange={(v) => setProfile((p: any) => ({ ...p, name: v }))} placeholder="Your name" />
-          <div>
-            <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Username</label>
-            <input
-              value={profile.username}
-              onChange={(e) => setProfile((p: any) => ({ ...p, username: normalizeUsername(e.target.value) }))}
-              placeholder="unique_handle"
-              className="h-11 w-full rounded-xl border border-slate-100 bg-white px-4 text-sm font-medium text-slate-900 transition-all placeholder-slate-300 focus:border-slate-300 focus:outline-none"
-            />
-            {usernameMsg && (
-              <p
-                className={`mt-1.5 text-[10px] font-semibold ${
-                  usernameStatus === 'taken' || usernameStatus === 'invalid'
-                    ? 'text-red-500'
-                    : usernameStatus === 'checking'
-                      ? 'text-slate-400'
-                      : 'text-emerald-600'
-                }`}
-              >
-                {usernameMsg}
-              </p>
-            )}
-          </div>
-        </div>
-        <Field
-          label="Tagline"
-          value={profile.tagline}
-          onChange={(v) => setProfile((p: any) => ({ ...p, tagline: v }))}
-          placeholder="e.g. Solana Dev | DeFi Builder | Open Source"
-        />
-        <div>
-          <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Bio</label>
-          <textarea
-            value={profile.bio}
-            onChange={(e) => setProfile((p: any) => ({ ...p, bio: e.target.value }))}
-            placeholder="Tell the community about yourself, what you're building, your journey..."
-            rows={4}
-            className="w-full resize-none rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition-all placeholder-slate-300 focus:border-slate-300 focus:outline-none"
-          />
-          <p className="mt-1 text-right text-[9px] text-slate-300">{profile.bio.length}/500</p>
-        </div>
-        <div className="grid grid-cols-2 gap-6">
-          <Field label="Location" value={profile.location} onChange={(v) => setProfile((p: any) => ({ ...p, location: v }))} placeholder="City, Country" />
-          <Field label="Website" value={profile.website} onChange={(v) => setProfile((p: any) => ({ ...p, website: v }))} placeholder="https://yoursite.com" />
-        </div>
-      </Section>
-
-      <Section title="Social profiles">
+    <Section title="Social profiles">
       <p className="text-xs text-slate-400 mb-4">
         Link the accounts you want shown on your public profile. You can connect with OAuth or enter a handle or URL
         manually.
@@ -1044,7 +1055,6 @@ function SocialsTab({
         </div>
       </div>
     </Section>
-    </div>
   )
 }
 

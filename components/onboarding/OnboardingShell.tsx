@@ -43,7 +43,7 @@ function Screen1({ onNext }: { onNext: () => void }) {
       </button>
 
       <div style={{ position: 'absolute', bottom: 32, fontSize: 11, color: '#aaa', fontWeight: 600 }}>
-        Powered by bags.fm + Talent Protocol + ChainGPT
+        Powered by bags.fm + ChainGPT
       </div>
     </div>
   )
@@ -89,7 +89,7 @@ function Screen2({ onNext }: { onNext: () => void }) {
 function Screen3({ onNext }: { onNext: () => void }) {
   const steps = [
     { title: 'Find any Bags token', desc: 'Search by name, symbol or paste a Solana mint address.' },
-    { title: 'We verify the creator', desc: 'Auto-lookup against Talent Protocol — GitHub, onchain history, socials and Builder Rank.' },
+    { title: 'We verify the creator', desc: 'GitHub, on-chain history, and linked socials — surfaced from public data.' },
     { title: 'Trade with context', desc: 'Swap with full creator reputation and an AI risk brief next to the swap button.' },
   ]
   return (

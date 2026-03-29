@@ -27,7 +27,6 @@ export type BuilderNarrativeInput = {
     followers: number
   } | null
   contributions: BuilderContributionsSnapshot
-  talentScore: number | null
 }
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022'
@@ -62,7 +61,6 @@ export async function generateBuilderNarrative(input: BuilderNarrativeInput): Pr
       github: input.github,
       farcaster: input.farcaster,
       contributions: input.contributions,
-      talent_builder_score: input.talentScore,
     },
     null,
     2
@@ -116,7 +114,6 @@ export function buildNarrativeInputFromPayload(
   username: string,
   payload: {
     profile: any
-    talent: any
     github: any
     socialShowcase: any
     contributions: BuilderContributionsSnapshot
@@ -170,6 +167,5 @@ export function buildNarrativeInputFromPayload(
         }
       : null,
     contributions: payload.contributions,
-    talentScore: payload.talent?.score ?? null,
   }
 }

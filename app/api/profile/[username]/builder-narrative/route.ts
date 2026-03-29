@@ -34,7 +34,6 @@ export async function GET(_req: Request, { params }: { params: { username: strin
 
   const input = buildNarrativeInputFromPayload(username, {
     profile: payload.profile,
-    talent: payload.talent,
     github: payload.github,
     socialShowcase: payload.socialShowcase,
     contributions: payload.contributions,

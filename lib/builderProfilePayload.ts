@@ -1,4 +1,3 @@
-import { getProfile } from '@/lib/talent'
 import {
   getGitHubStats,
   getGitHubRepoProjects,
@@ -114,7 +113,6 @@ export async function loadBuilderProfilePayload(username: string) {
         : getFarcasterProfileByUsername(fcParsed.value)
 
   const [
-    talentProfile,
     githubStats,
     githubRepos,
     githubContributionSummary,
@@ -125,7 +123,6 @@ export async function loadBuilderProfilePayload(username: string) {
     creatorTokens,
     farcasterEnriched,
   ] = await Promise.all([
-    wallet ? getProfile(wallet) : Promise.resolve(null),
     profile?.github_username ? getGitHubStats(profile.github_username) : Promise.resolve(null),
     profile?.github_username ? getGitHubRepoProjects(profile.github_username) : Promise.resolve([]),
     profile?.github_username ? getGitHubContributionSummary(profile.github_username) : Promise.resolve(null),
@@ -202,7 +199,6 @@ export async function loadBuilderProfilePayload(username: string) {
 
   return {
     profile: profile || null,
-    talent: talentProfile,
     github: githubStats,
     socialShowcase,
     contributions,
