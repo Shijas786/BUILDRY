@@ -48,17 +48,19 @@ export default function Sidebar() {
   return (
     <aside
       className={`fixed top-0 left-0 h-dvh max-h-dvh bg-white border-r border-slate-100 z-[120] flex flex-col overflow-x-hidden transition-all duration-300 ${
-        sidebarExpanded ? 'w-[240px]' : 'w-[68px]'
+        sidebarExpanded ? 'w-[268px]' : 'w-[68px]'
       }`}
     >
       {/* Logo + collapse */}
-      <div className="min-h-[72px] shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-slate-100">
-        <Link href="/feed" className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden" aria-label="Buildry feed">
+      <div className="min-h-[88px] shrink-0 flex items-center justify-between gap-2 px-3 py-3 border-b border-slate-100">
+        <Link href="/feed" className="flex items-center gap-2 min-w-0 flex-1 overflow-visible" aria-label="Buildry feed">
           {sidebarExpanded ? (
             <BuildryWordmark
               tone="dark"
               variant="full"
-              className="!h-9 sm:!h-10 !max-h-10 w-auto max-w-[min(100%,188px)] object-contain object-left"
+              shine
+              shineSidebar
+              className="!h-[52px] sm:!h-14 md:!h-[60px] !max-h-[60px] w-auto max-w-[min(100%,228px)] object-contain object-left"
             />
           ) : (
             <BuildryWordmark tone="dark" variant="icon" />

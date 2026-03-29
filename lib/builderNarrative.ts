@@ -29,7 +29,7 @@ export type BuilderNarrativeInput = {
   contributions: BuilderContributionsSnapshot
 }
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022'
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 
 function linkedinHintsFromData(data: unknown): Record<string, string> | null {
   if (!data || typeof data !== 'object') return null

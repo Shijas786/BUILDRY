@@ -27,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main
         className={`flex-1 min-h-screen transition-all duration-300 flex flex-col ${
-          sidebarExpanded ? 'ml-[240px]' : 'ml-[68px]'
+          sidebarExpanded ? 'ml-[268px]' : 'ml-[68px]'
         }`}
       >
         <DeploymentTicker />

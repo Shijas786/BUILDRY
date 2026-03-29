@@ -37,7 +37,7 @@ export default function Navbar() {
       <nav className="h-[72px] flex items-center justify-between px-6 md:px-8 border-b border-slate-100 bg-white/95 backdrop-blur sticky top-0 z-[100]">
         <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center gap-2 min-w-0 py-1" aria-label="Buildry home">
-            <BuildryWordmark tone="dark" variant="full" priority />
+            <BuildryWordmark tone="dark" variant="full" priority shine />
           </Link>
         </div>
 
@@ -147,7 +147,7 @@ function AuthModal({
       >
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <BuildryWordmark tone="dark" variant="full" className="max-w-[min(100%,320px)] sm:max-w-[360px]" />
+            <BuildryWordmark tone="dark" variant="full" className="max-w-[min(100%,380px)] sm:max-w-[440px]" />
           </div>
           <h2 id="auth-modal-title" className="text-2xl font-black text-slate-900 tracking-tight">
             {mode === 'login' ? 'Welcome back' : 'Join Buildry'}

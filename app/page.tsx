@@ -44,7 +44,7 @@ export default function LandingPage() {
 
         <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[0.95] text-slate-900 mb-8 max-w-4xl mx-auto">
           Where founders<br />
-          <span className="font-serif italic text-blue-600 font-normal">build in public</span>
+          <span className="font-serif italic text-slate-500 font-normal">build in public</span>
         </h1>
 
         <p className="text-lg text-slate-400 font-medium max-w-2xl mx-auto mb-12 leading-relaxed">

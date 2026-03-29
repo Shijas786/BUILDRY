@@ -78,6 +78,109 @@ h1, h2, h3, h4, h5, h6 {
   animation: shimmer 1.5s infinite linear;
 }
 
+/* Navbar / sidebar wordmark — soft highlight sweep */
+@keyframes buildry-logo-shine {
+  0%,
+  8% {
+    transform: translate3d(-140%, 0, 0) skewX(-14deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  42% {
+    transform: translate3d(140%, 0, 0) skewX(-14deg);
+    opacity: 1;
+  }
+  48%,
+  100% {
+    transform: translate3d(140%, 0, 0) skewX(-14deg);
+    opacity: 0;
+  }
+}
+
+.buildry-logo-shine-wrap {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.buildry-logo-shine-wrap::after {
+  content: '';
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  left: -70%;
+  width: 60%;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.35) 42%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.35) 58%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+  animation: buildry-logo-shine 4.8s ease-in-out infinite;
+  mix-blend-mode: soft-light;
+}
+
+.buildry-logo-shine-wrap[data-tone='light']::after {
+  mix-blend-mode: overlay;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.15) 42%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.15) 58%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* Sidebar: quicker sweep + brighter peak so it reads in a smaller strip */
+@keyframes buildry-logo-shine-sidebar {
+  0%,
+  6% {
+    transform: translate3d(-150%, 0, 0) skewX(-14deg);
+    opacity: 0;
+  }
+  11% {
+    opacity: 1;
+  }
+  38% {
+    transform: translate3d(150%, 0, 0) skewX(-14deg);
+    opacity: 1;
+  }
+  44%,
+  100% {
+    transform: translate3d(150%, 0, 0) skewX(-14deg);
+    opacity: 0;
+  }
+}
+
+.buildry-logo-shine-wrap--sidebar::after {
+  width: 70%;
+  animation: buildry-logo-shine-sidebar 3.4s ease-in-out infinite;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 40%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(255, 255, 255, 0.5) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buildry-logo-shine-wrap::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* Animations */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(6px); }

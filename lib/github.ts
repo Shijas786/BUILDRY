@@ -82,6 +82,39 @@ export async function getGitHubReadmePlainText(owner: string, repo: string): Pro
   }
 }
 
+const README_HEURISTIC_MAX = 240
+
+/**
+ * First substantive paragraph from README (no AI). Used when GitHub's About description is empty
+ * and the model call failed or was skipped.
+ */
+export function blurbFromReadmeMarkdown(md: string): string | null {
+  const trimmed = md.trim()
+  if (trimmed.length < 50) return null
+  let text = trimmed.replace(/```[\s\S]*?```/g, ' ')
+  text = text.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/m, '')
+  const blocks = text.split(/\n{2,}/)
+  for (const block of blocks) {
+    let line = block
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !/^<(https?:)?\/\//i.test(l))
+      .join(' ')
+      .trim()
+    line = line.replace(/^#{1,6}\s+/, '')
+    line = line.replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    line = line.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    line = line.replace(/\*\*?|`|<\/?[^>]+>/g, '')
+    line = line.replace(/\s+/g, ' ').trim()
+    if (line.length >= 45 && line.split(/\s+/).length >= 5) {
+      return line.length > README_HEURISTIC_MAX
+        ? `${line.slice(0, README_HEURISTIC_MAX - 1)}…`
+        : line
+    }
+  }
+  return null
+}
+
 /**
  * Prefer GitHub's short description; otherwise compose topics, website, language, and stars
  * so profile cards are not all the same generic line.

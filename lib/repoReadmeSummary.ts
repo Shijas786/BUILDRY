@@ -1,7 +1,12 @@
 import axios from 'axios'
-import { getGitHubReadmePlainText, type GitHubRepoProject } from '@/lib/github'
+import {
+  blurbFromReadmeMarkdown,
+  getGitHubReadmePlainText,
+  type GitHubRepoProject,
+} from '@/lib/github'
 
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022'
+/** Retired 2026-02-19; see Anthropic model deprecations. */
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 const CHAINGPT_BASE = 'https://api.chaingpt.org/v1'
 
 const MAX_OUTPUT_CHARS = 240
@@ -131,7 +136,12 @@ export async function enrichGithubReposWithReadmeSummaries(
       const readme = await getGitHubReadmePlainText(ownerLogin, repo.name)
       if (!readme || readme.length < MIN_README_CHARS) return
       const summary = await summarizeRepoReadmeWithAi(repo, readme)
-      if (summary) out.set(repo.id, summary)
+      if (summary) {
+        out.set(repo.id, summary)
+      } else {
+        const h = blurbFromReadmeMarkdown(readme)
+        if (h && !repo.description?.trim()) out.set(repo.id, h)
+      }
     } catch (e) {
       console.error('enrichGithubReposWithReadmeSummaries:', repo.name, e)
     }

@@ -15,6 +15,10 @@ type Props = {
   variant?: 'full' | 'icon'
   className?: string
   priority?: boolean
+  /** Soft periodic shine on the full wordmark (navbar / sidebar). */
+  shine?: boolean
+  /** Slightly stronger / faster shine for the narrow sidebar rail. */
+  shineSidebar?: boolean
 }
 
 export default function BuildryWordmark({
@@ -22,6 +26,8 @@ export default function BuildryWordmark({
   variant = 'full',
   className = '',
   priority = false,
+  shine = false,
+  shineSidebar = false,
 }: Props) {
   const filterClass = tone === 'light' ? 'invert' : ''
 
@@ -43,14 +49,25 @@ export default function BuildryWordmark({
     )
   }
 
-  return (
+  const image = (
     <Image
       src={WORDMARK_SRC}
       alt="Buildry"
       width={1536}
       height={1024}
-      className={`h-11 w-auto max-w-[220px] sm:h-12 sm:max-w-[280px] md:h-14 md:max-w-[320px] object-contain object-left ${filterClass} ${className}`}
+      className={`h-[52px] w-auto max-w-[280px] sm:h-[60px] sm:max-w-[340px] md:h-[72px] md:max-w-[400px] object-contain object-left ${filterClass} ${className}`}
       priority={priority}
     />
+  )
+
+  if (!shine) return image
+
+  return (
+    <span
+      className={`buildry-logo-shine-wrap${shineSidebar ? ' buildry-logo-shine-wrap--sidebar' : ''}`}
+      data-tone={tone}
+    >
+      {image}
+    </span>
   )
 }
