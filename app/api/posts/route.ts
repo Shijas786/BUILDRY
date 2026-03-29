@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { authorId, content, postType, images, milestoneTitle, milestoneCategory, projectId, linkUrl } = body
+    const { authorId, content, postType, images, videos, milestoneTitle, milestoneCategory, projectId, linkUrl } =
+      body
 
     if (!authorId || !content) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -80,7 +81,8 @@ export async function POST(req: NextRequest) {
       author_id: authorId,
       content,
       post_type: postType || 'update',
-      images: images || [],
+      images: Array.isArray(images) ? images.filter((u: unknown) => typeof u === 'string') : [],
+      videos: Array.isArray(videos) ? videos.filter((u: unknown) => typeof u === 'string') : [],
       milestone_title: milestoneTitle || null,
       milestone_category: milestoneCategory || null,
       project_id: projectId || null,

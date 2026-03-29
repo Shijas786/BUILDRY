@@ -12,7 +12,9 @@
     "vercel:deploy": "vercel",
     "vercel:prod": "vercel --prod",
     "vercel:env-sync": "node scripts/sync-vercel-env.mjs",
-    "firebase:deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes"
+    "firebase:deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes",
+    "firebase:deploy:storage": "firebase deploy --only storage",
+    "firebase:check:auth": "node scripts/check-firebase-auth-config.mjs"
   },
   "dependencies": {
     "@bagsfm/bags-sdk": "^1.3.4",

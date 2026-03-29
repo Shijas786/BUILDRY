@@ -10,7 +10,16 @@ const nextConfig = {
       { protocol: 'https', hostname: '**' },
     ],
   },
-  transpilePackages: ['@reown/appkit', '@reown/appkit-adapter-wagmi', '@reown/appkit-adapter-solana', '@wagmi/connectors', 'wagmi', 'viem'],
+  transpilePackages: [
+    '@reown/appkit',
+    '@reown/appkit-adapter-wagmi',
+    '@reown/appkit-adapter-solana',
+    '@wagmi/connectors',
+    'wagmi',
+    'viem',
+    '@ffmpeg/ffmpeg',
+    '@ffmpeg/util',
+  ],
   webpack: (config) => {
     config.resolve.fallback = { ...config.resolve.fallback, fs: false, net: false, tls: false };
     config.resolve.alias = {

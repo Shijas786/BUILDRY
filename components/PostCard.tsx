@@ -9,11 +9,12 @@ interface Post {
   content: string
   post_type: string
   images?: string[]
+  videos?: string[]
   milestone_title?: string
   milestone_category?: string
   likes_count: number
   comments_count: number
-  created_at: string
+  created_at: string | number
   users?: {
     id: string
     name: string
@@ -131,6 +132,20 @@ export default function PostCard({ post }: { post: Post }) {
         </div>
       )}
 
+      {post.videos && post.videos.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {post.videos.map((src, i) => (
+            <video
+              key={i}
+              src={src}
+              controls
+              playsInline
+              className="w-full max-h-80 rounded-xl border border-slate-100 bg-black"
+            />
+          ))}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center gap-6 pt-3 border-t border-slate-100">
         <button onClick={handleLike} className={`flex items-center gap-1.5 text-[11px] font-bold transition-colors ${liked ? 'text-red-500' : 'text-slate-300 hover:text-slate-500'}`}>
@@ -185,8 +200,9 @@ export default function PostCard({ post }: { post: Post }) {
   )
 }
 
-function getTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
+function getTimeAgo(dateStr: string | number): string {
+  const t = typeof dateStr === 'number' ? dateStr : new Date(dateStr).getTime()
+  const diff = Date.now() - t
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`
@@ -194,5 +210,5 @@ function getTimeAgo(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   if (days < 30) return `${days}d ago`
-  return new Date(dateStr).toLocaleDateString()
+  return new Date(t).toLocaleDateString()
 }

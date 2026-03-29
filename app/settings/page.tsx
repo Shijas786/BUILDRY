@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useAuth } from '@/context/AuthProvider'
-import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
+import { firebaseAuth, firebaseDb, firebaseStorage, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { FS } from '@/lib/firestoreCollections'
 import { onAuthStateChanged } from 'firebase/auth'
 import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
@@ -11,10 +12,10 @@ import FarcasterConnect from '@/components/FarcasterConnect'
 import SettingsWalletsTab from '@/components/settings/WalletsTab'
 import TelegramConnect from '@/components/TelegramConnect'
 
-type SettingsTab = 'basics' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
+type SettingsTab = 'editProfile' | 'socials' | 'skills' | 'projects' | 'availability' | 'wallets'
 
 const TABS: { id: SettingsTab; label: string }[] = [
-  { id: 'basics', label: 'Public page' },
+  { id: 'editProfile', label: 'Edit profile' },
   { id: 'socials', label: 'Socials' },
   { id: 'skills', label: 'Skills & stack' },
   { id: 'projects', label: 'Projects' },
@@ -32,7 +33,7 @@ function normalizeUsername(value: string): string {
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth()
-  const [activeTab, setActiveTab] = useState<SettingsTab>('basics')
+  const [activeTab, setActiveTab] = useState<SettingsTab>('editProfile')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
@@ -376,8 +377,8 @@ export default function SettingsPage() {
 
         {/* Tab content */}
         <div className="fade-in">
-          {activeTab === 'basics' && (
-            <PublicPageTab
+          {activeTab === 'editProfile' && (
+            <EditProfileTab
               profile={profile}
               setProfile={setProfile}
               userId={user?.id}
@@ -406,9 +407,9 @@ export default function SettingsPage() {
   )
 }
 
-/* ─── Public page (avatar, handle, bio) ───────── */
+/* ─── Edit profile (avatar, handle, bio) ───────── */
 
-function PublicPageTab({
+function EditProfileTab({
   profile,
   setProfile,
   userId,
@@ -427,47 +428,189 @@ function PublicPageTab({
       ? `/profile/${encodeURIComponent(userId)}`
       : '/settings'
 
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarUploadErr, setAvatarUploadErr] = useState<string | null>(null)
+  const avatarFileRef = useRef<HTMLInputElement>(null)
+  const [bannerUploading, setBannerUploading] = useState(false)
+  const [bannerUploadErr, setBannerUploadErr] = useState<string | null>(null)
+  const bannerFileRef = useRef<HTMLInputElement>(null)
+
+  const canUpload = Boolean(firebaseStorage && userId)
+
+  const runProfileImageUpload = async (
+    file: File,
+    folder: 'builder-avatars' | 'builder-banners',
+    maxBytes: number,
+    profileKey: 'avatar_url' | 'banner_url',
+    setErr: (s: string | null) => void,
+    setUploading: (b: boolean) => void,
+    input: HTMLInputElement
+  ) => {
+    if (!firebaseStorage || !userId) return
+    setErr(null)
+    if (!file.type.startsWith('image/')) {
+      setErr('Choose an image (JPEG, PNG, WebP, or GIF).')
+      input.value = ''
+      return
+    }
+    if (file.size > maxBytes) {
+      setErr(`Max size is ${Math.round(maxBytes / (1024 * 1024))} MB.`)
+      input.value = ''
+      return
+    }
+    const authed = firebaseAuth?.currentUser
+    if (!authed || authed.uid !== userId) {
+      setErr('Sign in again to upload.')
+      input.value = ''
+      return
+    }
+    setUploading(true)
+    try {
+      const rawExt = file.name.includes('.') ? file.name.split('.').pop() || 'jpg' : 'jpg'
+      const ext = rawExt.replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'jpg'
+      const path = `${folder}/${userId}/${Date.now()}.${ext}`
+      const storageRef = ref(firebaseStorage, path)
+      await uploadBytes(storageRef, file, { contentType: file.type })
+      const url = await getDownloadURL(storageRef)
+      setProfile((p: any) => ({ ...p, [profileKey]: url }))
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      setErr(
+        `${msg}. Enable Storage in Firebase, set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, and deploy storage rules.`
+      )
+    } finally {
+      setUploading(false)
+      input.value = ''
+    }
+  }
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    void runProfileImageUpload(
+      file,
+      'builder-avatars',
+      5 * 1024 * 1024,
+      'avatar_url',
+      setAvatarUploadErr,
+      setAvatarUploading,
+      e.target
+    )
+  }
+
+  const handleBannerFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    void runProfileImageUpload(
+      file,
+      'builder-banners',
+      8 * 1024 * 1024,
+      'banner_url',
+      setBannerUploadErr,
+      setBannerUploading,
+      e.target
+    )
+  }
+
   return (
     <div className="space-y-10">
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preview</p>
-          <p className="mt-1 text-sm text-slate-600 leading-relaxed">
-            This is what you edit for your public URL. Open it anytime from the sidebar account menu →{' '}
-            <span className="font-semibold text-slate-800">Profile</span>.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Link
           href={publicProfilePath}
-          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
+          className="text-[11px] font-bold text-slate-400 transition-colors hover:text-slate-900"
         >
-          View profile
+          View public profile →
         </Link>
       </div>
 
       <Section title="Identity">
         <div className="space-y-6">
-          <div className="flex items-center gap-6">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-100">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-black text-slate-300">{(profile.name || '?').charAt(0).toUpperCase()}</span>
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            <div className="flex shrink-0 flex-col items-center gap-3 sm:items-start">
+              <input
+                ref={avatarFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleAvatarFile}
+              />
+              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-100">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-3xl font-black text-slate-300">{(profile.name || '?').charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={!canUpload || avatarUploading}
+                onClick={() => avatarFileRef.current?.click()}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {avatarUploading ? 'Uploading…' : 'Upload photo'}
+              </button>
+              {avatarUploadErr && (
+                <p className="max-w-[220px] text-[9px] font-medium text-red-600 sm:text-left" role="alert">
+                  {avatarUploadErr}
+                </p>
               )}
             </div>
-            <div className="flex-1 space-y-2">
+            <div className="min-w-0 flex-1 space-y-6">
               <Field
-                label="Avatar URL"
+                label="Photo URL (optional)"
                 value={profile.avatar_url}
                 onChange={(v) => setProfile((p: any) => ({ ...p, avatar_url: v }))}
-                placeholder="https://github.com/username.png"
+                placeholder="https://… or upload a file"
               />
-              <Field
-                label="Banner URL"
-                value={profile.banner_url}
-                onChange={(v) => setProfile((p: any) => ({ ...p, banner_url: v }))}
-                placeholder="https://..."
-              />
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banner</p>
+                <input
+                  ref={bannerFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleBannerFile}
+                />
+                <div className="aspect-[3/1] w-full max-w-xl overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-100">
+                  {profile.banner_url ? (
+                    <img src={profile.banner_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full min-h-[100px] items-center justify-center text-[10px] font-bold text-slate-300">
+                      Wide image · ~3:1 looks best
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={!canUpload || bannerUploading}
+                    onClick={() => bannerFileRef.current?.click()}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {bannerUploading ? 'Uploading…' : 'Upload banner'}
+                  </button>
+                  <span className="text-[9px] text-slate-400">JPEG / PNG / WebP / GIF · max 8 MB</span>
+                </div>
+                {bannerUploadErr && (
+                  <p className="text-[9px] font-medium text-red-600" role="alert">
+                    {bannerUploadErr}
+                  </p>
+                )}
+                <Field
+                  label="Banner URL (optional)"
+                  value={profile.banner_url}
+                  onChange={(v) => setProfile((p: any) => ({ ...p, banner_url: v }))}
+                  placeholder="https://… or upload above"
+                />
+              </div>
+
+              {!firebaseStorage && (
+                <p className="text-[9px] leading-snug text-amber-700">
+                  Set <span className="font-mono">NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET</span> and run{' '}
+                  <span className="font-mono">npm run firebase:deploy:storage</span> to enable uploads.
+                </p>
+              )}
             </div>
           </div>
         </div>
