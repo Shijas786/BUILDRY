@@ -6,6 +6,12 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+/**
+ * Mainnet Bags launch: Jito bundle tip (~0.015 SOL) + several signatures + rent.
+ * Pre-buy is extra on top. Aligns ~with server reserve checks in app/launch.
+ */
+const MIN_SOL_LAUNCH_FEES_AND_TIP = 0.05
+
 /** Preset rows: suggested USD for creator pre-buy (converted to SOL at launch via CoinGecko). */
 const OWNERSHIP_PRESETS: { pct: number; usd: number }[] = [
   { pct: 1, usd: 25 },
@@ -130,6 +136,18 @@ export default function LaunchOwnershipPanel({ disabled, loading, onLaunch }: Pr
   const approxUsdBalance =
     solBalance != null && solUsd != null ? solBalance * solUsd : null
 
+  const prebuySolEstimate = useMemo(() => {
+    if (amountNum <= 0 || solUsd == null || !(solUsd > 0)) return 0
+    return amountNum / solUsd
+  }, [amountNum, solUsd])
+
+  const minRecommendedSol = MIN_SOL_LAUNCH_FEES_AND_TIP + prebuySolEstimate
+
+  const lowBalanceForLaunch =
+    connected &&
+    solBalance != null &&
+    solBalance + 1e-9 < minRecommendedSol
+
   /** Allow click when disconnected so the same button opens the wallet modal (handleLaunchClick). */
   const launchDisabled = disabled || loading
 
@@ -252,6 +270,42 @@ export default function LaunchOwnershipPanel({ disabled, loading, onLaunch }: Pr
               </button>
             )
           })}
+        </div>
+
+        <div
+          className={`mt-5 rounded-xl border px-4 py-3 text-left ${
+            lowBalanceForLaunch
+              ? 'border-amber-400 bg-amber-50/95'
+              : 'border-sky-200/90 bg-sky-50/80'
+          }`}
+          role="status"
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-700">
+            SOL needed for fees
+          </p>
+          <p className="mt-2 text-xs font-medium leading-relaxed text-gray-800">
+            Even with <span className="font-bold">$0</span> creator pre-buy, mainnet launch still costs SOL: multiple
+            transactions plus a <span className="font-bold">Jito bundle tip</span> (often about{' '}
+            <span className="font-bold tabular-nums">0.015 SOL</span>). Plan for at least{' '}
+            <span className="font-bold tabular-nums">~{MIN_SOL_LAUNCH_FEES_AND_TIP} SOL</span> in this wallet before you
+            start; add your pre-buy on top if you enter a USD amount above.
+          </p>
+          <p className="mt-2 text-[11px] font-semibold text-gray-700">
+            Suggested minimum right now:{' '}
+            <span className="font-black tabular-nums text-gray-900">≈ {minRecommendedSol.toFixed(3)} SOL</span>
+            {prebuySolEstimate > 0 && (
+              <span className="font-medium text-gray-600">
+                {' '}
+                (fees + tip + ~{prebuySolEstimate.toFixed(4)} SOL pre-buy)
+              </span>
+            )}
+            .
+          </p>
+          {lowBalanceForLaunch && !balanceLoading && (
+            <p className="mt-2 text-[11px] font-bold text-amber-950">
+              Your wallet balance looks below that—add SOL before launching or the chain may reject the transaction.
+            </p>
+          )}
         </div>
       </div>
 
