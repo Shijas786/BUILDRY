@@ -44,18 +44,26 @@ function RightRail({ firestoreBuilders }: { firestoreBuilders: ExploreBuilderPub
       ? merged
       : [...mockProfiles].sort((a, b) => scoreFromExploreRow(b) - scoreFromExploreRow(a))
 
-  const topBuilders = sortedForRail.slice(0, 4).map((p) => ({
-    name: railDisplayName(p),
-    avatar: (p as { image_url?: string }).image_url || '',
-    amount: '$ 3k',
-    href: railProfileHref(p),
-  }))
+  const topBuilders = sortedForRail.slice(0, 4).map((p) => {
+    const href = railProfileHref(p)
+    const isReal = href.startsWith('/profile/')
+    return {
+      name: railDisplayName(p),
+      avatar: (p as { image_url?: string }).image_url || '',
+      amount: isReal ? '' : '$ 3k',
+      href,
+    }
+  })
 
-  const updates = sortedForRail.slice(4, 8).map((p, i) => ({
-    name: railDisplayName(p),
-    text: i % 2 === 0 ? 'Updated profile on Buildry' : 'Joined the talent board',
-    time: `${24 + i * 7}m`,
-  }))
+  const updates = sortedForRail.slice(4, 8).map((p, i) => {
+    const href = railProfileHref(p)
+    const isReal = href.startsWith('/profile/')
+    return {
+      name: railDisplayName(p),
+      text: isReal ? 'On Buildry talent board' : i % 2 === 0 ? 'Updated profile on Buildry' : 'Joined the talent board',
+      time: isReal ? '' : `${24 + i * 7}m`,
+    }
+  })
 
   return (
     <aside className="w-[320px] h-fit sticky top-[120px] border border-slate-100 bg-white p-8 rounded-[32px] hidden xl:block shadow-[0_8px_40px_-12px_rgba(0,0,0,0.03)]">
@@ -90,9 +98,11 @@ function RightRail({ firestoreBuilders }: { firestoreBuilders: ExploreBuilderPub
                     </p>
                   </div>
                 </div>
-                <div className="text-[12px] font-black text-slate-900 tabular-nums italic font-mono whitespace-nowrap shrink-0">
-                  {p.amount}
-                </div>
+                {p.amount ? (
+                  <div className="text-[12px] font-black text-slate-900 tabular-nums italic font-mono whitespace-nowrap shrink-0">
+                    {p.amount}
+                  </div>
+                ) : null}
               </Link>
             ))}
           </div>
@@ -111,7 +121,13 @@ function RightRail({ firestoreBuilders }: { firestoreBuilders: ExploreBuilderPub
                     {a.name}
                   </h4>
                   <p className="text-[10px] font-bold text-slate-400 leading-tight mt-1.5">
-                    {a.text} <span className="mx-1 opacity-30">•</span> {a.time}
+                    {a.text}
+                    {a.time ? (
+                      <>
+                        {' '}
+                        <span className="mx-1 opacity-30">•</span> {a.time}
+                      </>
+                    ) : null}
                   </p>
                 </div>
               </div>

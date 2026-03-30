@@ -20,7 +20,8 @@ interface BuilderCardData {
   bio: string
   skills: string[]
   token: { name: string; price: string; change: string } | null
-  stats: { contracts: number; projects: number; reviews: number }
+  /** null = not tracked (real Buildry profiles — no mock on-chain stats). */
+  stats: { contracts: number | null; projects: number | null; reviews: number | null }
   project?: { name: string; description?: string }
   profileHref: string
   bannerUrl?: string
@@ -73,6 +74,9 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
           ? p.profileHref
           : `/builder/${String(username).replace(/^@/, '')}`
 
+      const isRealBuildryProfile =
+        typeof profileHref === 'string' && profileHref.startsWith('/profile/')
+
       return {
         id: p.id || i,
         name,
@@ -83,24 +87,33 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
         score,
         status,
         statusColor,
-        tags: p.tags && p.tags.length > 0 ? p.tags.slice(0, 3) : ['GitHub', 'Verified', 'Dev'].slice(0, 1 + (i % 3)),
-        bio: p.bio || 'Verified Web3 builder with proven on-chain impact and high-velocity shipping history.',
-        skills:
-          profileHref.startsWith('/profile/') && p.tags && p.tags.length > 0
+        tags: isRealBuildryProfile
+          ? (p.tags && p.tags.length > 0 ? p.tags.slice(0, 3) : [])
+          : p.tags && p.tags.length > 0
+            ? p.tags.slice(0, 3)
+            : ['GitHub', 'Verified', 'Dev'].slice(0, 1 + (i % 3)),
+        bio: isRealBuildryProfile
+          ? (typeof p.bio === 'string' && p.bio.trim()) || 'Add a bio in Settings.'
+          : p.bio || 'Verified Web3 builder with proven on-chain impact and high-velocity shipping history.',
+        skills: isRealBuildryProfile
+          ? p.tags && p.tags.length > 0
             ? p.tags.slice(0, 5)
-            : ['React', 'Solidity', 'Go', 'Rust'].slice(0, 2 + (i % 3)),
+            : []
+          : ['React', 'Solidity', 'Go', 'Rust'].slice(0, 2 + (i % 3)),
         token:
-          profileHref.startsWith('/profile/')
+          isRealBuildryProfile
             ? null
             : i % 2 === 0
               ? { name: `$${String(username).toUpperCase().slice(0, 4)}`, price: '$0.0084', change: '+12.4%' }
               : null,
-        stats: {
-          contracts: 5 + (i % 15),
-          projects: projectMatch ? 1 : 2 + (i % 8),
-          reviews: 4.5 + ((i * 7) % 10) / 10,
-        },
-        project: projectMatch ? { name: projectMatch.name } : undefined,
+        stats: isRealBuildryProfile
+          ? { contracts: null, projects: null, reviews: null }
+          : {
+              contracts: 5 + (i % 15),
+              projects: projectMatch ? 1 : 2 + (i % 8),
+              reviews: 4.5 + ((i * 7) % 10) / 10,
+            },
+        project: isRealBuildryProfile ? undefined : projectMatch ? { name: projectMatch.name } : undefined,
         profileHref,
         bannerUrl:
           typeof p.banner_url === 'string' && p.banner_url.trim().length > 8 ? p.banner_url.trim() : undefined,
@@ -301,22 +314,32 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
                     </div>
                   )}
 
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="text-left">
-                      <p className="text-base font-black text-slate-900 font-mono tabular-nums">{b.stats.contracts}</p>
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Contracts</p>
+                  {b.stats.contracts == null && b.stats.projects == null && b.stats.reviews == null ? (
+                    <p className="mb-4 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-[10px] font-medium leading-relaxed text-slate-500">
+                      No mock deploy stats — contracts launched on Buildry show on your{' '}
+                      <Link href={b.profileHref} className="font-bold text-slate-700 underline decoration-slate-300 underline-offset-2 hover:text-blue-600">
+                        profile
+                      </Link>{' '}
+                      and token page after you go live.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="text-left">
+                        <p className="text-base font-black text-slate-900 font-mono tabular-nums">{b.stats.contracts}</p>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Contracts</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-base font-black text-slate-900 font-mono tabular-nums">{b.stats.projects}</p>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Projects</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-base font-black text-slate-900 font-mono italic tabular-nums">
+                          {b.stats.reviews != null ? b.stats.reviews.toFixed(1) : '—'}
+                        </p>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Rating</p>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <p className="text-base font-black text-slate-900 font-mono tabular-nums">{b.stats.projects}</p>
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Projects</p>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-base font-black text-slate-900 font-mono italic tabular-nums">
-                        {b.stats.reviews.toFixed(1)}
-                      </p>
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Rating</p>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <Link
