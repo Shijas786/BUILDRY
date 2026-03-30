@@ -137,32 +137,36 @@ export default function LandingPage() {
           </h2>
 
           <div className="divide-y divide-slate-200">
-            {[
-              {
-                tag: 'Core',
-                title: 'Social Feed',
-                description:
-                  'Share updates, milestones, and launches. Follow builders, like, and comment. Think Instagram for startups.',
-              },
-              {
-                tag: 'Trust',
-                title: 'Verified Reputation',
-                description:
-                  'GitHub contributions and on-chain activity we fetch directly create a trust layer you can inspect.',
-              },
-              {
-                tag: 'Web3',
-                title: 'Token Launch',
-                description:
-                  'Launch your token via Bags with one flow. Trading fees follow your Bags rules—often reinforcing liquidity and backers.',
-              },
-              {
-                tag: 'Hiring',
-                title: 'Jobs & Bounties',
-                description:
-                  'Post jobs, find verified developers, and pay in crypto. Reputation scores surface the best candidates.',
-              },
-            ].map((f) => (
+            {(
+              [
+                {
+                  tag: 'Core',
+                  title: 'Social Feed',
+                  description:
+                    'Share updates, milestones, and launches. Follow builders, like, and comment. Think Instagram for startups.',
+                },
+                {
+                  tag: 'Trust',
+                  title: 'Verified Reputation',
+                  description:
+                    'GitHub contributions and on-chain activity we fetch directly create a trust layer you can inspect.',
+                },
+                {
+                  tag: 'Web3',
+                  title: 'Token Launch',
+                  description:
+                    'Launch your token via Bags with one flow. Trading fees follow your Bags rules—often reinforcing liquidity and backers.',
+                  href: '/builders',
+                  hrefLabel: 'Fees & builder economics',
+                },
+                {
+                  tag: 'Hiring',
+                  title: 'Jobs & Bounties',
+                  description:
+                    'Post jobs, find verified developers, and pay in crypto. Reputation scores surface the best candidates.',
+                },
+              ] as const
+            ).map((f) => (
               <div
                 key={f.title}
                 className="grid gap-4 py-8 md:py-10 md:grid-cols-12 md:gap-x-8 md:gap-y-0"
@@ -175,9 +179,17 @@ export default function LandingPage() {
                     {f.title}
                   </h3>
                 </div>
-                <p className="md:col-span-7 text-sm sm:text-base font-semibold text-slate-500 leading-relaxed md:pt-6 self-start">
-                  {f.description}
-                </p>
+                <div className="md:col-span-7 md:pt-6 self-start">
+                  <p className="text-sm sm:text-base font-semibold text-slate-500 leading-relaxed">{f.description}</p>
+                  {'href' in f && f.href && 'hrefLabel' in f && f.hrefLabel ? (
+                    <Link
+                      href={f.href}
+                      className="mt-3 inline-block text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800"
+                    >
+                      {f.hrefLabel} →
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
@@ -207,7 +219,8 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <BuildryWordmark tone="dark" variant="full" shine shineSidebar />
           </div>
-          <div className="flex items-center gap-8 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest md:gap-8">
+            <Link href="/builders" className="hover:text-slate-900 transition-colors">Builder economics</Link>
             <Link href="#" className="hover:text-slate-900 transition-colors">Twitter</Link>
             <Link href="#" className="hover:text-slate-900 transition-colors">GitHub</Link>
             <Link href="#" className="hover:text-slate-900 transition-colors">Discord</Link>

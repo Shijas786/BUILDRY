@@ -13,7 +13,10 @@ import PriceChart from './PriceChart'
 import { VersionedTransaction, Connection } from '@solana/web3.js'
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112'
-const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
+const RPC_URL =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+  process.env.SOLANA_RPC_URL ||
+  'https://api.mainnet-beta.solana.com'
 
 interface TradePanelProps {
   token: BagsToken

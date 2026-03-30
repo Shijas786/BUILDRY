@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 
-// SIMULATED: @bagsfm/bags-sdk endpoint for Version 3 Ecosystem
+/** @deprecated Demo only. Production launches use `/launch` → `prepareLaunchTransaction` + wallet sign (Bags SDK). */
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { name, symbol, description, builderTwitter, walletAddress } = body
+    const { name, symbol, description, builderTwitter, walletAddress, creatorOwnershipUsd, creatorOwnershipPct } = body
 
     if (!name || !symbol) {
       return NextResponse.json({ success: false, error: 'Missing required token fields.' }, { status: 400 })
@@ -28,6 +28,12 @@ export async function POST(req: Request) {
     }
 
     console.log('[Bags API SDK V3]', 'Creating fee share config:', bagsFeeConfig)
+    if (creatorOwnershipUsd != null || creatorOwnershipPct != null) {
+      console.log('[Launch] Creator pre-buy (ownership)', {
+        creatorOwnershipUsd: typeof creatorOwnershipUsd === 'number' ? creatorOwnershipUsd : Number(creatorOwnershipUsd) || 0,
+        creatorOwnershipPct: creatorOwnershipPct ?? null,
+      })
+    }
 
     // Simulate Network Delay for Metadata Upload & Bundle Creation
     await new Promise(resolve => setTimeout(resolve, 2500))
@@ -39,7 +45,9 @@ export async function POST(req: Request) {
       success: true,
       mint: simulatedMint,
       message: 'Token successfully bundled with V3 Fee Config.',
-      config: bagsFeeConfig
+      config: bagsFeeConfig,
+      creatorOwnershipUsd: typeof creatorOwnershipUsd === 'number' ? creatorOwnershipUsd : Number(creatorOwnershipUsd) || 0,
+      creatorOwnershipPct: creatorOwnershipPct ?? null,
     })
 
   } catch (error) {

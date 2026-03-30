@@ -183,6 +183,12 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
             Dashboard
           </a>
           <a
+            href={`/token/${encodeURIComponent(mint)}#claim-fees`}
+            className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
+          >
+            Claim fees
+          </a>
+          <a
             href={`/token/${encodeURIComponent(mint)}#analyst`}
             className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
           >

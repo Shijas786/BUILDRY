@@ -1,5 +1,10 @@
 import LoggedOutNavShell from '@/components/LoggedOutNavShell'
+import { WalletProviders } from '@/components/WalletProviders'
 
 export default function TokenLayout({ children }: { children: React.ReactNode }) {
-  return <LoggedOutNavShell>{children}</LoggedOutNavShell>
+  return (
+    <WalletProviders>
+      <LoggedOutNavShell>{children}</LoggedOutNavShell>
+    </WalletProviders>
+  )
 }

@@ -95,3 +95,32 @@ export async function prepareLaunchTransaction(
     return { success: false, error: err.message || 'Failed to prepare launch transaction' }
   }
 }
+
+/** Serialized legacy transactions for the connected wallet to sign and send (creator fee claim). */
+export async function prepareClaimFeeTransactions(walletBase58: string, tokenMint: string) {
+  try {
+    const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
+    const apiKey = process.env.BAGS_API_KEY
+    if (!apiKey) throw new Error('Missing Bags API Key on server')
+
+    const connection = new Connection(rpcUrl, 'confirmed')
+    const bags = new BagsSDK(apiKey, connection)
+    const walletPk = new PublicKey(walletBase58)
+    const mintPk = new PublicKey(tokenMint)
+
+    const txs = await bags.fee.getClaimTransactions(walletPk, mintPk)
+    const transactionsBase64 = txs.map((tx) =>
+      Buffer.from(
+        tx.serialize({ requireAllSignatures: false, verifySignatures: false })
+      ).toString('base64')
+    )
+
+    return { success: true as const, transactionsBase64 }
+  } catch (err: any) {
+    console.error('prepareClaimFeeTransactions:', err)
+    return {
+      success: false as const,
+      error: err.message || 'Failed to prepare claim transactions',
+    }
+  }
+}

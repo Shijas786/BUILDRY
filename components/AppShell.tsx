@@ -8,7 +8,7 @@ import Sidebar from './Sidebar'
 import DeploymentTicker from './DeploymentTicker'
 import MobileAppHeader from './MobileAppHeader'
 
-const PUBLIC_ROUTES = ['/', '/auth']
+const PUBLIC_ROUTES = ['/', '/auth', '/builders', '/terms']
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

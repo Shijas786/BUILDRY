@@ -7,6 +7,8 @@ import FollowButton from '@/components/FollowButton'
 import { useAuth } from '@/context/AuthProvider'
 import ProfileActivitySection from '@/components/ProfileActivitySection'
 import ProfileProjectsGrid from '@/components/ProfileProjectsGrid'
+import ProfileTokensHub from '@/components/ProfileTokensHub'
+import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
 import BagsLaunchBadge from '@/components/BagsLaunchBadge'
 import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
@@ -486,7 +488,15 @@ export default function ProfilePage() {
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'posts', label: 'Posts', count: data?.posts.length },
     { id: 'projects', label: 'Projects', count: data?.projects.length },
-    ...(hasTokens ? [{ id: 'tokens' as Tab, label: 'Tokens', count: data?.tokens.length }] : []),
+    ...(hasTokens
+      ? [
+          {
+            id: 'tokens' as Tab,
+            label: (data?.tokens?.length || 0) === 1 ? 'Token' : 'Tokens',
+            count: data?.tokens.length,
+          },
+        ]
+      : []),
     { id: 'activity', label: 'Activity' },
     { id: 'services', label: 'Services' },
   ]
@@ -665,7 +675,12 @@ export default function ProfilePage() {
               onRefresh={refreshProfile}
             />
           )}
-          {activeTab === 'tokens' && <TokensTab tokens={data?.tokens || []} />}
+          {activeTab === 'tokens' && (
+            <ProfileTokensHub
+              tokens={(data?.tokens || []) as Record<string, unknown>[]}
+              profileSolWallet={primaryWalletsFromProfile(p as Record<string, unknown>).sol_wallet}
+            />
+          )}
           {activeTab === 'activity' && (
             <ProfileActivitySection
               github={github}
@@ -680,15 +695,6 @@ export default function ProfilePage() {
           {activeTab === 'services' && <ServicesTab profile={p} />}
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{typeof value === 'number' ? value.toLocaleString() : value}</p>
     </div>
   )
 }
@@ -733,117 +739,6 @@ function ServicesTab({ profile }: { profile: any }) {
       <p className="text-xs text-slate-400 capitalize">{profile.availability?.replace('_', ' ')}</p>
     </div>
   )
-}
-
-function TokensTab({ tokens }: { tokens: any[] }) {
-  if (!tokens.length) {
-    return <EmptyState title="No tokens launched" subtitle="This builder hasn't launched any tokens yet." />
-  }
-
-  const totalMcap = tokens.reduce((sum, t) => sum + (t.marketCap || 0), 0)
-  const totalVolume = tokens.reduce((sum, t) => sum + (t.volume24h || 0), 0)
-  const totalHolders = tokens.reduce((sum, t) => sum + (t.holders || 0), 0)
-
-  return (
-    <div>
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Tokens Launched" value={tokens.length} />
-        <StatCard label="Total Market Cap" value={`$${formatCompact(totalMcap)}`} />
-        <StatCard label="24h Volume" value={`$${formatCompact(totalVolume)}`} />
-        <StatCard label="Total Holders" value={totalHolders.toLocaleString()} />
-      </div>
-
-      {/* Token list */}
-      <div className="space-y-4">
-        {tokens.map((token, i) => (
-          <Link
-            key={token.mint || i}
-            href={`/token/${token.mint}`}
-            className="block p-5 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 hover:shadow-md transition-all group"
-          >
-            <div className="flex items-start gap-4">
-              {/* Token icon */}
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
-                {token.imageUrl ? (
-                  <img src={token.imageUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-lg font-black text-slate-300">
-                    {(token.symbol || '?').charAt(0)}
-                  </div>
-                )}
-              </div>
-
-              {/* Token info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
-                    {token.name}
-                  </h3>
-                  <span className="text-[10px] font-bold text-slate-400">${token.symbol}</span>
-                </div>
-                {token.description && (
-                  <p className="text-xs text-slate-400 line-clamp-1 mb-3">{token.description}</p>
-                )}
-
-                {/* Performance metrics */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <MetricPill label="Price" value={`$${token.price < 0.01 ? token.price.toFixed(6) : token.price.toFixed(4)}`} />
-                  <MetricPill
-                    label="24h"
-                    value={`${token.priceChange24h >= 0 ? '+' : ''}${token.priceChange24h?.toFixed(1)}%`}
-                    color={token.priceChange24h >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}
-                  />
-                  <MetricPill label="Mcap" value={`$${formatCompact(token.marketCap || 0)}`} />
-                  <MetricPill label="Volume" value={`$${formatCompact(token.volume24h || 0)}`} />
-                  <MetricPill label="Holders" value={(token.holders || 0).toLocaleString()} />
-                </div>
-
-                {/* Extra: Liquidity & Fee APY */}
-                {(token.liquidity > 0 || token.feeApy > 0) && (
-                  <div className="flex items-center gap-4 mt-3">
-                    {token.liquidity > 0 && (
-                      <span className="text-[10px] font-bold text-slate-400">
-                        Liquidity: <span className="text-slate-600">${formatCompact(token.liquidity)}</span>
-                      </span>
-                    )}
-                    {token.feeApy > 0 && (
-                      <span className="text-[10px] font-bold text-slate-400">
-                        Fee APY: <span className="text-emerald-600">{token.feeApy.toFixed(1)}%</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Trade CTA */}
-              <div className="shrink-0 self-center">
-                <span className="px-4 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                  Trade
-                </span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function MetricPill({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div className={`px-3 py-2 rounded-xl ${color || 'bg-slate-50 text-slate-600'}`}>
-      <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-0.5">{label}</p>
-      <p className="text-xs font-black tabular-nums">{value}</p>
-    </div>
-  )
-}
-
-function formatCompact(n: number): string {
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toLocaleString()
 }
 
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {

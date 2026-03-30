@@ -5,6 +5,7 @@ import Link from 'next/link'
 import TrustCard from '@/components/TrustCard'
 import TrustBadge from '@/components/TrustBadge'
 import TradePanel from '@/components/TradePanel'
+import ClaimFeesCard from '@/components/ClaimFeesCard'
 import AiRiskBrief from '@/components/AiRiskBrief'
 import PriceChart from '@/components/PriceChart'
 import { SkeletonTokenCard } from '@/components/SkeletonCard'
@@ -144,6 +145,36 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div
+              id="claim-fees"
+              style={{
+                scrollMarginTop: 16,
+                marginTop: 16,
+                paddingTop: 16,
+                borderTop: '1px solid #f0f0f0',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
+                  color: '#aaa',
+                  fontWeight: 600,
+                  marginBottom: 10,
+                }}
+              >
+                Creator fees
+              </div>
+              <ClaimFeesCard
+                tokens={[{ mint: token.mint, name: token.name, symbol: token.symbol }]}
+                profileSolWallet={token.creatorWallet ?? null}
+                expectedFeeWallet="creator"
+                hideTitle
+                className="!mb-0 !shadow-none rounded-xl border-[#e8e8e8] bg-[#fafafa]"
+              />
             </div>
           </section>
 
