@@ -2,6 +2,7 @@
 
 import { Connection, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js'
 import { createTipTransaction } from '@bagsfm/bags-sdk'
+import { confirmSignaturePolling } from '@/lib/solanaConfirm'
 
 export type BagsFeeSharePrepSuccess = {
   success: true
@@ -104,12 +105,12 @@ export async function runBagsLaunchWalletFlow(
     const tx = VersionedTransaction.deserialize(Buffer.from(b64, 'base64'))
     let signature: string
     if (wallet.sendTransaction) {
-      signature = await wallet.sendTransaction(tx, connection)
+      signature = await wallet.sendTransaction(tx, connection, { maxRetries: 5 })
     } else {
       const signed = await wallet.signTransaction(tx)
-      signature = await connection.sendRawTransaction(signed.serialize())
+      signature = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 5 })
     }
-    await connection.confirmTransaction(signature, COMMITMENT)
+    await confirmSignaturePolling(connection, signature, { commitment: COMMITMENT })
   }
 
   const deploy = await server

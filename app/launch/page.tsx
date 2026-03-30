@@ -14,6 +14,7 @@ import {
   submitBagsSignedJitoBundle,
 } from '@/app/actions/bags'
 import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
+import { confirmSignaturePolling, SOLANA_LAUNCH_CONNECTION_CONFIG } from '@/lib/solanaConfirm'
 import LaunchStepIndicator from '@/components/launch/LaunchStepIndicator'
 import LaunchBuilderIdentityCard from '@/components/launch/LaunchBuilderIdentityCard'
 import LaunchSuccessScreen from '@/components/launch/LaunchSuccessScreen'
@@ -226,7 +227,7 @@ export default function LaunchStudio() {
 
       const rpc =
         process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
-      const connection = new Connection(rpc, 'confirmed')
+      const connection = new Connection(rpc, SOLANA_LAUNCH_CONNECTION_CONFIG)
 
       if (!signTransaction) {
         throw new Error('Wallet cannot sign transactions.')
@@ -236,10 +237,12 @@ export default function LaunchStudio() {
         feePrep,
         {
           publicKey,
-          sendTransaction: sendTransaction ?? (async (tx, conn) => {
-            const signed = await signTransaction(tx)
-            return conn.sendRawTransaction(signed.serialize())
-          }),
+          sendTransaction: sendTransaction
+            ? async (tx, conn) => sendTransaction(tx, conn, { maxRetries: 5 })
+            : async (tx, conn) => {
+                const signed = await signTransaction(tx)
+                return conn.sendRawTransaction(signed.serialize(), { maxRetries: 5 })
+              },
           signTransaction,
           signAllTransactions,
         },
@@ -256,13 +259,13 @@ export default function LaunchStudio() {
 
       let signature: string
       if (sendTransaction) {
-        signature = await sendTransaction(vtx, connection)
+        signature = await sendTransaction(vtx, connection, { maxRetries: 5 })
       } else {
         const signed = await signTransaction(vtx)
-        signature = await connection.sendRawTransaction(signed.serialize())
+        signature = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 5 })
       }
 
-      await connection.confirmTransaction(signature, 'confirmed')
+      await confirmSignaturePolling(connection, signature)
 
       if (user?.id) {
         void recordLaunchMilestonePost(user.id, name.trim(), symbol.trim().toUpperCase(), description.trim())

@@ -10,6 +10,7 @@ import {
   submitBagsSignedJitoBundle,
 } from '@/app/actions/bags'
 import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
+import { confirmSignaturePolling, SOLANA_LAUNCH_CONNECTION_CONFIG } from '@/lib/solanaConfirm'
 
 interface LaunchTokenModalProps {
   isOpen: boolean
@@ -63,19 +64,19 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
 
       const connection = new Connection(
         process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
-        'confirmed'
+        SOLANA_LAUNCH_CONNECTION_CONFIG
       )
 
       const { transactionBase64, tokenMint } = await runBagsLaunchWalletFlow(
         feePrep,
         {
           publicKey,
-          sendTransaction:
-            sendTransaction ??
-            (async (tx, conn) => {
-              const signedTx = await signTransaction(tx)
-              return conn.sendRawTransaction(signedTx.serialize())
-            }),
+          sendTransaction: sendTransaction
+            ? async (tx, conn) => sendTransaction(tx, conn, { maxRetries: 5 })
+            : async (tx, conn) => {
+                const signedTx = await signTransaction(tx)
+                return conn.sendRawTransaction(signedTx.serialize(), { maxRetries: 5 })
+              },
           signTransaction,
           signAllTransactions,
         },
@@ -92,13 +93,13 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
 
       let signature: string
       if (sendTransaction) {
-        signature = await sendTransaction(versionedTx, connection)
+        signature = await sendTransaction(versionedTx, connection, { maxRetries: 5 })
       } else {
         const signedTx = await signTransaction(versionedTx)
-        signature = await connection.sendRawTransaction(signedTx.serialize())
+        signature = await connection.sendRawTransaction(signedTx.serialize(), { maxRetries: 5 })
       }
 
-      await connection.confirmTransaction(signature, 'confirmed')
+      await confirmSignaturePolling(connection, signature)
 
       console.log('Token Deployed! Mint:', tokenMint, 'Signature:', signature)
       alert(`Token successfully deployed on Solana! Mint: ${tokenMint}`)
