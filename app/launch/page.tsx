@@ -155,21 +155,23 @@ export default function LaunchStudio() {
   }
 
   const resolveTokenImageUrl = useCallback((): string => {
-    if (user?.avatar_url) return user.avatar_url
     const ghAvatar = payload?.socialShowcase?.github?.avatarUrl
     if (ghAvatar) return ghAvatar
+    const ghLoginRaw =
+      typeof payload?.profile?.github_username === 'string'
+        ? payload.profile.github_username.replace(/^@/, '').trim()
+        : payload?.socialShowcase?.github?.username
+    const ghLogin = ghLoginRaw ? encodeURIComponent(ghLoginRaw) : ''
+    // Direct GitHub avatar URL tends to work better for Bags than unavatar (fewer 400s from their CDN).
+    if (ghLogin) return `https://github.com/${ghLogin}.png`
     const profileAvatar = payload?.profile && typeof (payload.profile as { avatar_url?: string }).avatar_url === 'string'
       ? (payload.profile as { avatar_url: string }).avatar_url
       : ''
     if (profileAvatar) return profileAvatar
-    const ghLogin =
-      typeof payload?.profile?.github_username === 'string'
-        ? payload.profile.github_username.replace(/^@/, '').trim()
-        : payload?.socialShowcase?.github?.username
-    if (ghLogin) return `https://unavatar.io/github/${encodeURIComponent(ghLogin)}`
+    if (user?.avatar_url) return user.avatar_url
     const handle =
       (typeof payload?.profile?.username === 'string' && payload.profile.username) || user?.name || 'buildry'
-    return `https://unavatar.io/github/${encodeURIComponent(String(handle).replace(/^@/, ''))}`
+    return `https://github.com/${encodeURIComponent(String(handle).replace(/^@/, ''))}.png`
   }, [payload, user?.avatar_url, user?.name])
 
   const handleDeploy = async (ownership?: {
