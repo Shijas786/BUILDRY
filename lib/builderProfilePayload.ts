@@ -249,31 +249,41 @@ export async function loadBuilderProfilePayload(username: string) {
       ? await enrichGithubReposWithReadmeSummaries(ghLogin, githubRepos)
       : new Map<number, string>()
 
+  const hiddenRaw = profile && typeof profile === 'object' ? (profile as { github_hidden_repo_ids?: unknown }).github_hidden_repo_ids : undefined
+  const hiddenGhIds = new Set(
+    Array.isArray(hiddenRaw)
+      ? hiddenRaw.map((x) => Number(x)).filter((n): n is number => Number.isFinite(n))
+      : []
+  )
+
   const mergedProjects = [
     ...(projects || []).map((p: any) => ({ ...p, source: 'manual' })),
-    ...githubRepos.map((repo: any) => {
-      const topicTags = (repo.topics as string[] | undefined)?.filter(Boolean).slice(0, 5) ?? []
-      const tagSet = new Set<string>()
-      if (repo.language) tagSet.add(repo.language)
-      for (const t of topicTags) {
-        if (t.toLowerCase() !== 'github') tagSet.add(t)
-      }
-      tagSet.add('GitHub')
-      return {
-        id: `gh-${repo.id}`,
-        title: repo.name,
-        description:
-          readmeSummaryByRepoId.get(repo.id)?.trim() || formatGithubRepoCardDescription(repo),
-        category: repo.language || 'Code',
-        status: 'launched',
-        github_url: repo.htmlUrl,
-        tags: Array.from(tagSet),
-        source: 'github',
-        stars: repo.stars,
-        forks: repo.forks,
-        updated_at: repo.updatedAt,
-      }
-    }),
+    ...githubRepos
+      .filter((repo: any) => !hiddenGhIds.has(Number(repo.id)))
+      .map((repo: any) => {
+        const topicTags = (repo.topics as string[] | undefined)?.filter(Boolean).slice(0, 5) ?? []
+        const tagSet = new Set<string>()
+        if (repo.language) tagSet.add(repo.language)
+        for (const t of topicTags) {
+          if (t.toLowerCase() !== 'github') tagSet.add(t)
+        }
+        tagSet.add('GitHub')
+        return {
+          id: `gh-${repo.id}`,
+          github_repo_id: repo.id,
+          title: repo.name,
+          description:
+            readmeSummaryByRepoId.get(repo.id)?.trim() || formatGithubRepoCardDescription(repo),
+          category: repo.language || 'Code',
+          status: 'launched',
+          github_url: repo.htmlUrl,
+          tags: Array.from(tagSet),
+          source: 'github',
+          stars: repo.stars,
+          forks: repo.forks,
+          updated_at: repo.updatedAt,
+        }
+      }),
   ]
 
   const contributions = buildContributionsSnapshot({

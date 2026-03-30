@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
 import { useAuth } from '@/context/AuthProvider'
 import ProfileActivitySection from '@/components/ProfileActivitySection'
+import ProfileProjectsGrid from '@/components/ProfileProjectsGrid'
 import BagsLaunchBadge from '@/components/BagsLaunchBadge'
 import { farcasterShowcaseFromStored } from '@/lib/socialShowcase'
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
@@ -392,7 +393,15 @@ export default function ProfilePage() {
     note?: string
   }>({ status: 'idle' })
 
+  const refreshProfile = useCallback(() => {
+    fetch(`/api/profile/${encodeURIComponent(username)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => {})
+  }, [username])
+
   useEffect(() => {
+    setLoading(true)
     fetch(`/api/profile/${encodeURIComponent(username)}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then(setData)
@@ -503,9 +512,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile header */}
-      <div className="max-w-6xl mx-auto px-6 md:px-8 -mt-16 sm:-mt-[4.5rem] md:-mt-20 relative z-10">
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 md:p-8 mb-6">
-        <div className="flex items-end gap-6 mb-5">
+      <div className="relative z-10 mx-auto -mt-16 max-w-6xl px-4 sm:-mt-[4.5rem] sm:px-6 md:-mt-20 md:px-8">
+        <div className="mb-6 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6 md:p-8">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
           <div className="relative shrink-0">
             <div className="w-28 h-28 rounded-3xl bg-white border-4 border-white shadow-xl overflow-hidden">
               {(p.avatar_url || socialShowcase?.github?.avatarUrl || socialShowcase?.linkedin?.picture || github?.avatarUrl) ? (
@@ -538,12 +547,14 @@ export default function ProfilePage() {
           {user?.id === p.id ? (
             <Link
               href="/settings"
-              className="shrink-0 px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest bg-slate-900 text-white hover:bg-black shadow-lg shadow-slate-900/10 transition-all active:scale-95"
+              className="w-full shrink-0 rounded-xl bg-slate-900 px-5 py-2.5 text-center text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-slate-900/10 transition-all hover:bg-black active:scale-95 sm:w-auto"
             >
               Edit profile
             </Link>
           ) : (
-            <FollowButton builderId={p.id} />
+            <div className="w-full sm:w-auto">
+              <FollowButton builderId={p.id} />
+            </div>
           )}
         </div>
 
@@ -646,7 +657,14 @@ export default function ProfilePage() {
         {/* Tab content */}
         <div className="pb-20 bg-white rounded-2xl border border-slate-100 p-5 md:p-6">
           {activeTab === 'posts' && <PostsTab posts={data?.posts || []} />}
-          {activeTab === 'projects' && <ProjectsTab projects={data?.projects || []} />}
+          {activeTab === 'projects' && (
+            <ProfileProjectsGrid
+              projects={data?.projects || []}
+              isOwner={Boolean(user?.id && p.id && user.id === p.id)}
+              builderProfileDocId={p.id}
+              onRefresh={refreshProfile}
+            />
+          )}
           {activeTab === 'tokens' && <TokensTab tokens={data?.tokens || []} />}
           {activeTab === 'activity' && (
             <ProfileActivitySection
@@ -693,44 +711,6 @@ function PostsTab({ posts }: { posts: any[] }) {
             <span>{post.likes_count || 0} likes</span>
             <span>{post.comments_count || 0} comments</span>
           </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ProjectsTab({ projects }: { projects: any[] }) {
-  if (!projects.length) {
-    return <EmptyState title="No projects yet" subtitle="Projects will appear here once added." />
-  }
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {projects.map(proj => (
-        <div key={proj.id} className="p-5 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all overflow-hidden">
-          {proj.image_url ? (
-            <div className="aspect-[2/1] w-full -mx-5 -mt-5 mb-4 max-h-40 overflow-hidden bg-slate-100">
-              <img src={proj.image_url} alt="" className="h-full w-full object-cover" />
-            </div>
-          ) : null}
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`w-2 h-2 rounded-full ${proj.status === 'launched' ? 'bg-emerald-500' : proj.status === 'building' ? 'bg-amber-500' : 'bg-slate-300'}`} />
-            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">{proj.status}</span>
-            {proj.source && (
-              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${proj.source === 'github' ? 'text-violet-600 bg-violet-50' : 'text-slate-500 bg-slate-50'}`}>
-                {proj.source}
-              </span>
-            )}
-            {proj.has_token && <span className="text-[9px] font-black uppercase text-blue-500 bg-blue-50 px-2 py-0.5 rounded">Token</span>}
-          </div>
-          <h3 className="text-base font-bold text-slate-900 mb-1">{proj.title}</h3>
-          <p className="text-xs text-slate-400 line-clamp-2">{proj.description}</p>
-          {proj.tags && (
-            <div className="flex gap-1.5 mt-3 flex-wrap">
-              {proj.tags.slice(0, 4).map((t: string) => (
-                <span key={t} className="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-50 text-slate-400">{t}</span>
-              ))}
-            </div>
-          )}
         </div>
       ))}
     </div>

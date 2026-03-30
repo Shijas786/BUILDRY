@@ -14,14 +14,14 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/40">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         {/* Top header */}
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Live Network Feed</h1>
-            <p className="text-xs text-slate-400 mt-1">Real updates from builders, founders, and investors in one stream.</p>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">Live Network Feed</h1>
+            <p className="mt-1 text-xs text-slate-400">Real updates from builders, founders, and investors in one stream.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Real-time</span>
           </div>

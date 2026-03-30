@@ -1,9 +1,19 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import '@farcaster/auth-kit/styles.css'
 import './globals.css'
 import Web3Provider from '@/context/Web3Provider'
 import AuthProvider from '@/context/AuthProvider'
 import AppShell from '@/components/AppShell'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f172a' },
+  ],
+}
 
 export const metadata: Metadata = {
   title: 'Buildry — Where Founders Build in Public',

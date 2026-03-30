@@ -8,6 +8,10 @@ interface RoleStore {
   setActiveRole: (role: UserRole) => void
   sidebarExpanded: boolean
   toggleSidebar: () => void
+  /** Slide-over nav on small screens; not persisted */
+  mobileNavOpen: boolean
+  setMobileNavOpen: (open: boolean) => void
+  toggleMobileNav: () => void
 }
 
 export const useRoleStore = create<RoleStore>()(
@@ -17,8 +21,17 @@ export const useRoleStore = create<RoleStore>()(
       setActiveRole: (role) => set({ activeRole: role }),
       sidebarExpanded: true,
       toggleSidebar: () => set((s) => ({ sidebarExpanded: !s.sidebarExpanded })),
+      mobileNavOpen: false,
+      setMobileNavOpen: (open) => set({ mobileNavOpen: open }),
+      toggleMobileNav: () => set((s) => ({ mobileNavOpen: !s.mobileNavOpen })),
     }),
-    { name: 'buildry_role' }
+    {
+      name: 'buildry_role',
+      partialize: (state) => ({
+        activeRole: state.activeRole,
+        sidebarExpanded: state.sidebarExpanded,
+      }),
+    }
   )
 )
 
@@ -40,22 +53,19 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { name: 'Explore', href: '/explore', icon: 'explore' },
     { name: 'Jobs', href: '/jobs', icon: 'jobs' },
     investTrade,
-    { name: 'My Projects', href: '/projects', icon: 'projects' },
     { name: 'Launch Token', href: '/launch', icon: 'launch' },
   ],
   founder: [
     ...shared,
-    { name: 'Launch Token', href: '/launch', icon: 'launch' },
-    { name: 'My Startup', href: '/projects', icon: 'projects' },
     investTrade,
     { name: 'Hire Talent', href: '/jobs', icon: 'jobs' },
     { name: 'Explore', href: '/explore', icon: 'explore' },
+    { name: 'Launch Token', href: '/launch', icon: 'launch' },
   ],
   investor: [
     ...shared,
     investTrade,
     { name: 'Discover', href: '/explore', icon: 'explore' },
-    { name: 'Backed Projects', href: '/projects', icon: 'projects' },
     { name: 'Talent Board', href: '/jobs', icon: 'jobs' },
   ],
   recruiter: [

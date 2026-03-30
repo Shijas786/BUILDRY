@@ -41,20 +41,44 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const { activeRole, setActiveRole, sidebarExpanded, toggleSidebar } = useRoleStore()
+  const {
+    activeRole,
+    setActiveRole,
+    sidebarExpanded,
+    toggleSidebar,
+    mobileNavOpen,
+    setMobileNavOpen,
+  } = useRoleStore()
   const navItems = NAV_BY_ROLE[activeRole]
   const roleMeta = ROLE_META[activeRole]
 
+  const showLabels = sidebarExpanded || mobileNavOpen
+  const closeMobileNav = () => setMobileNavOpen(false)
+
   return (
-    <aside
-      className={`fixed top-0 left-0 h-dvh max-h-dvh bg-white border-r border-slate-100 z-[120] flex flex-col overflow-x-hidden transition-all duration-300 ${
-        sidebarExpanded ? 'w-[268px]' : 'w-[68px]'
-      }`}
-    >
+    <>
+      {mobileNavOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-[115] bg-slate-900/40 backdrop-blur-[1px] md:hidden"
+          aria-label="Close menu"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+      <aside
+        className={`fixed left-0 top-0 z-[120] flex h-dvh max-h-dvh w-[min(288px,calc(100vw-0.75rem))] flex-col overflow-x-hidden border-r border-slate-100 bg-white shadow-xl transition-transform duration-300 ease-out md:shadow-none ${
+          sidebarExpanded ? 'md:w-[268px]' : 'md:w-[68px]'
+        } ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+      >
       {/* Logo + collapse */}
-      <div className="min-h-[88px] shrink-0 flex items-center justify-between gap-2 px-3 py-3 border-b border-slate-100">
-        <Link href="/feed" className="flex items-center gap-2 min-w-0 flex-1 overflow-visible" aria-label="Buildry feed">
-          {sidebarExpanded ? (
+      <div className="flex min-h-[88px] shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
+        <Link
+          href="/feed"
+          onClick={closeMobileNav}
+          className="flex min-w-0 flex-1 items-center gap-2 overflow-visible"
+          aria-label="Buildry feed"
+        >
+          {showLabels ? (
             <BuildryWordmark
               tone="dark"
               variant="full"
@@ -66,20 +90,36 @@ export default function Sidebar() {
             <BuildryWordmark tone="dark" variant="icon" />
           )}
         </Link>
-        <button
-          onClick={toggleSidebar}
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-slate-900 hover:bg-slate-50 transition-all shrink-0"
-        >
-          <svg className={`w-4 h-4 transition-transform ${sidebarExpanded ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {mobileNavOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:hidden"
+              aria-label="Close menu"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-slate-50 hover:text-slate-900 md:flex"
+            aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            <svg className={`h-4 w-4 transition-transform ${sidebarExpanded ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Role switcher */}
-      <div className={`shrink-0 px-3 py-4 border-b border-slate-100 ${sidebarExpanded ? '' : 'px-2'}`}>
-        {sidebarExpanded && (
-          <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] mb-3 px-1">Switch role</p>
+      <div className={`shrink-0 border-b border-slate-100 px-3 py-4 ${showLabels ? '' : 'px-2'}`}>
+        {showLabels && (
+          <p className="mb-3 px-1 text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">Switch role</p>
         )}
         <div className={`grid gap-1.5 grid-cols-1`}>
           {(Object.keys(ROLE_META) as UserRole[]).map((role) => {
@@ -89,8 +129,8 @@ export default function Sidebar() {
               <button
                 key={role}
                 onClick={() => setActiveRole(role)}
-                className={`flex items-center gap-2 rounded-xl transition-all min-w-0 ${
-                  sidebarExpanded ? 'px-3 py-2 w-full' : 'px-0 py-2 justify-center'
+                className={`flex min-w-0 items-center gap-2 rounded-xl transition-all ${
+                  showLabels ? 'w-full px-3 py-2' : 'justify-center px-0 py-2'
                 } ${
                   isActive
                     ? `${meta.color} border font-black`
@@ -101,8 +141,8 @@ export default function Sidebar() {
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {meta.icon}
                 </svg>
-                {sidebarExpanded && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider truncate min-w-0 flex-1 text-left">
+                {showLabels && (
+                  <span className="min-w-0 flex-1 truncate text-left text-[10px] font-bold uppercase tracking-wider">
                     {meta.label}
                   </span>
                 )}
@@ -113,40 +153,40 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 pb-3 space-y-1 min-h-0">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-4 pb-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href + item.name}
               href={item.href}
+              onClick={closeMobileNav}
               className={`flex items-center gap-3 rounded-xl transition-all ${
-                sidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
+                showLabels ? 'px-3 py-2.5' : 'justify-center px-0 py-2.5'
               } ${
                 isActive
                   ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
-                  : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
               }`}
               title={item.name}
             >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {NAV_ICONS[item.icon] || NAV_ICONS.feed}
               </svg>
-              {sidebarExpanded && (
-                <span className="text-[11px] font-bold tracking-wide truncate">{item.name}</span>
-              )}
+              {showLabels && <span className="truncate text-[11px] font-bold tracking-wide">{item.name}</span>}
             </Link>
           )
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-slate-100 px-2.5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] bg-slate-50/80">
+      <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-2.5">
         <NavbarAccountCluster
           menuOpen="above"
-          compact={!sidebarExpanded}
-          forSidebar={sidebarExpanded}
+          compact={!showLabels}
+          forSidebar={showLabels}
         />
       </div>
     </aside>
+    </>
   )
 }

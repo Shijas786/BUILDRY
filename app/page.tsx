@@ -34,20 +34,20 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-8 pt-32 pb-16 text-center relative">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-50/40 rounded-full blur-[120px] -z-10" />
+      <section className="relative mx-auto max-w-6xl px-4 pb-12 pt-24 text-center sm:px-6 sm:pb-16 sm:pt-28 md:px-8 md:pt-32">
+        <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[min(400px,70vw)] w-[min(700px,200vw)] -translate-x-1/2 rounded-full bg-blue-50/40 blur-[120px]" />
 
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-50 border border-slate-100 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Now in public beta</span>
         </div>
 
-        <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[0.95] text-slate-900 mb-8 max-w-4xl mx-auto">
+        <h1 className="mx-auto mb-6 max-w-4xl text-4xl font-black leading-[0.95] tracking-tight text-slate-900 sm:mb-8 sm:text-5xl md:text-6xl lg:text-8xl">
           Where founders<br />
           <span className="font-serif italic text-slate-500 font-normal">build in public</span>
         </h1>
 
-        <p className="text-lg text-slate-400 font-medium max-w-2xl mx-auto mb-12 leading-relaxed">
+        <p className="mx-auto mb-10 max-w-2xl px-1 text-base font-medium leading-relaxed text-slate-400 sm:mb-12 sm:text-lg">
           Share updates, showcase milestones, and build your audience. Find co-founders, hire talent, 
           book investor meetings, and launch tokens. Your network grows with every post.
         </p>
@@ -73,7 +73,7 @@ export default function LandingPage() {
             { value: '$4.2M', label: 'Jobs Completed' },
           ].map((s, i) => (
             <div key={i} className="text-center">
-              <p className="text-4xl font-black text-slate-900 tracking-tight tabular-nums mb-1">{s.value}</p>
+              <p className="mb-1 text-2xl font-black tabular-nums tracking-tight text-slate-900 sm:text-3xl md:text-4xl">{s.value}</p>
               <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{s.label}</p>
             </div>
           ))}

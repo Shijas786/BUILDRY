@@ -20,8 +20,9 @@ export default async function BuilderProfile({ params }: { params: { username: s
           <div className="space-y-4">
             <h1 className="text-4xl font-black tracking-tight uppercase">Profile Not Found</h1>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-relaxed">
-              We couldn't resolve <span className="text-slate-900">@{username}</span> on the Talent Protocol. <br/> 
-              They may need to mint their Talent Passport first.
+              We couldn&apos;t find a builder profile for{' '}
+              <span className="text-slate-900">@{username}</span>. <br />
+              They may not have signed up yet, or the handle may be wrong.
             </p>
           </div>
           <div className="pt-8">

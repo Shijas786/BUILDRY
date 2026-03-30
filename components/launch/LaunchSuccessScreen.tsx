@@ -163,8 +163,38 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
         </h1>
 
         <p className="mx-auto mt-5 max-w-md text-base font-medium leading-relaxed text-gray-600">
-          Your token page is being set up. Share your contract while you wait.
+          Your token home opens with live chart and holders, dashboard stats, and analyst signals first — launch and trading tools are at the end of the page.
         </p>
+
+        <nav
+          aria-label="Token page sections"
+          className="mx-auto mt-6 flex max-w-lg flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center"
+        >
+          <a
+            href={`/token/${encodeURIComponent(mint)}#holders-chart`}
+            className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
+          >
+            Live chart &amp; holders
+          </a>
+          <a
+            href={`/token/${encodeURIComponent(mint)}#dashboard`}
+            className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
+          >
+            Dashboard
+          </a>
+          <a
+            href={`/token/${encodeURIComponent(mint)}#analyst`}
+            className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
+          >
+            Analyst
+          </a>
+          <a
+            href={`/token/${encodeURIComponent(mint)}#token-launch`}
+            className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
+          >
+            Launch &amp; trade
+          </a>
+        </nav>
 
         <details className="group mx-auto mt-4 max-w-sm text-left">
           <summary className="flex cursor-pointer list-none items-center justify-center gap-1.5 text-xs font-semibold text-gray-400 transition-colors hover:text-gray-600 [&::-webkit-details-marker]:hidden">
@@ -347,10 +377,10 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
 
         <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
-            href={`/token/${encodeURIComponent(mint)}`}
+            href={`/token/${encodeURIComponent(mint)}#holders-chart`}
             className="inline-flex items-center justify-center rounded-xl bg-slate-800 px-8 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-slate-900/15 transition-all hover:bg-slate-900 active:scale-[0.98]"
           >
-            View token page →
+            Open token page →
           </Link>
           <Link
             href="/"

@@ -49,17 +49,12 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fff' }}>
+    <div className="min-h-screen bg-white">
       <main
-        style={{
-          maxWidth: 1020, margin: '0 auto', padding: '20px 16px 80px',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)',
-          gap: 16,
-        }}
+        className="mx-auto grid max-w-[1020px] grid-cols-1 gap-4 px-3 pb-16 pt-3 sm:gap-4 sm:px-4 sm:pb-20 sm:pt-5 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-4"
       >
         {/* ── LEFT ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="flex min-w-0 flex-col gap-3 sm:gap-4 md:order-none">
 
           {/* Token header */}
           <div style={{ border: '1px solid #e8e8e8', borderRadius: 12, padding: '16px 18px', background: '#fff' }}>
@@ -67,27 +62,37 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
               ← Back
             </Link>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: '50%',
-                background: '#f2f2f2', border: '1px solid #e8e8e8',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 18, fontWeight: 800, color: '#0a0a0a', flexShrink: 0,
-              }}>
+            <div className="flex flex-wrap items-start gap-3 sm:items-center sm:gap-3.5">
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: '#f2f2f2',
+                  border: '1px solid #e8e8e8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: '#0a0a0a',
+                  flexShrink: 0,
+                }}
+              >
                 {token.name.charAt(0).toUpperCase()}
               </div>
 
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+                <div className="flex flex-wrap items-center gap-2">
                   <span style={{ fontWeight: 800, fontSize: 18, color: '#0a0a0a' }}>{token.name}</span>
                   {trust && !trustLoading && <TrustBadge tier={trust.tier} />}
                 </div>
-                <div className="font-mono" style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+                <div className="font-mono break-all" style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
                   ${token.symbol} · {fmtAddr(token.mint)}
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
+              <div className="ml-auto text-right sm:ml-0">
                 <div className="font-mono" style={{ fontSize: 20, fontWeight: 800, color: '#0a0a0a' }}>
                   {fmtPrice(token.price)}
                 </div>
@@ -96,12 +101,28 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Stats row */}
-            <div style={{
-              display: 'flex', gap: 0, marginTop: 16,
-              paddingTop: 14, borderTop: '1px solid #f0f0f0',
-            }}>
+          {/* 1. Live chart & holders (first after launch) */}
+          <section
+            id="holders-chart"
+            style={{ scrollMarginTop: 16, border: '1px solid #e8e8e8', borderRadius: 12, padding: '14px 16px', background: '#fff' }}
+          >
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, marginBottom: 10 }}>
+              Live chart · {fmtNum(token.holders || 0)} holders
+            </div>
+            <PriceChart mint={token.mint} price={token.price} priceChange={token.priceChange24h} />
+          </section>
+
+          {/* 2. Dashboard stats */}
+          <section
+            id="dashboard"
+            style={{ scrollMarginTop: 16, border: '1px solid #e8e8e8', borderRadius: 12, padding: '16px 18px', background: '#fff' }}
+          >
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, marginBottom: 12 }}>
+              Dashboard
+            </div>
+            <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
               {[
                 { label: 'Market Cap', val: fmtNum(token.marketCap) },
                 { label: 'Volume 24h', val: fmtNum(token.volume24h) },
@@ -110,9 +131,10 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
                 { label: 'Liquidity', val: fmtNum(token.liquidity || 0) },
               ].map((s, i) => (
                 <div key={s.label} style={{
-                  flex: 1, paddingLeft: i > 0 ? 12 : 0,
+                  flex: '1 1 90px', paddingLeft: i > 0 ? 12 : 0,
                   borderLeft: i > 0 ? '1px solid #f0f0f0' : 'none',
                   marginLeft: i > 0 ? 12 : 0,
+                  marginBottom: 8,
                 }}>
                   <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600 }}>
                     {s.label}
@@ -123,30 +145,40 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* Price chart */}
-          <div style={{ border: '1px solid #e8e8e8', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
-            <PriceChart mint={token.mint} price={token.price} priceChange={token.priceChange24h} />
-          </div>
-
-          {/* Trade panel */}
-          <TradePanel token={token} trust={trust} trustLoading={trustLoading} />
-
-          {/* AI Risk */}
-          {trust && (
-            <div style={{ border: '1px solid #e8e8e8', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+          {/* 3. Analyst */}
+          <section
+            id="analyst"
+            style={{ scrollMarginTop: 16, border: '1px solid #e8e8e8', borderRadius: 12, padding: '14px 16px', background: '#fff' }}
+          >
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, marginBottom: 10 }}>
+              Analyst
+            </div>
+            {trust ? (
               <AiRiskBrief
                 mint={token.mint} name={token.name} symbol={token.symbol}
-                wallet={token.creatorWallet || ''} tier={trust.tier} 
+                wallet={token.creatorWallet || ''} tier={trust.tier}
                 builderScore={trust.builderScore} reliabilityScore={trust.reliabilityScore}
               />
+            ) : (
+              <p style={{ fontSize: 12, color: '#888', lineHeight: 1.6, margin: 0 }}>
+                {trustLoading ? 'Loading creator signals…' : 'Risk and builder signals appear here when creator data is available.'}
+              </p>
+            )}
+          </section>
+
+          {/* 4. Token launch & trade (last) */}
+          <section id="token-launch" style={{ scrollMarginTop: 16 }}>
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, margin: '0 0 8px 4px' }}>
+              Launch &amp; trade
             </div>
-          )}
+            <TradePanel token={token} trust={trust} trustLoading={trustLoading} />
+          </section>
         </div>
 
         {/* ── RIGHT ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex min-w-0 flex-col gap-3 sm:gap-2.5 md:order-none">
           <TrustCard trust={trust} loading={trustLoading} wallet={token.creatorWallet} />
 
           {token.creatorWallet && (
@@ -172,8 +204,7 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
       </main>
 
       <style>{`
-        @media (max-width: 700px) {
-          main { grid-template-columns: 1fr !important; }
+        @media (max-width: 767px) {
           main > div:last-child { order: -1; }
         }
       `}</style>

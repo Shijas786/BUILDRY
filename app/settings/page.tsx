@@ -67,20 +67,26 @@ export default function SettingsPage() {
   })
   const [projects, setProjects] = useState<any[]>([])
   const [showAddProject, setShowAddProject] = useState(false)
+  const [projectsHydrated, setProjectsHydrated] = useState(false)
+  const [pendingEditProjectId, setPendingEditProjectId] = useState<string | null>(null)
 
-  /** Deep link from /projects: `/settings?tab=projects&add=1` opens the add-project form. */
+  /** Deep link: `/settings?tab=projects&add=1` or `&edit=<firestoreProjectId>`. */
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return
     const q = new URLSearchParams(window.location.search)
     const tab = q.get('tab')
     const add = q.get('add')
-    if (tab === 'projects' || add === '1') {
+    const editId = q.get('edit')
+    if (tab === 'projects' || add === '1' || editId) {
       setActiveTab('projects')
     }
     if (add === '1') {
       setShowAddProject(true)
     }
-    if (tab || add) {
+    if (editId) {
+      setPendingEditProjectId(editId)
+    }
+    if (tab || add || editId) {
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [])
@@ -95,10 +101,15 @@ export default function SettingsPage() {
   ].filter(Boolean).length
 
   useEffect(() => {
-    if (!isFirebaseConfigured || !firebaseDb || !user?.id) return
+    if (!isFirebaseConfigured || !firebaseDb || !user?.id) {
+      setProjectsHydrated(false)
+      return
+    }
     const db = firebaseDb
 
     const loadData = async () => {
+      setProjectsHydrated(false)
+      try {
       const profileSnap = await getDoc(doc(db, FS.BUILDER_PROFILES, user.id))
       if (profileSnap.exists()) {
         const data = profileSnap.data() as any
@@ -143,6 +154,9 @@ export default function SettingsPage() {
           return bTime - aTime
         })
       setProjects(docs)
+      } finally {
+        setProjectsHydrated(true)
+      }
     }
 
     void loadData()
@@ -415,7 +429,16 @@ export default function SettingsPage() {
             <SocialsTab profile={profile} setProfile={setProfile} userId={user?.id} />
           )}
           {activeTab === 'projects' && (
-            <ProjectsTab projects={projects} setProjects={setProjects} showAdd={showAddProject} setShowAdd={setShowAddProject} userId={user?.id} />
+            <ProjectsTab
+              projects={projects}
+              setProjects={setProjects}
+              showAdd={showAddProject}
+              setShowAdd={setShowAddProject}
+              userId={user?.id}
+              projectsHydrated={projectsHydrated}
+              pendingEditProjectId={pendingEditProjectId}
+              onPendingEditProjectConsumed={() => setPendingEditProjectId(null)}
+            />
           )}
           {activeTab === 'availability' && (
             <AvailabilityTab profile={profile} setProfile={setProfile} />
@@ -1305,8 +1328,15 @@ const PROJECT_FORM_EMPTY = {
   image_url: '',
 }
 
-function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
-  projects: any[]; setProjects: any; showAdd: boolean; setShowAdd: any; userId?: string
+function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId, projectsHydrated, pendingEditProjectId, onPendingEditProjectConsumed }: {
+  projects: any[]
+  setProjects: any
+  showAdd: boolean
+  setShowAdd: any
+  userId?: string
+  projectsHydrated?: boolean
+  pendingEditProjectId?: string | null
+  onPendingEditProjectConsumed?: () => void
 }) {
   const [form, setForm] = useState({ ...PROJECT_FORM_EMPTY })
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -1375,7 +1405,7 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
     setShowAdd(true)
   }
 
-  const startEdit = (proj: any) => {
+  const startEdit = useCallback((proj: any) => {
     setShowAdd(false)
     setEditingId(proj.id)
     setForm({
@@ -1389,7 +1419,16 @@ function ProjectsTab({ projects, setProjects, showAdd, setShowAdd, userId }: {
       image_url: proj.image_url || '',
     })
     setProjectImageErr(null)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!pendingEditProjectId || !projectsHydrated) return
+    const proj = projects.find((p: any) => p.id === pendingEditProjectId)
+    if (proj) {
+      startEdit(proj)
+    }
+    onPendingEditProjectConsumed?.()
+  }, [pendingEditProjectId, projectsHydrated, projects, startEdit, onPendingEditProjectConsumed])
 
   const handleRemove = async (id: string) => {
     if (!firebaseDb) return
