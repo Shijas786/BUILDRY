@@ -6,7 +6,13 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { Connection, VersionedTransaction } from '@solana/web3.js'
 import { useAuth } from '@/context/AuthProvider'
-import { prepareBagsLaunchFeeShare, recordLaunchMilestonePost } from '@/app/actions/bags'
+import {
+  getBagsJitoTipLamports,
+  prepareBagsLaunchDeployTx,
+  prepareBagsLaunchFeeShare,
+  recordLaunchMilestonePost,
+  submitBagsSignedJitoBundle,
+} from '@/app/actions/bags'
 import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
 import LaunchStepIndicator from '@/components/launch/LaunchStepIndicator'
 import LaunchBuilderIdentityCard from '@/components/launch/LaunchBuilderIdentityCard'
@@ -203,7 +209,13 @@ export default function LaunchStudio() {
         description.trim(),
         resolveTokenImageUrl(),
         publicKey.toBase58()
-      )
+      ).catch(() => null)
+
+      if (!feePrep || typeof feePrep !== 'object' || !('success' in feePrep)) {
+        throw new Error(
+          'Could not reach the server to start launch. Check your connection, redeploy if the site is outdated, and try again.'
+        )
+      }
 
       if (!feePrep.success) {
         throw new Error(
@@ -232,7 +244,12 @@ export default function LaunchStudio() {
           signAllTransactions,
         },
         connection,
-        0
+        0,
+        {
+          getBagsJitoTipLamports,
+          submitBagsSignedJitoBundle,
+          prepareBagsLaunchDeployTx,
+        }
       )
 
       const vtx = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'))

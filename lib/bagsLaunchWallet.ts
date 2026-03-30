@@ -1,10 +1,7 @@
+'use client'
+
 import { Connection, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js'
 import { createTipTransaction } from '@bagsfm/bags-sdk'
-import {
-  getBagsJitoTipLamports,
-  prepareBagsLaunchDeployTx,
-  submitBagsSignedJitoBundle,
-} from '@/app/actions/bags'
 
 export type BagsFeeSharePrepSuccess = {
   success: true
@@ -26,6 +23,36 @@ type WalletLaunchMethods = {
   signAllTransactions?: (transactions: VersionedTransaction[]) => Promise<VersionedTransaction[]>
 }
 
+/** Pass these from the same client module that imports `@/app/actions/bags` so Next binds server actions reliably. */
+export type BagsLaunchServerActions = {
+  getBagsJitoTipLamports: () => Promise<
+    | { success: true; lamports: number }
+    | { success: false; error?: string }
+    | undefined
+    | null
+  >
+  submitBagsSignedJitoBundle: (
+    signedTransactionsBase64: string[]
+  ) => Promise<
+    | { success: true; bundleId: string }
+    | { success: false; error?: string }
+    | undefined
+    | null
+  >
+  prepareBagsLaunchDeployTx: (
+    metadataUrl: string,
+    tokenMint: string,
+    walletBase58: string,
+    meteoraConfigKeyBase58: string,
+    initialBuyLamports?: number
+  ) => Promise<
+    | { success: true; transactionBase64: string; tokenMint: string }
+    | { success: false; error?: string }
+    | undefined
+    | null
+  >
+}
+
 const COMMITMENT = 'confirmed' as const
 
 /**
@@ -36,7 +63,8 @@ export async function runBagsLaunchWalletFlow(
   prep: BagsFeeSharePrepSuccess,
   wallet: WalletLaunchMethods,
   connection: Connection,
-  initialBuyLamports = 0
+  initialBuyLamports: number,
+  server: BagsLaunchServerActions
 ): Promise<{ transactionBase64: string; tokenMint: string }> {
   const hasNonEmptyBundle = prep.feeShareBundlesBase64.some((b) => b.length > 0)
   if (hasNonEmptyBundle && !wallet.signAllTransactions) {
@@ -45,9 +73,9 @@ export async function runBagsLaunchWalletFlow(
     )
   }
 
-  const tipRes = await getBagsJitoTipLamports()
+  const tipRes = await server.getBagsJitoTipLamports().catch(() => null)
   const tipLamports =
-    tipRes.success && tipRes.lamports > 0
+    tipRes && tipRes.success && tipRes.lamports > 0
       ? tipRes.lamports
       : Math.floor(0.015 * LAMPORTS_PER_SOL)
 
@@ -63,9 +91,12 @@ export async function runBagsLaunchWalletFlow(
     const toSign = [tipTx, ...bundleTxs]
     const signed = await wallet.signAllTransactions!(toSign)
     const serialized = signed.map((tx) => Buffer.from(tx.serialize()).toString('base64'))
-    const submitted = await submitBagsSignedJitoBundle(serialized)
-    if (!submitted.success) {
-      throw new Error(submitted.error || 'Failed to submit Jito bundle to Bags')
+    const submitted = await server.submitBagsSignedJitoBundle(serialized).catch(() => null)
+    if (!submitted || typeof submitted !== 'object' || !submitted.success) {
+      throw new Error(
+        (submitted && 'error' in submitted && submitted.error) ||
+          'Failed to submit Jito bundle to Bags (no response from server).'
+      )
     }
   }
 
@@ -81,15 +112,20 @@ export async function runBagsLaunchWalletFlow(
     await connection.confirmTransaction(signature, COMMITMENT)
   }
 
-  const deploy = await prepareBagsLaunchDeployTx(
-    prep.metadataUrl,
-    prep.tokenMint,
-    wallet.publicKey.toBase58(),
-    prep.meteoraConfigKey,
-    initialBuyLamports
-  )
-  if (!deploy.success || !deploy.transactionBase64) {
-    throw new Error(deploy.error || 'Failed to build launch transaction after fee-share setup.')
+  const deploy = await server
+    .prepareBagsLaunchDeployTx(
+      prep.metadataUrl,
+      prep.tokenMint,
+      wallet.publicKey.toBase58(),
+      prep.meteoraConfigKey,
+      initialBuyLamports
+    )
+    .catch(() => null)
+  if (!deploy || typeof deploy !== 'object' || !deploy.success || !deploy.transactionBase64) {
+    throw new Error(
+      (deploy && 'error' in deploy && deploy.error) ||
+        'Failed to build launch transaction after fee-share setup (no response from server).'
+    )
   }
   return { transactionBase64: deploy.transactionBase64, tokenMint: deploy.tokenMint }
 }

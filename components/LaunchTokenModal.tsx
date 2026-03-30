@@ -3,7 +3,12 @@
 import React, { useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { VersionedTransaction, Connection } from '@solana/web3.js'
-import { prepareBagsLaunchFeeShare } from '@/app/actions/bags'
+import {
+  getBagsJitoTipLamports,
+  prepareBagsLaunchDeployTx,
+  prepareBagsLaunchFeeShare,
+  submitBagsSignedJitoBundle,
+} from '@/app/actions/bags'
 import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
 
 interface LaunchTokenModalProps {
@@ -45,7 +50,13 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
         formData.description,
         formData.image,
         publicKey.toBase58()
-      )
+      ).catch(() => null)
+
+      if (!feePrep || typeof feePrep !== 'object' || !('success' in feePrep)) {
+        throw new Error(
+          'Could not reach the server to start launch. Check your connection and try again.'
+        )
+      }
       if (!feePrep.success) {
         throw new Error(feePrep.error || 'Failed to prepare Bags fee-share step')
       }
@@ -69,7 +80,12 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
           signAllTransactions,
         },
         connection,
-        0
+        0,
+        {
+          getBagsJitoTipLamports,
+          submitBagsSignedJitoBundle,
+          prepareBagsLaunchDeployTx,
+        }
       )
 
       const versionedTx = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'))

@@ -2,6 +2,12 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /** Fee-share step returns large base64 tx payloads; default 1 MB can truncate server-action responses. */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '8mb',
+    },
+  },
   async redirects() {
     return [{ source: '/onboarding', destination: '/feed', permanent: false }]
   },
