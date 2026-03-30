@@ -30,11 +30,18 @@ function formatBagsLaunchError(err: unknown): string {
     }
     return null
   }
+  const friendly = (s: string) => {
+    if (s.includes('duplicate public keys')) {
+      return 'Bags rejected the fee split: the same wallet was listed twice as a fee claimer. Your PLATFORM_TREASURY_WALLET must be a different address than the wallet launching the token (or unset PLATFORM_TREASURY_WALLET to give 100% of fees to the creator).'
+    }
+    return s
+  }
+
   const a = fromObj(e.data)
-  if (a) return a
+  if (a) return friendly(a)
   const b = fromObj(e.response?.data)
-  if (b) return b
-  if (e.message && !/^Request failed with status \d+$/.test(e.message)) return e.message
+  if (b) return friendly(b)
+  if (e.message && !/^Request failed with status \d+$/.test(e.message)) return friendly(e.message)
   const status = e.status ?? e.response?.status
   if (status === 400) {
     return 'Bags API rejected the request (400). Often the token image URL is not publicly reachable, or the API key / fee wallet env is wrong. Check Vercel logs for details.'
@@ -97,7 +104,10 @@ function buildFeeClaimers(walletPk: PublicKey): { user: PublicKey; userBps: numb
   if (platformWalletBase58 && platformFeeBps > 0) {
     try {
       const platformWalletPk = new PublicKey(platformWalletBase58)
-      feeClaimers.push({ user: platformWalletPk, userBps: platformFeeBps })
+      // Bags rejects duplicate pubkeys in claimers; treasury cannot match the creator wallet.
+      if (!platformWalletPk.equals(walletPk)) {
+        feeClaimers.push({ user: platformWalletPk, userBps: platformFeeBps })
+      }
     } catch {
       throw new Error(
         'PLATFORM_TREASURY_WALLET is not a valid Solana address. Fix it in env or remove it to launch without a platform fee.'
