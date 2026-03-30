@@ -80,55 +80,106 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="max-w-5xl mx-auto px-8 py-24">
-        <h2 className="text-4xl font-black text-slate-900 tracking-tight text-center mb-4">How it works</h2>
-        <p className="text-sm text-slate-400 text-center mb-16 max-w-lg mx-auto">Three steps to build your reputation and grow your startup network</p>
+      {/* How it works — bold type, no cards */}
+      <section className="max-w-4xl mx-auto px-8 py-20 md:py-28">
+        <header className="mb-10 md:mb-14 max-w-3xl">
+          <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-[0.95] mb-4">
+            How it works
+          </h2>
+          <p className="text-base sm:text-lg md:text-xl font-bold text-slate-500 leading-snug">
+            Three steps to build your reputation and grow your startup network
+          </p>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <StepCard
-            step="01"
-            title="Create your profile"
-            description="Connect your GitHub, wallet, and socials. Your onchain reputation and commit history auto-populate."
-          />
-          <StepCard
-            step="02"
-            title="Share updates"
-            description="Post milestones, showcase projects, and share your journey. Every post reaches your followers and gets discovered."
-          />
-          <StepCard
-            step="03"
-            title="Grow your network"
-            description="Find co-founders, get backed by investors, hire talent, or launch your token. Your reputation compounds."
-          />
-        </div>
+        <ol className="space-y-0">
+          {[
+            {
+              step: '01',
+              title: 'Create your profile',
+              body: 'Connect your GitHub, wallet, and socials. Your onchain reputation and commit history auto-populate.',
+            },
+            {
+              step: '02',
+              title: 'Share updates',
+              body: 'Post milestones, showcase projects, and share your journey. Every post reaches your followers and gets discovered.',
+            },
+            {
+              step: '03',
+              title: 'Grow your network',
+              body: 'Find co-founders, get backed by investors, hire talent, or launch your token. Your reputation compounds.',
+            },
+          ].map((item) => (
+            <li
+              key={item.step}
+              className="grid gap-4 md:grid-cols-[4.25rem_1fr] md:gap-8 py-8 md:py-10 border-t border-slate-900/12 first:border-t-0 first:pt-0"
+            >
+              <span className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] tabular-nums md:pt-0.5">
+                {item.step}
+              </span>
+              <div>
+                <h3 className="text-xl sm:text-2xl md:text-4xl font-black text-slate-900 tracking-tight leading-[1.08] mb-3 md:mb-4">
+                  {item.title}
+                </h3>
+                <p className="text-sm sm:text-base font-semibold text-slate-500 leading-relaxed max-w-2xl">
+                  {item.body}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      {/* Features grid */}
-      <section className="bg-slate-50/60 py-20">
+      {/* Features — bold rows, no cards */}
+      <section className="border-t border-slate-200 py-20 md:py-28">
         <div className="max-w-5xl mx-auto px-8">
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight text-center mb-12">Built for the startup ecosystem</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FeatureCard
-              title="Social Feed"
-              description="Share updates, milestones, and launches. Follow builders, like, and comment. Think Instagram for startups."
-              tag="Core"
-            />
-            <FeatureCard
-              title="Verified Reputation"
-              description="GitHub contributions and on-chain activity we fetch directly create a trust layer you can inspect."
-              tag="Trust"
-            />
-            <FeatureCard
-              title="Token Launch"
-              description="Launch your token via Bags with one flow. Trading fees follow your Bags rules—often reinforcing liquidity and backers."
-              tag="Web3"
-            />
-            <FeatureCard
-              title="Jobs & Bounties"
-              description="Post jobs, find verified developers, and pay in crypto. Reputation scores surface the best candidates."
-              tag="Hiring"
-            />
+          <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-[0.95] mb-10 md:mb-14 max-w-4xl">
+            Built for the startup ecosystem
+          </h2>
+
+          <div className="divide-y divide-slate-200">
+            {[
+              {
+                tag: 'Core',
+                title: 'Social Feed',
+                description:
+                  'Share updates, milestones, and launches. Follow builders, like, and comment. Think Instagram for startups.',
+              },
+              {
+                tag: 'Trust',
+                title: 'Verified Reputation',
+                description:
+                  'GitHub contributions and on-chain activity we fetch directly create a trust layer you can inspect.',
+              },
+              {
+                tag: 'Web3',
+                title: 'Token Launch',
+                description:
+                  'Launch your token via Bags with one flow. Trading fees follow your Bags rules—often reinforcing liquidity and backers.',
+              },
+              {
+                tag: 'Hiring',
+                title: 'Jobs & Bounties',
+                description:
+                  'Post jobs, find verified developers, and pay in crypto. Reputation scores surface the best candidates.',
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="grid gap-4 py-8 md:py-10 md:grid-cols-12 md:gap-x-8 md:gap-y-0"
+              >
+                <div className="md:col-span-5">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-blue-600 block mb-2">
+                    {f.tag}
+                  </span>
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-[1.08]">
+                    {f.title}
+                  </h3>
+                </div>
+                <p className="md:col-span-7 text-sm sm:text-base font-semibold text-slate-500 leading-relaxed md:pt-6 self-start">
+                  {f.description}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -154,7 +205,7 @@ export default function LandingPage() {
       <footer className="border-t border-slate-100 py-16 px-8">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
-            <BuildryWordmark tone="dark" variant="full" />
+            <BuildryWordmark tone="dark" variant="full" shine shineSidebar />
           </div>
           <div className="flex items-center gap-8 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
             <Link href="#" className="hover:text-slate-900 transition-colors">Twitter</Link>
@@ -165,26 +216,6 @@ export default function LandingPage() {
           <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Buildry 2026</p>
         </div>
       </footer>
-    </div>
-  )
-}
-
-function StepCard({ step, title, description }: { step: string; title: string; description: string }) {
-  return (
-    <div className="p-6 rounded-xl border border-slate-100 bg-white">
-      <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">Step {step}</p>
-      <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
-      <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
-    </div>
-  )
-}
-
-function FeatureCard({ title, description, tag }: { title: string; description: string; tag: string }) {
-  return (
-    <div className="p-6 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
-      <span className="px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-slate-50 text-slate-400 mb-3 inline-block">{tag}</span>
-      <h3 className="text-base font-bold text-slate-900 mb-2">{title}</h3>
-      <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
     </div>
   )
 }

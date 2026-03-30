@@ -198,7 +198,15 @@ Set **`NEXT_PUBLIC_APP_DOMAIN`** to `buildry.in` (no `https://`) in Vercel **Env
 
 If **`GITHUB_GRAPHQL_TOKEN`** is missing on **Preview** deployments, add it in the Vercel dashboard for the **Preview** environment (the CLI often requires a specific Git branch for preview-only secrets when the production branch is `main`).
 
-`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` stays **`buildry-18c42.firebaseapp.com`** unless you configure a **custom auth domain** in Firebase.
+**Google shows `firebaseapp.com` in the sign-in UI** when `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` is still your `*.firebaseapp.com` project host. To show **`buildry.in`** in the OAuth flow while the app stays on Vercel:
+
+1. **Firebase** → Authentication → Settings → **Authorized domains** — include `buildry.in` and `www.buildry.in` (if you use both).
+2. **Vercel (Production)** — set **`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=buildry.in`** (hostname only, no `https://`; use the same host users open in the browser, apex or `www`, not both unless you redirect one to the other).
+3. **Local dev** — keep **`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=buildry-18c42.firebaseapp.com`** (or your project id) in `.env.local` so `/__/auth/*` does not need to hit Vercel.
+4. This repo **proxies** `/__/auth/*` and `/__/firebase/*` to **`https://<NEXT_PUBLIC_FIREBASE_PROJECT_ID>.firebaseapp.com`** via `next.config.js` `rewrites()` (requires `NEXT_PUBLIC_FIREBASE_PROJECT_ID` at build time on Vercel).
+5. **Google Cloud Console** → APIs & Services → **Credentials** → Web client used by Firebase → add **Authorized redirect URI**: `https://buildry.in/__/auth/handler` (and `https://www.buildry.in/__/auth/handler` if applicable). **Authorized JavaScript origins** should already list `https://buildry.in` (see above).
+
+If you skip step 2, **`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` stays `buildry-18c42.firebaseapp.com`** and Google may continue to show the Firebase host.
 
 ### 6) LinkedIn / GitHub — redirect URI must match Firebase
 
@@ -207,7 +215,7 @@ LinkedIn’s **“The redirect_uri does not match the registered value”** mean
 - `https://<YOUR_PROJECT_ID>.firebaseapp.com/__/auth/handler`
 - `https://<YOUR_PROJECT_ID>.web.app/__/auth/handler`
 
-**Not** `https://buildry.in/...` unless you have configured a **custom Firebase Auth domain** and LinkedIn lists that domain’s handler instead.
+If production uses **`NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=buildry.in`**, also register **`https://buildry.in/__/auth/handler`** (and `www` if used) on LinkedIn/GitHub. Otherwise keep the **`firebaseapp.com`** / **`web.app`** handler URLs below.
 
 Use the same pattern for **GitHub OAuth App → Authorization callback URL**.
 

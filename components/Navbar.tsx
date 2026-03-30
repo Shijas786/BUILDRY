@@ -36,14 +36,21 @@ export default function Navbar() {
     <>
       <nav className="h-[72px] flex items-center justify-between px-6 md:px-8 border-b border-slate-100 bg-white/95 backdrop-blur sticky top-0 z-[100]">
         <div className="flex items-center gap-10">
-          <Link href="/" className="flex items-center gap-2 min-w-0 py-1" aria-label="Buildry home">
-            <BuildryWordmark tone="dark" variant="full" priority shine />
+          <Link
+            href="/"
+            className="flex items-center gap-2 min-w-0 py-1 -my-0.5 rounded-lg bg-white px-1 pr-2"
+            aria-label="Buildry home"
+          >
+            {/* Same shine as post-login sidebar (shineSidebar); opaque bg so blend isn’t dulled by nav backdrop-blur */}
+            <BuildryWordmark tone="dark" variant="full" priority shine shineSidebar />
           </Link>
         </div>
 
-        <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <AppSearchField />
-        </div>
+        {isLoggedIn && (
+          <div className="hidden md:flex flex-1 max-w-md mx-8">
+            <AppSearchField />
+          </div>
+        )}
 
         <div className="flex items-center gap-4">
           {isLoggedIn ? (
