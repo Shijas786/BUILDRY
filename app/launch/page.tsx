@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { Connection, VersionedTransaction } from '@solana/web3.js'
+import { Connection, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js'
 import { useAuth } from '@/context/AuthProvider'
 import {
   getBagsJitoTipLamports,
@@ -20,6 +20,7 @@ import LaunchBuilderIdentityCard from '@/components/launch/LaunchBuilderIdentity
 import LaunchSuccessScreen from '@/components/launch/LaunchSuccessScreen'
 import LaunchOwnershipPanel from '@/components/launch/LaunchOwnershipPanel'
 import { captureLaunchSnapshot, type LaunchCelebrationSnapshot } from '@/lib/launchSnapshot'
+import { fetchSolUsdForLaunch, usdToInitialBuyLamports } from '@/lib/launchInitialBuy'
 import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
 
 type Step = 1 | 2 | 3
@@ -204,6 +205,34 @@ export default function LaunchStudio() {
 
     setLoading(true)
     try {
+      const rpc =
+        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
+      const connection = new Connection(rpc, SOLANA_LAUNCH_CONNECTION_CONFIG)
+
+      if (!signTransaction) {
+        throw new Error('Wallet cannot sign transactions.')
+      }
+
+      const ownershipUsd = ownership?.ownershipUsd ?? 0
+      let initialBuyLamports = 0
+      if (ownershipUsd > 0) {
+        const solUsd = await fetchSolUsdForLaunch()
+        initialBuyLamports = usdToInitialBuyLamports(ownershipUsd, solUsd)
+        if (initialBuyLamports < 1) {
+          throw new Error(
+            'Creator pre-buy rounds to zero in SOL. Enter a higher USD amount, or clear ownership to $0 to skip pre-buy.'
+          )
+        }
+        const bal = await connection.getBalance(publicKey, 'confirmed')
+        const reserveLamports = 35_000_000
+        if (bal < initialBuyLamports + reserveLamports) {
+          const needSol = (initialBuyLamports + reserveLamports) / LAMPORTS_PER_SOL
+          throw new Error(
+            `Not enough SOL for this creator pre-buy (~${(initialBuyLamports / LAMPORTS_PER_SOL).toFixed(4)} SOL) plus Jito tip and fees. Keep about ${needSol.toFixed(3)} SOL or more in this wallet.`
+          )
+        }
+      }
+
       const feePrep = await prepareBagsLaunchFeeShare(
         name.trim(),
         symbol.trim().toUpperCase(),
@@ -225,14 +254,6 @@ export default function LaunchStudio() {
         )
       }
 
-      const rpc =
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
-      const connection = new Connection(rpc, SOLANA_LAUNCH_CONNECTION_CONFIG)
-
-      if (!signTransaction) {
-        throw new Error('Wallet cannot sign transactions.')
-      }
-
       const { transactionBase64, tokenMint } = await runBagsLaunchWalletFlow(
         feePrep,
         {
@@ -247,7 +268,7 @@ export default function LaunchStudio() {
           signAllTransactions,
         },
         connection,
-        0,
+        initialBuyLamports,
         {
           getBagsJitoTipLamports,
           submitBagsSignedJitoBundle,
@@ -481,9 +502,10 @@ export default function LaunchStudio() {
                     />
 
                     <p className="text-center text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      Launch sends a real <strong className="font-bold text-gray-600">Solana mainnet</strong> transaction via Bags
-                      (you pay network fees in SOL). The USD amount above is for your planning only until we wire creator pre-buy
-                      lamports into the Bags launch tx. Fee split uses{' '}
+                      Launch sends real <strong className="font-bold text-gray-600">Solana mainnet</strong> transactions via Bags.
+                      The USD amount is converted to SOL using a live <strong className="font-bold text-gray-600">SOL/USD</strong>{' '}
+                      price (CoinGecko) and sent as <strong className="font-bold text-gray-600">creator pre-buy</strong> in the
+                      final launch transaction. Leave $0 to skip pre-buy. Fee split uses{' '}
                       <span className="font-mono text-[10px]">PLATFORM_TREASURY_WALLET</span> +{' '}
                       <span className="font-mono text-[10px]">PLATFORM_FEE_BPS</span> on the server.
                     </p>

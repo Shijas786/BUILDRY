@@ -6,7 +6,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-/** Preset rows: % of creator pre-buy and illustrative USD (wire to pool quotes when available). */
+/** Preset rows: suggested USD for creator pre-buy (converted to SOL at launch via CoinGecko). */
 const OWNERSHIP_PRESETS: { pct: number; usd: number }[] = [
   { pct: 1, usd: 25 },
   { pct: 10, usd: 271 },
@@ -161,6 +161,13 @@ export default function LaunchOwnershipPanel({ disabled, loading, onLaunch }: Pr
               />
             </div>
           </div>
+          {amountNum > 0 && solUsd != null && (
+            <p className="mt-2 text-[11px] font-medium leading-relaxed text-gray-500">
+              ≈{' '}
+              <span className="font-bold tabular-nums text-gray-700">{(amountNum / solUsd).toFixed(4)} SOL</span> creator
+              pre-buy at the CoinGecko rate shown here; the exact lamports are fixed when you launch.
+            </p>
+          )}
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
