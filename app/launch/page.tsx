@@ -6,7 +6,8 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { Connection, VersionedTransaction } from '@solana/web3.js'
 import { useAuth } from '@/context/AuthProvider'
-import { prepareLaunchTransaction } from '@/app/actions/bags'
+import { prepareBagsLaunchFeeShare, recordLaunchMilestonePost } from '@/app/actions/bags'
+import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
 import LaunchStepIndicator from '@/components/launch/LaunchStepIndicator'
 import LaunchBuilderIdentityCard from '@/components/launch/LaunchBuilderIdentityCard'
 import LaunchSuccessScreen from '@/components/launch/LaunchSuccessScreen'
@@ -77,7 +78,7 @@ function AttachedProfileLinks({ profile, socialShowcase }: { profile: Record<str
 
 export default function LaunchStudio() {
   const { user } = useAuth()
-  const { publicKey, sendTransaction, signTransaction } = useWallet()
+  const { publicKey, sendTransaction, signTransaction, signAllTransactions } = useWallet()
   const [loading, setLoading] = useState(false)
   const [deployed, setDeployed] = useState(false)
   const [contractAddress, setContractAddress] = useState('')
@@ -196,41 +197,62 @@ export default function LaunchStudio() {
 
     setLoading(true)
     try {
-      const prep = await prepareLaunchTransaction(
+      const feePrep = await prepareBagsLaunchFeeShare(
         name.trim(),
         symbol.trim().toUpperCase(),
         description.trim(),
         resolveTokenImageUrl(),
-        publicKey.toBase58(),
-        user?.id
+        publicKey.toBase58()
       )
 
-      if (!prep.success || !prep.transactionBase64 || !prep.tokenMint) {
+      if (!feePrep.success) {
         throw new Error(
-          prep.error ||
-            'Could not build launch transaction. Check BAGS_API_KEY on the server and try again.'
+          feePrep.error ||
+            'Could not prepare Bags fee-share step. Check BAGS_API_KEY on the server and try again.'
         )
       }
 
       const rpc =
         process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
       const connection = new Connection(rpc, 'confirmed')
-      const vtx = VersionedTransaction.deserialize(Buffer.from(prep.transactionBase64, 'base64'))
+
+      if (!signTransaction) {
+        throw new Error('Wallet cannot sign transactions.')
+      }
+
+      const { transactionBase64, tokenMint } = await runBagsLaunchWalletFlow(
+        feePrep,
+        {
+          publicKey,
+          sendTransaction: sendTransaction ?? (async (tx, conn) => {
+            const signed = await signTransaction(tx)
+            return conn.sendRawTransaction(signed.serialize())
+          }),
+          signTransaction,
+          signAllTransactions,
+        },
+        connection,
+        0
+      )
+
+      const vtx = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'))
 
       let signature: string
       if (sendTransaction) {
         signature = await sendTransaction(vtx, connection)
-      } else if (signTransaction) {
+      } else {
         const signed = await signTransaction(vtx)
         signature = await connection.sendRawTransaction(signed.serialize())
-      } else {
-        throw new Error('Wallet cannot sign transactions.')
       }
 
       await connection.confirmTransaction(signature, 'confirmed')
 
+      if (user?.id) {
+        void recordLaunchMilestonePost(user.id, name.trim(), symbol.trim().toUpperCase(), description.trim())
+      }
+
       setLaunchSnapshot(captureLaunchSnapshot(payload))
-      setContractAddress(prep.tokenMint)
+      setContractAddress(tokenMint)
       setDeployed(true)
     } catch (err: unknown) {
       console.error(err)

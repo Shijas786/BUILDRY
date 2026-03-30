@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-/** @deprecated Demo only. Production launches use `/launch` → `prepareLaunchTransaction` + wallet sign (Bags SDK). */
+/** @deprecated Demo only. Production launches use `/launch` → `prepareBagsLaunchFeeShare` + wallet fee-share txs + `prepareBagsLaunchDeployTx` (Bags SDK v2). */
 export async function POST(req: Request) {
   try {
     const body = await req.json()

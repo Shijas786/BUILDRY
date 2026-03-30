@@ -3,7 +3,8 @@
 import React, { useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { VersionedTransaction, Connection } from '@solana/web3.js'
-import { prepareLaunchTransaction } from '@/app/actions/bags'
+import { prepareBagsLaunchFeeShare } from '@/app/actions/bags'
+import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
 
 interface LaunchTokenModalProps {
   isOpen: boolean
@@ -22,7 +23,7 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
   const [isLaunching, setIsLaunching] = useState(false)
   
   // Connect to the user's wallet via AppKit's Solana Adapter
-  const { publicKey, signTransaction, sendTransaction } = useWallet()
+  const { publicKey, signTransaction, sendTransaction, signAllTransactions } = useWallet()
 
   if (!isOpen) return null
 
@@ -34,38 +35,57 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
 
     setIsLaunching(true)
     try {
-      // 1. Prepare transaction on the server (Secure API Keys)
-      const res = await prepareLaunchTransaction(
+      if (!signTransaction) {
+        throw new Error('Wallet does not support signing.')
+      }
+
+      const feePrep = await prepareBagsLaunchFeeShare(
         formData.name,
         formData.symbol,
         formData.description,
         formData.image,
         publicKey.toBase58()
       )
-
-      if (!res.success || !res.transactionBase64) {
-        throw new Error(res.error || 'Failed to prepare launch transaction')
+      if (!feePrep.success) {
+        throw new Error(feePrep.error || 'Failed to prepare Bags fee-share step')
       }
 
-      // 2. Deserialize Transaction
-      const txBuffer = Buffer.from(res.transactionBase64, 'base64')
-      const versionedTx = VersionedTransaction.deserialize(txBuffer)
+      const connection = new Connection(
+        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+        'confirmed'
+      )
 
-      // 3. User Signs and Broadcasts the Transaction (Jito is recommended via Bags SDK but we can send via standard connection or let the wallet handle it)
-      const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com', 'confirmed')
-      
-      let signature: string;
+      const { transactionBase64, tokenMint } = await runBagsLaunchWalletFlow(
+        feePrep,
+        {
+          publicKey,
+          sendTransaction:
+            sendTransaction ??
+            (async (tx, conn) => {
+              const signedTx = await signTransaction(tx)
+              return conn.sendRawTransaction(signedTx.serialize())
+            }),
+          signTransaction,
+          signAllTransactions,
+        },
+        connection,
+        0
+      )
+
+      const versionedTx = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'))
+
+      let signature: string
       if (sendTransaction) {
-         signature = await sendTransaction(versionedTx, connection)
-      } else if (signTransaction) {
-         const signedTx = await signTransaction(versionedTx)
-         signature = await connection.sendRawTransaction(signedTx.serialize())
+        signature = await sendTransaction(versionedTx, connection)
       } else {
-         throw new Error("Wallet does not support signing.")
+        const signedTx = await signTransaction(versionedTx)
+        signature = await connection.sendRawTransaction(signedTx.serialize())
       }
-      
-      console.log('Token Deployed! Mint:', res.tokenMint, 'Signature:', signature)
-      alert(`Token successfully deployed on Solana! Mint: ${res.tokenMint}`)
+
+      await connection.confirmTransaction(signature, 'confirmed')
+
+      console.log('Token Deployed! Mint:', tokenMint, 'Signature:', signature)
+      alert(`Token successfully deployed on Solana! Mint: ${tokenMint}`)
       onClose()
     } catch (err: any) {
       console.error(err)

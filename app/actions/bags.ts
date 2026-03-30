@@ -1,7 +1,7 @@
 'use server'
 
-import { Connection, PublicKey } from '@solana/web3.js'
-import { BagsSDK } from '@bagsfm/bags-sdk'
+import { Connection, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js'
+import { BagsSDK, sendBundleAndConfirm } from '@bagsfm/bags-sdk'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 
@@ -79,47 +79,56 @@ async function assertTokenImageUrlReachable(imageUrl: string): Promise<void> {
   }
 }
 
-export async function prepareLaunchTransaction(
+function bagsSdk(): BagsSDK {
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
+  const apiKey = process.env.BAGS_API_KEY
+  if (!apiKey) throw new Error('Missing Bags API Key on server')
+  return new BagsSDK(apiKey, new Connection(rpcUrl, 'confirmed'), 'confirmed')
+}
+
+function buildFeeClaimers(walletPk: PublicKey): { user: PublicKey; userBps: number }[] {
+  const platformWalletBase58 = process.env.PLATFORM_TREASURY_WALLET?.trim()
+  const platformFeeRaw = Number(process.env.PLATFORM_FEE_BPS ?? 100)
+  const platformFeeBps = Number.isFinite(platformFeeRaw)
+    ? Math.max(0, Math.min(10000, Math.floor(platformFeeRaw)))
+    : 100
+
+  const feeClaimers: { user: PublicKey; userBps: number }[] = []
+  if (platformWalletBase58 && platformFeeBps > 0) {
+    try {
+      const platformWalletPk = new PublicKey(platformWalletBase58)
+      feeClaimers.push({ user: platformWalletPk, userBps: platformFeeBps })
+    } catch {
+      throw new Error(
+        'PLATFORM_TREASURY_WALLET is not a valid Solana address. Fix it in env or remove it to launch without a platform fee.'
+      )
+    }
+  }
+  feeClaimers.push({
+    user: walletPk,
+    userBps: 10000 - (feeClaimers[0]?.userBps || 0),
+  })
+  return feeClaimers
+}
+
+/**
+ * Bags Token Launch v2: metadata + fee-share config API step. The wallet must sign & submit
+ * the returned bundles (Jito) and transactions before calling `prepareBagsLaunchDeployTx`.
+ */
+export async function prepareBagsLaunchFeeShare(
   name: string,
   symbol: string,
   description: string,
   imageUrl: string,
-  walletBase58: string,
-  userId?: string
+  walletBase58: string
 ) {
   try {
-    const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
-    const apiKey = process.env.BAGS_API_KEY
-    if (!apiKey) throw new Error('Missing Bags API Key on server')
-
-    const connection = new Connection(rpcUrl, 'confirmed')
-    const bags = new BagsSDK(apiKey, connection)
+    const bags = bagsSdk()
     const walletPk = new PublicKey(walletBase58)
-    const platformWalletBase58 = process.env.PLATFORM_TREASURY_WALLET?.trim()
-    const platformFeeRaw = Number(process.env.PLATFORM_FEE_BPS ?? 100)
-    const platformFeeBps = Number.isFinite(platformFeeRaw)
-      ? Math.max(0, Math.min(10000, Math.floor(platformFeeRaw)))
-      : 100
-
-    const feeClaimers: { user: PublicKey; userBps: number }[] = []
-    if (platformWalletBase58 && platformFeeBps > 0) {
-      try {
-        const platformWalletPk = new PublicKey(platformWalletBase58)
-        feeClaimers.push({ user: platformWalletPk, userBps: platformFeeBps })
-      } catch {
-        throw new Error(
-          'PLATFORM_TREASURY_WALLET is not a valid Solana address. Fix it in env or remove it to launch without a platform fee.'
-        )
-      }
-    }
-    feeClaimers.push({
-      user: walletPk,
-      userBps: 10000 - (feeClaimers[0]?.userBps || 0),
-    })
+    const feeClaimers = buildFeeClaimers(walletPk)
 
     await assertTokenImageUrlReachable(imageUrl)
 
-    // 1. Create Metadata via Bags Pipeline
     const metadata = await bags.tokenLaunch.createTokenInfoAndMetadata({
       name,
       symbol,
@@ -127,54 +136,135 @@ export async function prepareLaunchTransaction(
       imageUrl: imageUrl.trim(),
     })
 
-    // 2. Configure Fee Share (small platform cut + majority to creator)
     const feeConfig = await bags.config.createBagsFeeShareConfig({
       feeClaimers,
       payer: walletPk,
       baseMint: new PublicKey(metadata.tokenMint),
     })
 
-    // 3. Assemble Final Deployment Transaction
-    const launchTx = await bags.tokenLaunch.createLaunchTransaction({
-      metadataUrl: metadata.tokenMetadata,
-      tokenMint: new PublicKey(metadata.tokenMint),
-      launchWallet: walletPk,
-      initialBuyLamports: 0,
-      configKey: feeConfig.meteoraConfigKey
-    })
+    const feeShareBundlesBase64 = (feeConfig.bundles ?? []).map((bundle) =>
+      bundle.map((tx) => Buffer.from(tx.serialize()).toString('base64'))
+    )
+    const feeShareTransactionsBase64 = (feeConfig.transactions ?? []).map((tx) =>
+      Buffer.from(tx.serialize()).toString('base64')
+    )
 
-    // Serialize to pass to the client securely
-    const serializedTx = Buffer.from(launchTx.serialize()).toString('base64')
-
-    if (userId && isFirebaseAdminConfigured && adminDb) {
-      try {
-        const now = Date.now()
-        await adminDb.collection(FS.POSTS).add({
-          author_id: userId,
-          content: `Just launched $${symbol} — ${name}! ${description}`,
-          post_type: 'launch',
-          images: [],
-          milestone_title: `Launched $${symbol}`,
-          milestone_category: 'launch',
-          project_id: null,
-          link_url: null,
-          likes_count: 0,
-          comments_count: 0,
-          created_at: now,
-        })
-      } catch (postErr) {
-        console.error('Auto-post on launch failed:', postErr)
-      }
+    if (
+      feeShareBundlesBase64.every((b) => b.length === 0) &&
+      feeShareTransactionsBase64.length === 0
+    ) {
+      throw new Error(
+        'Bags returned no fee-share transactions to sign. Try again or contact Bags support.'
+      )
     }
 
     return {
-      success: true,
-      transactionBase64: serializedTx,
+      success: true as const,
       tokenMint: metadata.tokenMint,
+      metadataUrl: metadata.tokenMetadata,
+      meteoraConfigKey: feeConfig.meteoraConfigKey.toBase58(),
+      feeShareBundlesBase64,
+      feeShareTransactionsBase64,
     }
   } catch (err: unknown) {
-    console.error('Bags Server Action Error:', err)
-    return { success: false, error: formatBagsLaunchError(err) }
+    console.error('prepareBagsLaunchFeeShare:', err)
+    return { success: false as const, error: formatBagsLaunchError(err) }
+  }
+}
+
+/** After fee-share txs confirm on-chain, build the final token launch transaction for the wallet to sign. */
+export async function prepareBagsLaunchDeployTx(
+  metadataUrl: string,
+  tokenMint: string,
+  walletBase58: string,
+  meteoraConfigKeyBase58: string,
+  initialBuyLamports = 0
+) {
+  try {
+    const bags = bagsSdk()
+    const walletPk = new PublicKey(walletBase58)
+    const launchTx = await bags.tokenLaunch.createLaunchTransaction({
+      metadataUrl,
+      tokenMint: new PublicKey(tokenMint),
+      launchWallet: walletPk,
+      initialBuyLamports,
+      configKey: new PublicKey(meteoraConfigKeyBase58),
+    })
+    const transactionBase64 = Buffer.from(launchTx.serialize()).toString('base64')
+    return { success: true as const, transactionBase64, tokenMint }
+  } catch (err: unknown) {
+    console.error('prepareBagsLaunchDeployTx:', err)
+    return { success: false as const, error: formatBagsLaunchError(err) }
+  }
+}
+
+const FALLBACK_JITO_TIP_SOL = 0.015
+
+/** Suggested Jito tip (lamports) for fee-share bundles; used when building the tip tx on the client. */
+export async function getBagsJitoTipLamports() {
+  try {
+    const bags = bagsSdk()
+    const rec = await bags.solana.getJitoRecentFees().catch(() => null)
+    const pct = rec && typeof rec === 'object' ? (rec as { landed_tips_95th_percentile?: number }).landed_tips_95th_percentile : undefined
+    if (typeof pct === 'number' && pct > 0) {
+      return { success: true as const, lamports: Math.floor(pct * LAMPORTS_PER_SOL) }
+    }
+  } catch {
+    /* use fallback */
+  }
+  return {
+    success: true as const,
+    lamports: Math.floor(FALLBACK_JITO_TIP_SOL * LAMPORTS_PER_SOL),
+  }
+}
+
+/** Relay wallet-signed Jito bundle txs through Bags (API key stays server-side). */
+export async function submitBagsSignedJitoBundle(signedTransactionsBase64: string[]) {
+  try {
+    if (!signedTransactionsBase64.length) {
+      return { success: false as const, error: 'No transactions in bundle' }
+    }
+    const bags = bagsSdk()
+    const txs = signedTransactionsBase64.map((b64) =>
+      VersionedTransaction.deserialize(Buffer.from(b64, 'base64'))
+    )
+    const bundleId = await sendBundleAndConfirm(txs, bags)
+    return { success: true as const, bundleId }
+  } catch (err: unknown) {
+    console.error('submitBagsSignedJitoBundle:', err)
+    return { success: false as const, error: formatBagsLaunchError(err) }
+  }
+}
+
+/** Fire after the launch transaction confirms so the feed reflects a real deployment. */
+export async function recordLaunchMilestonePost(
+  userId: string,
+  name: string,
+  symbol: string,
+  description: string
+) {
+  if (!isFirebaseAdminConfigured || !adminDb) {
+    return { success: true as const, skipped: true as const }
+  }
+  try {
+    const now = Date.now()
+    await adminDb.collection(FS.POSTS).add({
+      author_id: userId,
+      content: `Just launched $${symbol} — ${name}! ${description}`,
+      post_type: 'launch',
+      images: [],
+      milestone_title: `Launched $${symbol}`,
+      milestone_category: 'launch',
+      project_id: null,
+      link_url: null,
+      likes_count: 0,
+      comments_count: 0,
+      created_at: now,
+    })
+    return { success: true as const, skipped: false as const }
+  } catch (postErr) {
+    console.error('recordLaunchMilestonePost:', postErr)
+    return { success: false as const, error: 'Could not save launch post' }
   }
 }
 
