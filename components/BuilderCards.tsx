@@ -5,6 +5,8 @@ import Link from 'next/link'
 import mockProfiles from '@/lib/mockProfiles.json'
 import mockProjects from '@/lib/mockProjects.json'
 import type { ExploreBuilderPublic } from '@/lib/exploreBuilders'
+import BagsLaunchBadge from '@/components/BagsLaunchBadge'
+import { useAuth } from '@/context/AuthProvider'
 
 interface BuilderCardData {
   id: string | number
@@ -19,9 +21,18 @@ interface BuilderCardData {
   tags: string[]
   bio: string
   skills: string[]
-  token: { name: string; price: string; change: string } | null
-  /** null = not tracked (real Buildry profiles — no mock on-chain stats). */
-  stats: { contracts: number | null; projects: number | null; reviews: number | null }
+  /** Bags launch on Solana — badge on avatar only; no token row on card. */
+  hasBagsLaunch?: boolean
+  bagsMint?: string | null
+  /** Mock: on-chain txs / projects / rating. Real `/profile/`: on-chain txs (TBD) / projects / GitHub repos. */
+  stats: {
+    contracts: number | null
+    projects: number | null
+    reviews: number | null
+    githubPublicRepos?: number | null
+  }
+  /** Firestore-backed explore row: different stat labels and third column (repos, not rating). */
+  realProfileStats?: boolean
   project?: { name: string; description?: string }
   profileHref: string
   bannerUrl?: string
@@ -42,6 +53,7 @@ function mergeProfilesForExplore(
 }
 
 export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?: ExploreBuilderPublic[] }) {
+  const { user } = useAuth()
   const [builders, setBuilders] = useState<BuilderCardData[]>([])
   const [loading, setLoading] = useState(true)
   const [startIndex, setStartIndex] = useState(0)
@@ -100,19 +112,33 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
             ? p.tags.slice(0, 5)
             : []
           : ['React', 'Solidity', 'Go', 'Rust'].slice(0, 2 + (i % 3)),
-        token:
-          isRealBuildryProfile
-            ? null
-            : i % 2 === 0
-              ? { name: `$${String(username).toUpperCase().slice(0, 4)}`, price: '$0.0084', change: '+12.4%' }
-              : null,
+        hasBagsLaunch:
+          isRealBuildryProfile &&
+          ((typeof p.bags_tokens_count === 'number' && p.bags_tokens_count > 0) ||
+            (typeof p.bags_primary_mint === 'string' && p.bags_primary_mint.length > 0)),
+        bagsMint:
+          typeof p.bags_primary_mint === 'string' && p.bags_primary_mint.trim()
+            ? p.bags_primary_mint.trim()
+            : null,
         stats: isRealBuildryProfile
-          ? { contracts: null, projects: null, reviews: null }
+          ? {
+              contracts: null,
+              projects:
+                typeof p.projects_count === 'number' && Number.isFinite(p.projects_count)
+                  ? p.projects_count
+                  : null,
+              reviews: null,
+              githubPublicRepos:
+                typeof p.github_public_repos === 'number' && Number.isFinite(p.github_public_repos)
+                  ? p.github_public_repos
+                  : null,
+            }
           : {
               contracts: 5 + (i % 15),
               projects: projectMatch ? 1 : 2 + (i % 8),
               reviews: 4.5 + ((i * 7) % 10) / 10,
             },
+        realProfileStats: isRealBuildryProfile,
         project: isRealBuildryProfile ? undefined : projectMatch ? { name: projectMatch.name } : undefined,
         profileHref,
         bannerUrl:
@@ -220,7 +246,9 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
             transform: isAnimating ? 'scale(0.995)' : 'scale(1)'
           }}
         >
-          {visibleItems.map((b, i) => (
+          {visibleItems.map((b, i) => {
+            const isOwnProfileCard = Boolean(user?.id && String(b.id) === user.id)
+            return (
             <div
               key={`${b.id}-${startIndex}-${i}`}
               className="bg-slate-50/40 backdrop-blur-sm rounded-3xl overflow-hidden border border-slate-100/50 hover:bg-white transition-all duration-500 hover:shadow-lg hover:shadow-slate-900/5 group/card min-h-0 flex flex-col animate-fade-in"
@@ -238,10 +266,15 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
 
               <div className={`flex flex-col flex-1 px-5 pb-5 pt-5 ${b.bannerUrl ? 'pt-2' : ''}`}>
                 <div className={`flex justify-between items-start mb-4 ${b.bannerUrl ? '-mt-8 relative z-10' : ''}`}>
-                  <div
-                    className={`w-12 h-12 rounded-full ${b.avatarBg} flex items-center justify-center text-white text-sm font-black shadow-md overflow-hidden ring-2 ring-white`}
-                  >
-                    {b.avatar ? <img src={b.avatar} alt={b.name} className="w-full h-full object-cover" /> : b.initials}
+                  <div className="relative shrink-0">
+                    <div
+                      className={`w-12 h-12 rounded-full ${b.avatarBg} flex items-center justify-center text-white text-sm font-black shadow-md overflow-hidden ring-2 ring-white relative`}
+                    >
+                      {b.avatar ? <img src={b.avatar} alt={b.name} className="w-full h-full object-cover" /> : b.initials}
+                    </div>
+                    {b.hasBagsLaunch ? (
+                      <BagsLaunchBadge mint={b.bagsMint || undefined} variant="float" className="!size-7 !p-0.5" />
+                    ) : null}
                   </div>
                   <div className={`text-right ${b.bannerUrl ? 'drop-shadow-sm' : ''}`}>
                     <p
@@ -299,66 +332,58 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
                 </div>
 
                 <div className="mt-auto border-t border-slate-100 pt-4">
-                  {b.token ? (
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="text-[10px] font-black text-slate-900 font-mono">{b.token.name}</span>
-                      <span className="text-slate-200">•</span>
-                      <span className="text-[10px] font-black text-slate-400 font-mono">{b.token.price}</span>
-                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded ml-auto">
-                        {b.token.change}
-                      </span>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="text-left">
+                      <p className="text-base font-black text-slate-900 font-mono tabular-nums">
+                        {b.stats.contracts != null ? b.stats.contracts : '—'}
+                      </p>
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5 leading-tight">
+                        On-chain txs
+                      </p>
                     </div>
-                  ) : (
-                    <div className="mb-4 text-[9px] font-black text-slate-300 uppercase tracking-wider italic font-mono">
-                      No Token Yet
+                    <div className="text-left">
+                      <p className="text-base font-black text-slate-900 font-mono tabular-nums">
+                        {b.stats.projects != null ? b.stats.projects : '—'}
+                      </p>
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Projects</p>
                     </div>
-                  )}
+                    <div className="text-left">
+                      <p className="text-base font-black text-slate-900 font-mono italic tabular-nums">
+                        {b.realProfileStats
+                          ? b.stats.githubPublicRepos != null
+                            ? b.stats.githubPublicRepos
+                            : '—'
+                          : b.stats.reviews != null
+                            ? b.stats.reviews.toFixed(1)
+                            : '—'}
+                      </p>
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">
+                        {b.realProfileStats ? 'Repos' : 'Rating'}
+                      </p>
+                    </div>
+                  </div>
 
-                  {b.stats.contracts == null && b.stats.projects == null && b.stats.reviews == null ? (
-                    <p className="mb-4 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-[10px] font-medium leading-relaxed text-slate-500">
-                      No mock deploy stats — contracts launched on Buildry show on your{' '}
-                      <Link href={b.profileHref} className="font-bold text-slate-700 underline decoration-slate-300 underline-offset-2 hover:text-blue-600">
-                        profile
-                      </Link>{' '}
-                      and token page after you go live.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      <div className="text-left">
-                        <p className="text-base font-black text-slate-900 font-mono tabular-nums">{b.stats.contracts}</p>
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Contracts</p>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-base font-black text-slate-900 font-mono tabular-nums">{b.stats.projects}</p>
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Projects</p>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-base font-black text-slate-900 font-mono italic tabular-nums">
-                          {b.stats.reviews != null ? b.stats.reviews.toFixed(1) : '—'}
-                        </p>
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Rating</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={isOwnProfileCard ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2'}>
                     <Link
                       href={b.profileHref}
                       className="bg-white border border-slate-100 text-slate-900 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-slate-50 transition-all shadow-sm active:scale-95 flex items-center justify-center font-mono"
                     >
                       Profile
                     </Link>
-                    <button
-                      type="button"
-                      className="bg-slate-900 text-white py-2 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-blue-600 transition-all shadow-md shadow-slate-900/10 active:scale-95 whitespace-nowrap font-mono"
-                    >
-                      {b.token ? `Buy ${b.token.name}` : 'Hire Builder'}
-                    </button>
+                    {!isOwnProfileCard && (
+                      <button
+                        type="button"
+                        className="bg-slate-900 text-white py-2 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-blue-600 transition-all shadow-md shadow-slate-900/10 active:scale-95 whitespace-nowrap font-mono"
+                      >
+                        Hire Builder
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 

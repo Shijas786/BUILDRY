@@ -1,10 +1,4 @@
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-} from 'firebase/auth'
+import { GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '@/lib/firebaseClient'
 import { FS } from '@/lib/firestoreCollections'
@@ -35,27 +29,6 @@ export async function getUser(): Promise<AppUser | null> {
   const userSnap = await getDoc(userRef)
   if (!userSnap.exists()) return null
   return userSnap.data() as AppUser
-}
-
-export async function signUpWithEmail(email: string, password: string) {
-  if (!firebaseAuth || !firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
-  try {
-    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password)
-    // User doc is created by AuthProvider fetchUser (onAuthStateChanged); avoid a second awaited setDoc here.
-    return { data: credential, error: null }
-  } catch (error: any) {
-    return { data: null, error: { message: error?.message || 'Signup failed' } }
-  }
-}
-
-export async function signInWithEmail(email: string, password: string) {
-  if (!firebaseAuth || !firebaseDb) return { data: null, error: { message: 'Firebase not configured' } }
-  try {
-    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password)
-    return { data: credential, error: null }
-  } catch (error: any) {
-    return { data: null, error: { message: error?.message || 'Login failed' } }
-  }
 }
 
 export async function signInWithGoogle() {

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import FollowButton from '@/components/FollowButton'
+import ProfileFollowDialog from '@/components/ProfileFollowDialog'
 import { useAuth } from '@/context/AuthProvider'
 import ProfileActivitySection from '@/components/ProfileActivitySection'
 import ProfileProjectsGrid from '@/components/ProfileProjectsGrid'
@@ -54,6 +55,7 @@ interface ProfileData {
   githubContributionSummary: any
   tokens: any[]
   followersCount: number
+  followingCount: number
   contributions?: BuilderContributionsSnapshot
   github_pat_configured?: boolean
   github_graphql_error?: string | null
@@ -394,6 +396,7 @@ export default function ProfilePage() {
     text?: string
     note?: string
   }>({ status: 'idle' })
+  const [followDialog, setFollowDialog] = useState<null | 'followers' | 'following'>(null)
 
   const refreshProfile = useCallback(() => {
     fetch(`/api/profile/${encodeURIComponent(username)}`, { cache: 'no-store' })
@@ -563,7 +566,7 @@ export default function ProfilePage() {
             </Link>
           ) : (
             <div className="w-full sm:w-auto">
-              <FollowButton builderId={p.id} />
+              <FollowButton builderId={p.id} onChange={refreshProfile} />
             </div>
           )}
         </div>
@@ -605,7 +608,25 @@ export default function ProfilePage() {
               Farcaster{fcDisplay.fid ? ` · FID ${fcDisplay.fid}` : ''}
             </a>
           )}
-          <span>{data?.followersCount || 0} followers</span>
+          <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setFollowDialog('followers')}
+              className="text-slate-500 hover:text-slate-900 underline decoration-slate-200 underline-offset-2 transition-colors"
+            >
+              {(data?.followersCount ?? 0).toLocaleString()} followers
+            </button>
+            <span className="text-slate-300" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={() => setFollowDialog('following')}
+              className="text-slate-500 hover:text-slate-900 underline decoration-slate-200 underline-offset-2 transition-colors"
+            >
+              {(data?.followingCount ?? 0).toLocaleString()} following
+            </button>
+          </span>
         </div>
 
         <ConnectedSocialShowcase
@@ -695,6 +716,13 @@ export default function ProfilePage() {
           {activeTab === 'services' && <ServicesTab profile={p} />}
         </div>
       </div>
+
+      <ProfileFollowDialog
+        open={followDialog != null}
+        kind={followDialog ?? 'followers'}
+        builderId={p.id}
+        onClose={() => setFollowDialog(null)}
+      />
     </div>
   )
 }

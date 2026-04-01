@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS, FS_DOC_IDS } from '@/lib/firestoreCollections'
+import { notifySocial } from '@/lib/notificationsServer'
 
 export async function POST(
   req: NextRequest,
@@ -39,5 +40,16 @@ export async function POST(
     trx.set(likeRef, { post_id: postId, user_id: userId, created_at: Date.now() })
     trx.set(postRef, { likes_count: currentLikes + 1 }, { merge: true })
   })
+
+  const authorId = (await postRef.get()).data()?.author_id as string | undefined
+  if (authorId) {
+    await notifySocial(db, {
+      recipientUserId: authorId,
+      actorUserId: userId,
+      type: 'post_like',
+      postId,
+    })
+  }
+
   return NextResponse.json({ liked: true })
 }

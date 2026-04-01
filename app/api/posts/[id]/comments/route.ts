@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
+import { notifySocial } from '@/lib/notificationsServer'
 
 export async function GET(
   _req: NextRequest,
@@ -60,6 +61,18 @@ export async function POST(
     const currentCount = (postSnap.data()?.comments_count || 0) as number
     trx.set(postRef, { comments_count: currentCount + 1 }, { merge: true })
   })
+
+  const postAuthorId = (await postRef.get()).data()?.author_id as string | undefined
+  if (postAuthorId) {
+    await notifySocial(db, {
+      recipientUserId: postAuthorId,
+      actorUserId: authorId,
+      type: 'post_comment',
+      postId: params.id,
+      commentId: commentRef.id,
+      commentPreview: content,
+    })
+  }
 
   const commentDoc = await commentRef.get()
   return NextResponse.json({ id: commentRef.id, ...commentDoc.data() }, { status: 201 })

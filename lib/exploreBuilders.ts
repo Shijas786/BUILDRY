@@ -1,3 +1,5 @@
+import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
+
 /**
  * Public explore / talent board: map Firestore builder_profiles → card + API shape.
  */
@@ -16,6 +18,16 @@ export type ExploreBuilderPublic = {
   scores?: { slug: string; points: number }[]
   /** Link from Explore cards (Firebase profiles use /profile/[username]). */
   profileHref: string
+  /** Primary verified Solana wallet (Bags / launches). */
+  sol_wallet?: string
+  /** Firestore `projects` rows with `builder_id === profile id`. Set by explore API. */
+  projects_count?: number
+  /** Bags tokens returned for `sol_wallet` (explore API). */
+  bags_tokens_count?: number
+  /** First Bags token mint for this wallet (explore API), for profile links. */
+  bags_primary_mint?: string
+  /** From cached `github_data.public_repos` when present. */
+  github_public_repos?: number
 }
 
 /** Heuristic “builder score” for Explore (no Talent Protocol dependency). */
@@ -49,6 +61,12 @@ export function mapFirestoreProfileToExplore(
     'Builder'
   const skills = Array.isArray(data.skills) ? data.skills.filter(Boolean).map(String) : []
   const points = exploreScoreFromProfile(data)
+  const { sol_wallet } = primaryWalletsFromProfile(data)
+  const gd = data.github_data as Record<string, unknown> | undefined
+  const github_public_repos =
+    typeof gd?.public_repos === 'number' && Number.isFinite(gd.public_repos)
+      ? Math.max(0, Math.floor(gd.public_repos))
+      : undefined
 
   return {
     id: docId,
@@ -67,5 +85,7 @@ export function mapFirestoreProfileToExplore(
       { slug: 'builder_score_2025', points },
     ],
     profileHref: `/profile/${encodeURIComponent(u)}`,
+    ...(sol_wallet ? { sol_wallet } : {}),
+    ...(github_public_repos !== undefined ? { github_public_repos } : {}),
   }
 }

@@ -44,7 +44,9 @@ createAppKit({
   themeMode: 'light',
   themeVariables: {
     '--w3m-accent': '#2563EB',
-    '--w3m-border-radius-master': '1px'
+    '--w3m-border-radius-master': '1px',
+    /** Default AppKit z-index is 9999; auth modal uses 8000 so Reown must stack above it. */
+    '--w3m-z-index': 10050,
   },
   features: {
     // Extra Reown/network work on every load; only enable in production.

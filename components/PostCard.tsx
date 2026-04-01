@@ -87,7 +87,7 @@ export default function PostCard({ post }: { post: Post }) {
   }
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-all shadow-sm">
+    <div id={`post-${post.id}`} className="bg-white border border-slate-100 rounded-2xl p-5 hover:border-slate-200 transition-all shadow-sm scroll-mt-24">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <Link href={authorPath} className="shrink-0">

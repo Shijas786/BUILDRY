@@ -30,6 +30,21 @@ Expires (unix ms): ${params.expiresAt}
 Signing proves you control this wallet.`
 }
 
+export function buildLoginMessage(params: {
+  chain: string
+  address: string
+  nonce: string
+  expiresAt: number
+}): string {
+  return `Buildry — wallet sign-in
+Chain: ${params.chain}
+Address: ${params.address}
+Nonce: ${params.nonce}
+Expires (unix ms): ${params.expiresAt}
+
+Signing proves you control this wallet and signs you into the Buildry account linked to it.`
+}
+
 export async function createWalletChallenge(
   db: Firestore,
   uid: string,
@@ -358,4 +373,103 @@ export async function removeVerifiedWallet(
   const finalSnap = await profRef.get()
   const finalList = finalSnap.exists ? parseVerifiedList(finalSnap.data() as Record<string, unknown>) : []
   return { ok: true, verified_wallets: finalList }
+}
+
+/** Public sign-in: challenge must exist and wallet must already be in `wallet_address_claims`. */
+export async function createWalletLoginChallenge(
+  db: Firestore,
+  chain: 'sol' | 'evm',
+  addressRaw: string
+): Promise<
+  | { ok: true; challengeId: string; message: string; expiresAt: number }
+  | { ok: false; error: string; status: number }
+> {
+  const address =
+    chain === 'sol' ? normalizeSolWallet(addressRaw) : normalizeEvmWallet(addressRaw)
+  if (!address) {
+    return {
+      ok: false,
+      error:
+        chain === 'sol'
+          ? 'That Solana address is not valid.'
+          : 'That Ethereum address is not valid. Use a standard 0x-prefixed address.',
+      status: 400,
+    }
+  }
+
+  const cref = db.collection(CLAIMS).doc(claimDocId(chain, address))
+  const claimSnap = await cref.get()
+  const userId = claimSnap.exists ? (claimSnap.data() as { user_id?: string }).user_id : undefined
+  if (!userId || typeof userId !== 'string') {
+    return {
+      ok: false,
+      error:
+        'No Buildry account is linked to this wallet yet. Sign in with Google first, then add and verify this wallet in Settings.',
+      status: 404,
+    }
+  }
+
+  const challengeId = randomBytes(24).toString('hex')
+  const expiresAt = Date.now() + TTL_MS
+  const nonce = randomBytes(16).toString('hex')
+  const message = buildLoginMessage({ chain, address, nonce, expiresAt })
+
+  await db.collection(CHALLENGE_COL).doc(challengeId).set({
+    purpose: 'login',
+    chain,
+    address,
+    message,
+    expires_at: expiresAt,
+    created_at: Date.now(),
+  })
+
+  return { ok: true, challengeId, message, expiresAt }
+}
+
+export async function verifyWalletLoginChallenge(
+  db: Firestore,
+  input: { challengeId: string; signature: string; solSignatureBase64?: string }
+): Promise<{ ok: true; uid: string } | { ok: false; error: string; status: number }> {
+  const ref = db.collection(CHALLENGE_COL).doc(input.challengeId)
+  const snap = await ref.get()
+  if (!snap.exists) {
+    return { ok: false, error: 'This sign-in request is invalid or has expired.', status: 400 }
+  }
+
+  const c = snap.data() as {
+    purpose?: string
+    chain: 'sol' | 'evm'
+    address: string
+    message: string
+    expires_at: number
+  }
+
+  if (c.purpose !== 'login') {
+    return { ok: false, error: 'Invalid sign-in request.', status: 400 }
+  }
+  if (Date.now() > c.expires_at) {
+    await ref.delete().catch(() => {})
+    return { ok: false, error: 'That sign-in request has expired. Try again.', status: 400 }
+  }
+
+  const solSig = input.solSignatureBase64?.trim() || ''
+  const sigOk =
+    c.chain === 'evm'
+      ? await verifyEvmSignature(c.address, c.message, input.signature)
+      : verifySolSignature(c.address, c.message, solSig || input.signature)
+
+  if (!sigOk) {
+    return { ok: false, error: 'Wallet signature could not be verified.', status: 401 }
+  }
+
+  const cref = db.collection(CLAIMS).doc(claimDocId(c.chain, c.address))
+  const claimSnap = await cref.get()
+  const uid = claimSnap.exists ? (claimSnap.data() as { user_id?: string }).user_id : undefined
+  if (!uid || typeof uid !== 'string') {
+    await ref.delete().catch(() => {})
+    return { ok: false, error: 'This wallet is no longer linked to an account.', status: 404 }
+  }
+
+  await ref.delete().catch(() => {})
+  return { ok: true, uid }
 }

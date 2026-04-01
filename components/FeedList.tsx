@@ -30,6 +30,15 @@ export default function FeedList() {
     fetchPosts(1)
   }, [fetchPosts])
 
+  useEffect(() => {
+    if (loading || posts.length === 0) return
+    const id = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : ''
+    if (!id.startsWith('post-')) return
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [loading, posts])
+
   const refresh = () => {
     setPage(1)
     setLoading(true)

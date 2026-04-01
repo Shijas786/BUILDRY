@@ -1,22 +1,22 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthProvider'
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
 import { OPEN_AUTH_MODAL_EVENT, type OpenAuthModalDetail } from '@/lib/openAuthModal'
 import BuildryWordmark from '@/components/BuildryWordmark'
 import { AppSearchField, NavbarAccountCluster } from '@/components/AppTopBar'
+import AuthModalWalletLogin from '@/components/AuthModalWalletLogin'
 
 export default function Navbar() {
   const { user } = useAuth()
-  const { address, isConnected } = useAppKitAccount()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'signup'>('login')
   const [portalReady, setPortalReady] = useState(false)
 
-  const isLoggedIn = !!user || (isConnected && !!address)
+  /** Wallet connection alone is not a Buildry session — use Google or wallet sign-in (signature + custom token). */
+  const isLoggedIn = !!user
 
   useEffect(() => {
     setPortalReady(true)
@@ -103,46 +103,37 @@ function AuthModal({
   initialMode?: 'login' | 'signup'
   onClose: () => void
 }) {
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [mode] = useState<'login' | 'signup'>(initialMode)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { open } = useAppKit()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleGoogle = async () => {
     setError('')
     setLoading(true)
     try {
-      const { signInWithEmail, signUpWithEmail } = await import('@/lib/auth')
-      const { error: authError } =
-        mode === 'login' ? await signInWithEmail(email, password) : await signUpWithEmail(email, password)
+      const { signInWithGoogle } = await import('@/lib/auth')
+      const { error: authError } = await signInWithGoogle()
       if (authError) {
         setError(authError.message)
-      } else {
-        onClose()
-        if (mode === 'signup') window.location.href = '/feed'
+        return
       }
+      onClose()
+      if (mode === 'signup') window.location.href = '/feed'
     } catch {
       setError('Something went wrong')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
-  const handleGoogle = async () => {
-    const { signInWithGoogle } = await import('@/lib/auth')
-    const { error } = await signInWithGoogle()
-    if (error) {
-      setError(error.message)
-      return
-    }
+  const handleWalletSignedIn = useCallback(() => {
     onClose()
-  }
+    if (mode === 'signup') window.location.href = '/feed'
+  }, [onClose, mode])
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[10000] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[8000] flex items-center justify-center p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -159,12 +150,16 @@ function AuthModal({
           <h2 id="auth-modal-title" className="text-2xl font-black text-slate-900 tracking-tight">
             {mode === 'login' ? 'Welcome back' : 'Join Buildry'}
           </h2>
-          <p className="text-sm text-slate-400 mt-1">Where founders build in public</p>
+          <p className="text-sm text-slate-400 mt-1">
+            {mode === 'signup' ? 'Sign up with Google to get started.' : 'Sign in with Google to continue.'}
+          </p>
         </div>
 
         <button
+          type="button"
+          disabled={loading}
           onClick={handleGoogle}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all mb-3"
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all mb-3 disabled:opacity-50 disabled:pointer-events-none"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -184,69 +179,18 @@ function AuthModal({
               fill="#EA4335"
             />
           </svg>
-          Continue with Google
+          {loading ? 'Connecting…' : 'Continue with Google'}
         </button>
 
-        <button
-          onClick={() => {
-            open()
-            onClose()
-          }}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all mb-5"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-            />
-          </svg>
-          Connect Wallet
-        </button>
-
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-5">
           <div className="flex-1 h-px bg-slate-100" />
-          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">or continue with email</span>
+          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">or</span>
           <div className="flex-1 h-px bg-slate-100" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 transition-all placeholder-slate-300"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-300 transition-all placeholder-slate-300"
-            required
-          />
-          {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 bg-slate-900 text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-black transition-all active:scale-[0.98] disabled:opacity-40"
-          >
-            {loading ? '...' : mode === 'login' ? 'Log in' : 'Create account'}
-          </button>
-        </form>
+        <AuthModalWalletLogin disabled={loading} onSignedIn={handleWalletSignedIn} />
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <button
-            onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-            className="font-bold text-slate-900 hover:text-blue-600 transition-colors"
-          >
-            {mode === 'login' ? 'Sign up' : 'Log in'}
-          </button>
-        </p>
+        {error ? <p className="text-xs text-red-500 font-medium text-center mt-4">{error}</p> : null}
       </div>
     </div>
   )

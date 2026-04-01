@@ -81,6 +81,7 @@ export async function loadBuilderProfilePayload(username: string) {
   let posts: any[] = []
   let projects: any[] = []
   let followersCount = 0
+  let followingCount = 0
 
   if (isFirebaseAdminConfigured && adminDb) {
     const db = adminDb
@@ -129,12 +130,17 @@ export async function loadBuilderProfilePayload(username: string) {
       }
     }
 
-    if (profile?.user_id) {
-      const [userDoc, postsSnap, projectsSnap, followersSnap] = await Promise.all([
-        db.collection(FS.USERS).doc(profile.user_id).get(),
-        db.collection(FS.POSTS).where('author_id', '==', profile.user_id).get(),
-        db.collection(FS.PROJECTS).where('builder_id', '==', profile.user_id).get(),
-        db.collection(FS.BUILDER_FOLLOWERS).where('builder_id', '==', profile.user_id).get(),
+    const authUid =
+      profile && typeof profile.user_id === 'string' && profile.user_id.trim()
+        ? profile.user_id.trim()
+        : profile?.id
+    if (profile && authUid) {
+      const [userDoc, postsSnap, projectsSnap, followersSnap, followingSnap] = await Promise.all([
+        db.collection(FS.USERS).doc(authUid).get(),
+        db.collection(FS.POSTS).where('author_id', '==', authUid).get(),
+        db.collection(FS.PROJECTS).where('builder_id', '==', authUid).get(),
+        db.collection(FS.BUILDER_FOLLOWERS).where('builder_id', '==', authUid).get(),
+        db.collection(FS.BUILDER_FOLLOWERS).where('follower_id', '==', authUid).get(),
       ])
 
       profile.users = userDoc.exists ? userDoc.data() : null
@@ -146,6 +152,7 @@ export async function loadBuilderProfilePayload(username: string) {
         .map((projectDoc) => ({ id: projectDoc.id, ...projectDoc.data() }))
         .sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0))
       followersCount = followersSnap.size
+      followingCount = followingSnap.size
     }
   }
 
@@ -326,5 +333,6 @@ export async function loadBuilderProfilePayload(username: string) {
     githubContributionSummary,
     tokens: creatorTokens,
     followersCount,
+    followingCount,
   }
 }
