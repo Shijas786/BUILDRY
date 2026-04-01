@@ -145,6 +145,20 @@ export async function loadLatestLaunchPostForUser(userId: string): Promise<Lates
       return { mint, name, symbol, created_at: created }
     }
 
+    /** Strong signal when feed post / flags are missing but Bags lists exactly one creator token. */
+    const list = await tokensForCreator()
+    if (list.length === 1) {
+      const t = list[0]
+      if (t?.mint?.trim()) {
+        return {
+          mint: t.mint.trim(),
+          name: (t.name || t.symbol || 'Token').trim(),
+          symbol: (t.symbol || 'TKN').toUpperCase(),
+          created_at: Date.now(),
+        }
+      }
+    }
+
     const profSnap = await db.collection(FS.BUILDER_PROFILES).doc(uid).get()
     const hasLaunchedFlag =
       (profSnap.data() as { has_launched_token?: boolean } | undefined)?.has_launched_token === true
