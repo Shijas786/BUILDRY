@@ -273,7 +273,7 @@ export default function BuilderCards({ firestoreBuilders }: { firestoreBuilders?
                       {b.avatar ? <img src={b.avatar} alt={b.name} className="w-full h-full object-cover" /> : b.initials}
                     </div>
                     {b.hasBagsLaunch ? (
-                      <BagsLaunchBadge mint={b.bagsMint || undefined} variant="float" className="!size-7 !p-0.5" />
+                      <BagsLaunchBadge mint={b.bagsMint || undefined} variant="float" />
                     ) : null}
                   </div>
                   <div className={`text-right ${b.bannerUrl ? 'drop-shadow-sm' : ''}`}>

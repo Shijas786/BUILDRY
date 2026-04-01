@@ -7,7 +7,7 @@ const BAGS_SITE = 'https://bags.fm'
 export function bagsFmTokenUrl(mint: string): string {
   const m = mint.trim()
   if (!m) return BAGS_SITE
-  return `${BAGS_SITE}/token/${encodeURIComponent(m)}`
+  return `${BAGS_SITE}/${encodeURIComponent(m)}`
 }
 
 type Props = {
@@ -73,10 +73,14 @@ export default function BagsLaunchBadge({ mint, className = '', variant = 'float
       rel="noopener noreferrer"
       title="Launched on Bags"
       aria-label="Launched on Bags — open on bags.fm"
-      className={`absolute -bottom-0.5 -right-0.5 z-10 flex size-8 items-center justify-center rounded-full bg-white p-0.5 shadow-md ring-2 ring-white transition-transform hover:scale-105 hover:ring-sky-200 ${className}`}
+      className={`absolute bottom-0 right-0 z-10 flex h-[18px] w-[18px] translate-x-1.5 translate-y-0.5 items-center justify-center rounded-full bg-white shadow-md ring-[1.5px] ring-white transition-transform hover:scale-110 hover:ring-sky-200 sm:h-5 sm:w-5 sm:translate-x-2 sm:translate-y-1 ${className}`}
     >
-      <span className="flex size-[26px] items-center justify-center overflow-hidden rounded-full bg-sky-50 ring-1 ring-sky-100">
-        <BagsFmIcon className="size-[18px] object-cover" />
+      <span className="flex h-[14px] w-[14px] items-center justify-center overflow-hidden rounded-full bg-sky-50 ring-1 ring-sky-100 sm:h-4 sm:w-4">
+        <BagsFmIcon
+          className="h-2.5 w-2.5 object-cover sm:h-3 sm:w-3"
+          width={10}
+          height={10}
+        />
       </span>
     </Link>
   )

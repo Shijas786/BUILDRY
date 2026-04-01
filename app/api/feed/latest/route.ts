@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { BagsToken } from '@/lib/bags'
 import { getLatestTokens, getToken } from '@/lib/bags'
+import { BUILDRY_PLATFORM_TOKEN_MINT } from '@/lib/buildryPlatformToken'
 import { loadRecentBuildryLaunchMints, type RecentLaunchMint } from '@/lib/recentBuildryLaunchMints'
 import { getProfile } from '@/lib/talent'
 import { resolveTrustTier } from '@/lib/trust'
@@ -33,8 +34,26 @@ function pricePctForTicker(t: BagsToken): number | null {
   return t.priceChange24h
 }
 
+async function platformTickerToken(): Promise<BagsToken> {
+  const full = await getToken(BUILDRY_PLATFORM_TOKEN_MINT)
+  if (full && !bagsProductToken(full)) return full
+  return {
+    mint: BUILDRY_PLATFORM_TOKEN_MINT,
+    name: 'Buildry',
+    symbol: 'BUILDRY',
+    price: 0,
+    priceChange24h: 0,
+    marketCap: 0,
+    volume24h: 0,
+    holders: 0,
+    liquidity: 0,
+    feeApy: 0,
+  }
+}
+
 async function mergeTickerTokens(): Promise<BagsToken[]> {
-  const [recentRows, bagsTokens] = await Promise.all([
+  const [platform, recentRows, bagsTokens] = await Promise.all([
+    platformTickerToken(),
     loadRecentBuildryLaunchMints(28),
     getLatestTokens(),
   ])
@@ -48,7 +67,7 @@ async function mergeTickerTokens(): Promise<BagsToken[]> {
   )
 
   const merged: BagsToken[] = []
-  const seen = new Set<string>()
+  const seen = new Set<string>([BUILDRY_PLATFORM_TOKEN_MINT])
 
   for (const t of fromBuildry) {
     if (!t.mint || seen.has(t.mint)) continue
@@ -62,7 +81,8 @@ async function mergeTickerTokens(): Promise<BagsToken[]> {
     merged.push(t)
   }
 
-  return merged.slice(0, TICKER_LIMIT)
+  const rest = merged.slice(0, TICKER_LIMIT - 1)
+  return [platform, ...rest]
 }
 
 export async function GET() {
@@ -75,6 +95,8 @@ export async function GET() {
         const pfp =
           t.creatorImage || (t.twitter ? `https://unavatar.io/twitter/${t.twitter}` : null)
 
+        const isPlatformToken = t.mint === BUILDRY_PLATFORM_TOKEN_MINT
+
         if (!t.creatorWallet) {
           return {
             ...t,
@@ -83,6 +105,7 @@ export async function GET() {
             username: t.twitter || null,
             profilePicture: pfp,
             pricePct24h,
+            isPlatformToken,
           }
         }
 
@@ -99,6 +122,7 @@ export async function GET() {
             username: t.twitter || null,
             profilePicture: pfp,
             pricePct24h,
+            isPlatformToken,
           }
         }
 
@@ -118,6 +142,7 @@ export async function GET() {
             username: profile?.username || t.twitter || null,
             profilePicture: t.creatorImage || profile?.avatar || (t.twitter ? `https://unavatar.io/twitter/${t.twitter}` : null),
             pricePct24h,
+            isPlatformToken,
           }
         } catch {
           return {
@@ -127,6 +152,7 @@ export async function GET() {
             username: t.twitter || null,
             profilePicture: pfp,
             pricePct24h,
+            isPlatformToken,
           }
         }
       })

@@ -11,6 +11,8 @@ interface TickerToken {
   builderRank?: number | null
   /** 24h change when Bags has a quote; omitted for fresh launches with no market data yet. */
   pricePct24h?: number | null
+  /** $BUILDRY platform mint — styled prominently in the marquee. */
+  isPlatformToken?: boolean
 }
 
 export default function DeploymentTicker() {
@@ -48,44 +50,73 @@ export default function DeploymentTicker() {
 
   if (tokens.length === 0) return null
 
-  const renderLink = (t: TickerToken, keySuffix: string, dup: boolean) => (
-    <Link
-      key={`${t.mint}-${keySuffix}`}
-      href={`/token/${t.mint}`}
-      tabIndex={dup ? -1 : undefined}
-      className={`flex items-center gap-2 group transition-opacity hover:opacity-80 ${dup ? 'pointer-events-none' : ''}`}
-    >
-      <span className="text-[10px] font-black text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">BUILDER COIN</span>
-      <span className="text-[12px] font-black text-[var(--text-primary)]">${t.symbol}</span>
-      {t.tier === 'VERIFIED' && (
-        <span className="bg-[var(--accent-green)]/10 text-[var(--accent-green)] text-[9px] font-black px-1.5 py-0.5 rounded border border-[var(--accent-green)]/20 uppercase tracking-wider">
-          Rank #{t.builderRank || 'High'}
-        </span>
-      )}
-      {t.tier === 'PARTIAL' && (
-        <span className="bg-[var(--accent-amber)]/10 text-[var(--accent-amber)] text-[9px] font-black px-1.5 py-0.5 rounded border border-[var(--accent-amber)]/20 uppercase tracking-wider">
-          Partial
-        </span>
-      )}
-      {t.tier === 'ANONYMOUS' && (
-        <span className="bg-[var(--bg-tertiary)] text-[var(--text-muted)] text-[9px] font-bold px-1.5 py-0.5 rounded border border-[var(--border)] uppercase tracking-wider">
-          Anon
-        </span>
-      )}
-      {t.pricePct24h != null && Number.isFinite(t.pricePct24h) ? (
+  const renderLink = (t: TickerToken, keySuffix: string, dup: boolean) => {
+    const platform = Boolean(t.isPlatformToken)
+    return (
+      <Link
+        key={`${t.mint}-${keySuffix}`}
+        href={`/token/${t.mint}`}
+        tabIndex={dup ? -1 : undefined}
+        className={`flex items-center gap-2 group transition-all ${
+          platform
+            ? `rounded-full border border-emerald-500/50 bg-gradient-to-r from-emerald-500/12 via-teal-500/10 to-cyan-500/8 px-3 py-0.5 shadow-[0_0_20px_rgba(16,185,129,0.12)] hover:border-emerald-500/70 hover:shadow-[0_0_24px_rgba(16,185,129,0.2)] ${
+                dup ? 'pointer-events-none' : ''
+              }`
+            : `transition-opacity hover:opacity-80 ${dup ? 'pointer-events-none' : ''}`
+        }`}
+      >
         <span
-          className={`text-[10px] font-bold tabular-nums ${
-            t.pricePct24h >= 0 ? 'text-[var(--accent-green)]' : 'text-red-500'
+          className={`text-[10px] font-black uppercase tracking-wider transition-colors ${
+            platform
+              ? 'text-emerald-700'
+              : 'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]'
           }`}
         >
-          {t.pricePct24h >= 0 ? '+' : ''}
-          {t.pricePct24h.toFixed(2)}%
+          {platform ? 'Platform' : 'BUILDER COIN'}
         </span>
-      ) : (
-        <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-primary)]">New</span>
-      )}
-    </Link>
-  )
+        <span
+          className={`text-[12px] font-black ${platform ? 'text-emerald-950' : 'text-[var(--text-primary)]'}`}
+        >
+          ${t.symbol}
+        </span>
+        {platform ? (
+          <span className="bg-emerald-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
+            Official
+          </span>
+        ) : t.tier === 'VERIFIED' ? (
+          <span className="bg-[var(--accent-green)]/10 text-[var(--accent-green)] text-[9px] font-black px-1.5 py-0.5 rounded border border-[var(--accent-green)]/20 uppercase tracking-wider">
+            Rank #{t.builderRank || 'High'}
+          </span>
+        ) : t.tier === 'PARTIAL' ? (
+          <span className="bg-[var(--accent-amber)]/10 text-[var(--accent-amber)] text-[9px] font-black px-1.5 py-0.5 rounded border border-[var(--accent-amber)]/20 uppercase tracking-wider">
+            Partial
+          </span>
+        ) : (
+          <span className="bg-[var(--bg-tertiary)] text-[var(--text-muted)] text-[9px] font-bold px-1.5 py-0.5 rounded border border-[var(--border)] uppercase tracking-wider">
+            Anon
+          </span>
+        )}
+        {t.pricePct24h != null && Number.isFinite(t.pricePct24h) ? (
+          <span
+            className={`text-[10px] font-bold tabular-nums ${
+              t.pricePct24h >= 0 ? 'text-[var(--accent-green)]' : 'text-red-500'
+            }`}
+          >
+            {t.pricePct24h >= 0 ? '+' : ''}
+            {t.pricePct24h.toFixed(2)}%
+          </span>
+        ) : (
+          <span
+            className={`text-[10px] font-black uppercase tracking-wider ${
+              platform ? 'text-emerald-700' : 'text-[var(--accent-primary)]'
+            }`}
+          >
+            {platform ? 'Live' : 'New'}
+          </span>
+        )}
+      </Link>
+    )
+  }
 
   return (
     <div
