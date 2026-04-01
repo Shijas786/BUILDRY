@@ -85,7 +85,9 @@ export async function GET() {
       const meta = w ? bagsMap.get(w) : undefined
       if (!meta) return b
       const next: typeof b = { ...b, bags_tokens_count: meta.count }
-      if (meta.count > 0 && meta.primaryMint) next.bags_primary_mint = meta.primaryMint
+      if (meta.count > 0 && meta.primaryMint && !next.bags_primary_mint) {
+        next.bags_primary_mint = meta.primaryMint
+      }
       return next
     })
 

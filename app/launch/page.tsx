@@ -398,7 +398,7 @@ export default function LaunchStudio() {
   const effectiveLaunch = pickBestLaunchMeta(lastBrowserLaunch, serverLaunch)
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-[#111] font-sans">
+    <div className="min-h-screen min-h-dvh min-w-0 w-full bg-[#fafafa] text-[#111] font-sans">
       <header className="sticky top-0 z-50 flex h-16 flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-6">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <Link href="/" className="text-lg font-black tracking-tight hover:opacity-80">

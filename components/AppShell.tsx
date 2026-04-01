@@ -54,12 +54,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <MobileAppHeader />
       <Sidebar />
       <main
-        className={`flex min-h-screen min-h-dvh flex-1 flex-col transition-[margin] duration-300 max-md:ml-0 max-md:w-full max-md:pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
+        className={`flex min-h-screen min-h-dvh min-w-0 flex-1 flex-col transition-[margin] duration-300 max-md:ml-0 max-md:w-full max-md:pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
           sidebarExpanded ? 'md:ml-[268px]' : 'md:ml-[68px]'
         }`}
       >
         <DeploymentTicker />
-        <div className="min-h-0 flex-1">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">{children}</div>
       </main>
     </div>
   )

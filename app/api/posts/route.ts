@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 import { loadHydratedPosts } from '@/lib/loadHydratedPosts'
+import { buildProfileLaunchUpdate } from '@/lib/profileLaunchLink'
 
 export async function GET(req: NextRequest) {
   if (!isFirebaseAdminConfigured || !adminDb) {
@@ -102,10 +103,19 @@ export async function POST(req: NextRequest) {
 
     const effectiveType = isPoll ? 'poll' : postType || 'update'
     if (token_mint && (effectiveType === 'launch' || milestoneCategory === 'launch')) {
-      await db
-        .collection(FS.BUILDER_PROFILES)
-        .doc(authorId)
-        .set({ has_launched_token: true }, { merge: true })
+      const sym = launch_symbol || 'TOKEN'
+      let displayName = sym
+      const mt = typeof milestoneTitle === 'string' ? milestoneTitle : ''
+      if (mt && !/^launched\s+\$/i.test(mt)) displayName = mt.slice(0, 200)
+      else {
+        const esc = sym.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const m = content.trim().match(new RegExp(`Just\\s+launched\\s+\\$${esc}\\s*—\\s*([^!]+?)(?:\\s*!|$)`, 'i'))
+        if (m?.[1]) displayName = m[1].trim().slice(0, 200)
+      }
+      const profileLaunch = buildProfileLaunchUpdate(token_mint, displayName, sym)
+      if (profileLaunch) {
+        await db.collection(FS.BUILDER_PROFILES).doc(authorId).set(profileLaunch, { merge: true })
+      }
     }
 
     const postDoc = await postRef.get()

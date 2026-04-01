@@ -4,6 +4,7 @@ import { Connection, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@
 import { BagsSDK, sendBundleAndConfirm } from '@bagsfm/bags-sdk'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
+import { buildProfileLaunchUpdate } from '@/lib/profileLaunchLink'
 
 /**
  * Bags Token Launch v2 — aligned with https://docs.bags.fm/how-to-guides/launch-token
@@ -290,11 +291,9 @@ export async function recordLaunchMilestonePost(
       comments_count: 0,
       created_at: now,
     })
-    if (mint) {
-      await adminDb
-        .collection(FS.BUILDER_PROFILES)
-        .doc(userId)
-        .set({ has_launched_token: true }, { merge: true })
+    const profileLaunch = buildProfileLaunchUpdate(mint, name.trim(), sym, now)
+    if (profileLaunch) {
+      await adminDb.collection(FS.BUILDER_PROFILES).doc(userId).set(profileLaunch, { merge: true })
     }
     return { success: true as const, skipped: false as const }
   } catch (postErr) {

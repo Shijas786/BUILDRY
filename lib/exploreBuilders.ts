@@ -68,6 +68,11 @@ export function mapFirestoreProfileToExplore(
       ? Math.max(0, Math.floor(gd.public_repos))
       : undefined
 
+  const linkedMint =
+    (typeof data.last_launch_mint === 'string' && data.last_launch_mint.trim()) ||
+    (typeof data.bags_primary_mint === 'string' && data.bags_primary_mint.trim()) ||
+    ''
+
   return {
     id: docId,
     name: u,
@@ -87,5 +92,6 @@ export function mapFirestoreProfileToExplore(
     profileHref: `/profile/${encodeURIComponent(u)}`,
     ...(sol_wallet ? { sol_wallet } : {}),
     ...(github_public_repos !== undefined ? { github_public_repos } : {}),
+    ...(linkedMint ? { bags_primary_mint: linkedMint } : {}),
   }
 }
