@@ -1,5 +1,5 @@
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase-admin/firestore'
-import { getTokensByCreator } from '@/lib/bags'
+import { findCreatorTokenBySymbol, getTokensByCreator } from '@/lib/bags'
 import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
@@ -154,6 +154,13 @@ export async function resolveLatestLaunchForUser(userId: string): Promise<Latest
         const list = await tokensForCreator()
         const hit = list.find((t) => (t.symbol || '').toUpperCase() === symbol)
         mint = hit?.mint?.trim() || null
+      }
+      if (!mint) {
+        const w = await walletForUser()
+        if (w) {
+          const bySym = await findCreatorTokenBySymbol(w, symbol)
+          mint = bySym?.mint?.trim() || null
+        }
       }
       if (!mint) {
         launchLikeNoMint += 1

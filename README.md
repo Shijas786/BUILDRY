@@ -1,39 +1,101 @@
 # Buildry
 
-Buildry is a social platform for founders, developers, investors, and recruiters to build reputation in public.
+### Reputation in public — social, provable, launch-ready
 
-Core product loop:
-- Share updates, milestones, launches, and hiring posts
-- Build a public profile with verified social + onchain proof
-- Discover builders, deals, grants, and opportunities
-- Launch and track builder tokens with Bags
+**Buildry** is a full-stack social platform where founders, developers, investors, and recruiters **earn trust from what they ship**, not from a static profile. We combine a **real-time feed**, **verifiable identity signals** (GitHub + Solana + EVM), and **native token launches** via [**Bags**](https://bags.fm) so “who you are” and “what you launched” live in **one** product experience.
 
----
+| | |
+| --- | --- |
+| **Live demo** | *Add your deployed URL* |
+| **Demo video** | *Add Loom / YouTube* |
+| **Repository** | [github.com/Shijas786/BUILDRY](https://github.com/Shijas786/BUILDRY) |
 
-## What Is Live
-
-- Auth: email/password + Google OAuth + wallet connect
-- Role system: developer / founder / investor / recruiter
-- Social feed: post composer, likes, comments, infinite list
-- Profile system: tabs for posts, projects, tokens, activity, services
-- Settings: profile editing, social connections, skills, projects, availability
-- Follow system: follow/unfollow builders
-- Invest hub: deals, grants/fellowships, token trading entry points
-- Bags integration: token launch, quote/swap APIs, creator token data
-- Verification model: GitHub contributions + Solana/EVM onchain deployment/activity stats
+**Team** — *Add names, roles, and links here if you publish them.*
 
 ---
 
-## Tech Stack
+## Why this stands out
 
-- Next.js 14 (App Router) + TypeScript
-- Tailwind CSS
-- Firebase Auth + Firestore
-- Zustand (role + UI state)
-- Reown AppKit + Wagmi + Solana wallet adapter (multi-chain wallet UX)
-- Bags SDK / API
-- GitHub API (public activity + repository signal)
-- Helius + Etherscan integrations for onchain activity
+1. **Real product surface, not a slide** — Auth, feed, social graph, profiles, invest/deals/grants flows, jobs, and token pages are implemented end-to-end in **Next.js 14**, not mocked in Figma.
+2. **Hard integration work** — Multi-provider **reputation aggregation** (GitHub activity, Helius-backed Solana sampling, optional multi-chain EVM via Alchemy, Etherscan contract-creation signal) feeds a coherent **builder profile API**; **Bags** powers **launch + quote + swap** server routes wired to the UI.
+3. **Clear narrative** — We solve **fragmented reputation** (résumés, noisy timelines, disconnected onchain history) by making **posts + proof + launches** first-class in the same app.
+
+---
+
+## What we built
+
+**Social layer**
+- Role-aware onboarding (**developer / founder / investor / recruiter**)
+- **Feed** with composer, likes, comments, infinite scroll
+- **Follow** graph and **explore** paths for discovery
+- Rich **profiles**: posts, projects, tokens, activity, services
+- **Settings**: profile editing, social links, skills, projects, availability
+
+**Trust & proof**
+- Linked socials (e.g. GitHub, LinkedIn, Farcaster) with server-enriched context where keys are present
+- **GitHub** public activity and repository signal; optional GraphQL for deeper contribution stats
+- **Onchain history**: Solana (e.g. Helius) plus optional **EVM** rollups and **Etherscan** contract-creation / gas signal for deploy credibility
+- Optional **AI-assisted “builder snapshot”** on public profiles when `ANTHROPIC_API_KEY` is set (factual, signal-grounded copy)
+
+**Capital & careers**
+- **Invest** hub: deals, grants/fellowships, token trading entry points
+- **Jobs** board APIs and UI integration
+
+**Tokens (Bags)**
+- **Launch** flow (`/launch`, `POST /api/launch`)
+- **Quote & swap** pipeline (`POST /api/quote`, `POST /api/swap`) with Bags SDK / API
+- **Token detail** surfaces (`/token/[mint]`, trending + per-mint APIs)
+
+**Auth & wallets**
+- Email/password, **Google OAuth**, and **wallet connect** via **Reown AppKit** with **Solana + EVM** adapter support for a serious multi-chain UX
+
+---
+
+## Technical highlights
+
+- **Composable data plane** — `GET /api/profile/[username]` aggregates posts, projects, and a **`contributions`** object (GitHub, Solana txs + deploy heuristics, optional EVM chains, Etherscan, counts) for one coherent profile payload.
+- **Graceful degradation** — Many features work with **partial env**; missing keys disable enrichments without bricking core auth/feed.
+- **Production-shaped** — Firebase rules/indexes, Vercel-oriented deployment notes, and OAuth redirect patterns are documented for real shipping, not demo-only shortcuts.
+
+---
+
+## Stack
+
+| Layer | Choices |
+| --- | --- |
+| **App** | Next.js 14 (App Router), TypeScript, Tailwind CSS |
+| **Data / auth** | Firebase Auth, Firestore |
+| **Client state** | Zustand |
+| **Wallets** | Reown AppKit, Wagmi, Solana wallet adapter |
+| **Tokens** | Bags SDK / Bags API |
+| **Signals** | GitHub API, Helius, Alchemy (optional multi-chain), Etherscan, Neynar (Farcaster), optional Zerion / Claude |
+
+---
+
+## Architecture (high level)
+
+```mermaid
+flowchart TB
+  subgraph client [Browser]
+    UI[Next.js UI]
+  end
+  subgraph server [Next.js server routes]
+    API[API routes / RSC]
+  end
+  subgraph data [Services]
+    FB[(Firebase Auth + Firestore)]
+    BAGS[Bags launch / quote / swap]
+    GH[GitHub API]
+    SOL[Solana RPC / Helius]
+    EVM[Alchemy + Etherscan]
+  end
+  UI --> API
+  API --> FB
+  API --> BAGS
+  API --> GH
+  API --> SOL
+  API --> EVM
+```
 
 ---
 
@@ -47,6 +109,12 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+---
+
+## Documentation map
+
+Everything below this line is **reference** for operators: environment variables, production domain checklist (e.g. `buildry.in`), Firebase Hosting for OAuth redirects, LinkedIn/GitHub/Farcaster setup, and extended API/route notes. For a quick picture of the product, the sections above plus **Main Routes** and **API Highlights** cover most of what you need.
 
 ---
 
@@ -410,15 +478,8 @@ supabase/
 
 ---
 
-## Current Direction
+## Shipped today & roadmap
 
+**Live in this codebase:** end-to-end **social + proof + Bags**—sign-in, feed, follows, invest/jobs surfaces, enriched profiles, and **launch / quote / swap** flows where keys and network allow.
 
-The focus is now:
-- identity + proof,
-- network growth through content,
-- capital and hiring outcomes,
-- token tooling as a native extension (not the whole product).
-
-Verification is now handled manually and transparently through:
-- GitHub contribution/activity signal
-- Onchain activity + deployment history
+**Next:** stronger abuse resistance (e.g. App Check at scale), deeper Farcaster/Tapestry graph features, richer holder/trust analytics on tokens, and more automated verification tiers—without losing the idea that **reputation is earned in public** and backed by **inspectable signal** (GitHub + onchain + linked identities).

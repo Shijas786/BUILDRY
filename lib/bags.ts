@@ -80,6 +80,35 @@ export async function getTokensByCreator(wallet: string): Promise<BagsToken[]> {
   }
 }
 
+/**
+ * Resolve mint when `getTokensByCreator` is empty but Bags can still find the token by symbol
+ * (some API responses omit or mismatch creator filtering on wallet search).
+ */
+export async function findCreatorTokenBySymbol(wallet: string, symbolUpper: string): Promise<BagsToken | null> {
+  const w = wallet.trim()
+  const sym = symbolUpper.trim().toUpperCase()
+  if (!w || !sym || !API_KEY) return null
+
+  const direct = await getTokensByCreator(w)
+  const dHit = direct.find((t) => (t.symbol || '').toUpperCase() === sym)
+  if (dHit) return dHit
+
+  try {
+    const { data } = await bagsClient.get('/tokens', {
+      params: { search: sym, limit: 40 },
+    })
+    const tokens = (data?.tokens || data?.data || []).map(normalizeToken)
+    return (
+      tokens.find(
+        (t: BagsToken) =>
+          (t.symbol || '').toUpperCase() === sym && t.creatorWallet?.toLowerCase() === w.toLowerCase()
+      ) ?? null
+    )
+  } catch {
+    return null
+  }
+}
+
 export async function getLatestTokens(): Promise<BagsToken[]> {
   try {
     const { data } = await bagsClient.get('/tokens', {
