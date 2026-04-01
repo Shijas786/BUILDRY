@@ -1,6 +1,6 @@
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase-admin/firestore'
-import { findCreatorTokenBySymbol, getTokensByCreator } from '@/lib/bags'
-import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
+import { getTokensByCreator } from '@/lib/bags'
+import { allVerifiedWalletsFromProfile, primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 
@@ -111,14 +111,24 @@ export async function resolveLatestLaunchForUser(userId: string): Promise<Latest
     return profileWallet
   }
   let creatorTokens: Awaited<ReturnType<typeof getTokensByCreator>> | null = null
+  /** Fee-share admin tokens for every verified Solana address (launch wallet may not be the primary). */
   const tokensForCreator = async () => {
     if (creatorTokens) return creatorTokens
-    const w = await walletForUser()
-    if (!w) {
+    const prof = await db.collection(FS.BUILDER_PROFILES).doc(uid).get()
+    const sols = allVerifiedWalletsFromProfile((prof.data() || {}) as Record<string, unknown>).solAddresses
+    if (sols.length === 0) {
       creatorTokens = []
       return creatorTokens
     }
-    creatorTokens = await getTokensByCreator(w)
+    const byMint = new Map<string, Awaited<ReturnType<typeof getTokensByCreator>>[number]>()
+    for (const w of sols) {
+      const list = await getTokensByCreator(w)
+      for (const t of list) {
+        const m = t.mint?.trim()
+        if (m && !byMint.has(m)) byMint.set(m, t)
+      }
+    }
+    creatorTokens = Array.from(byMint.values())
     return creatorTokens
   }
 
@@ -154,13 +164,6 @@ export async function resolveLatestLaunchForUser(userId: string): Promise<Latest
         const list = await tokensForCreator()
         const hit = list.find((t) => (t.symbol || '').toUpperCase() === symbol)
         mint = hit?.mint?.trim() || null
-      }
-      if (!mint) {
-        const w = await walletForUser()
-        if (w) {
-          const bySym = await findCreatorTokenBySymbol(w, symbol)
-          mint = bySym?.mint?.trim() || null
-        }
       }
       if (!mint) {
         launchLikeNoMint += 1
@@ -203,7 +206,9 @@ export async function resolveLatestLaunchForUser(userId: string): Promise<Latest
     if (!wallet) {
       hints.push('add_verified_sol_wallet_in_settings')
     } else if (list.length === 0) {
-      hints.push('bags_returned_zero_creator_tokens_check_bags_api_key_and_wallet_match')
+      hints.push(
+        'bags_fee_share_admin_list_empty_check_api_key_and_launch_wallet_matches_verified_sol'
+      )
     } else if (list.length > 1) {
       hints.push(`bags_creator_token_count_${list.length}_need_profile_flag_or_feed_post`)
     }

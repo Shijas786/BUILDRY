@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore'
 import { getTokensByCreator } from '@/lib/bags'
-import { primaryWalletsFromProfile } from '@/lib/builderProfileWallets'
+import { allVerifiedWalletsFromProfile } from '@/lib/builderProfileWallets'
 import { FS } from '@/lib/firestoreCollections'
 
 function textHasTokenPath(v: unknown): boolean {
@@ -46,12 +46,12 @@ export async function enrichLaunchPostsWithResolvedMints(
     )
   )
 
-  const walletByAuthor = new Map<string, string | null>()
+  const solWalletsByAuthor = new Map<string, string[]>()
   await Promise.all(
     authorIds.map(async (uid) => {
       const snap = await db.collection(FS.BUILDER_PROFILES).doc(uid).get()
-      const sol = primaryWalletsFromProfile((snap.data() || {}) as Record<string, unknown>).sol_wallet
-      walletByAuthor.set(uid, sol)
+      const sols = allVerifiedWalletsFromProfile((snap.data() || {}) as Record<string, unknown>).solAddresses
+      solWalletsByAuthor.set(uid, sols)
     })
   )
 
@@ -59,22 +59,24 @@ export async function enrichLaunchPostsWithResolvedMints(
 
   for (const post of candidates) {
     const aid = post.author_id as string
-    const wallet = walletByAuthor.get(aid)
-    if (!wallet) continue
+    const wallets = solWalletsByAuthor.get(aid)
+    if (!wallets?.length) continue
 
     const symbol = launchSymbolFromPostData(post)
     if (!symbol) continue
 
-    let list = tokensByWallet.get(wallet)
-    if (!list) {
-      list = await getTokensByCreator(wallet)
-      tokensByWallet.set(wallet, list)
-    }
-
-    const hit = list.find((t) => (t.symbol || '').toUpperCase() === symbol)
-    if (hit?.mint) {
-      post.token_mint = hit.mint
-      if (!post.launch_symbol) post.launch_symbol = symbol
+    for (const wallet of wallets) {
+      let list = tokensByWallet.get(wallet)
+      if (!list) {
+        list = await getTokensByCreator(wallet)
+        tokensByWallet.set(wallet, list)
+      }
+      const hit = list.find((t) => (t.symbol || '').toUpperCase() === symbol)
+      if (hit?.mint) {
+        post.token_mint = hit.mint
+        if (!post.launch_symbol) post.launch_symbol = symbol
+        break
+      }
     }
   }
 }
