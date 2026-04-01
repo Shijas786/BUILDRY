@@ -18,6 +18,7 @@ const WalletMultiButton = dynamic(
     ),
   }
 )
+import BuildryWordmark from '@/components/BuildryWordmark'
 import TrustCard from '@/components/TrustCard'
 import TrustBadge from '@/components/TrustBadge'
 import TradePanel from '@/components/TradePanel'
@@ -27,7 +28,9 @@ import { SkeletonTokenCard } from '@/components/SkeletonCard'
 import { useTokenData } from '@/hooks/useTokenData'
 import { useTrustScore } from '@/hooks/useTrustScore'
 import { fmtAddr, fmtPrice, fmtChange, fmtNum, fmtMcap } from '@/lib/format'
+import { BUILDRY_PLATFORM_TOKEN_MINT } from '@/lib/buildryPlatformToken'
 import { readTokenDraft } from '@/lib/tokenDraft'
+import type { TrustData } from '@/lib/trust'
 
 function TokenPageWalletBar() {
   return (
@@ -94,6 +97,17 @@ function TokenPageContent({ mint }: { mint: string }) {
     token?.twitter ?? null,
     token?.buildry_launcher_uid ?? null
   )
+
+  const isPlatformToken = useMemo(() => {
+    const id = token?.mint?.trim()
+    return Boolean(id && id === BUILDRY_PLATFORM_TOKEN_MINT)
+  }, [token?.mint])
+
+  /** Platform mint is official—do not show “no Buildry match” or gate swap like an unknown creator. */
+  const trustForUi: TrustData | null = useMemo(() => {
+    if (!trust || !isPlatformToken) return trust
+    return { ...trust, tier: 'VERIFIED' }
+  }, [trust, isPlatformToken])
 
   const creatorAddr = token?.creatorWallet?.trim() || null
   const hasLaunchContext = Boolean(queryDraft || readTokenDraft(m))
@@ -244,7 +258,7 @@ function TokenPageContent({ mint }: { mint: string }) {
               <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
                 <div className="flex flex-wrap items-center gap-2">
                   <span style={{ fontWeight: 800, fontSize: 18, color: '#0a0a0a' }}>{token.name}</span>
-                  {trust && !trustLoading && <TrustBadge tier={trust.tier} />}
+                  {trustForUi && !trustLoading && <TrustBadge tier={trustForUi.tier} />}
                 </div>
                 <div className="font-mono break-all" style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
                   ${token.symbol} · {fmtAddr(token.mint)}
@@ -328,17 +342,26 @@ function TokenPageContent({ mint }: { mint: string }) {
               Swap
             </div>
             <p className="mb-3 text-[12px] leading-snug text-gray-500">Quotes and settlement via Bags.</p>
-            <TradePanel token={token} trust={trust} trustLoading={trustLoading} hideChart />
+            <TradePanel token={token} trust={trustForUi} trustLoading={trustLoading} hideChart />
           </section>
         </div>
 
         {/* ── RIGHT ── */}
         <div className="flex min-w-0 flex-col gap-3 sm:gap-2.5 md:order-none">
-          <TrustCard
-            trust={trust}
-            loading={trustLoading}
-            wallet={token.creatorWallet ?? trustLookupWallet ?? undefined}
-          />
+          {isPlatformToken ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+              <BuildryWordmark variant="icon" className="border-emerald-200/90 shadow-sm" />
+              <p className="min-w-0 flex-1 text-[11px] font-bold leading-snug text-emerald-900">
+                Official Buildry platform token ($BUILDRY).
+              </p>
+            </div>
+          ) : (
+            <TrustCard
+              trust={trust}
+              loading={trustLoading}
+              wallet={token.creatorWallet ?? trustLookupWallet ?? undefined}
+            />
+          )}
 
           {token.creatorWallet && (
             <div style={{ border: '1px solid #e8e8e8', borderRadius: 10, padding: '12px 14px' }}>

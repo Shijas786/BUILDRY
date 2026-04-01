@@ -504,7 +504,9 @@ export default function ProfilePage() {
     { id: 'services', label: 'Services' },
   ]
 
-  const showHandleHint = !p.username && looksLikeFirebaseAuthUid(username)
+  const isProfileOwner = Boolean(user?.id && p.id && user.id === p.id)
+  const showHandleHint =
+    isProfileOwner && !p.username && looksLikeFirebaseAuthUid(username)
 
   return (
     <div className="min-h-screen bg-slate-50/40">
