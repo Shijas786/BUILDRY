@@ -6,6 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '@/context/AuthProvider'
+import { firebaseAuth } from '@/lib/firebaseClient'
 import {
   getBagsJitoTipLamports,
   prepareBagsLaunchDeployTx,
@@ -113,6 +114,13 @@ export default function LaunchStudio() {
   const [clientLaunchReady, setClientLaunchReady] = useState(false)
   const [lastBrowserLaunch, setLastBrowserLaunch] = useState<BrowserLastLaunchMeta | null>(null)
   const [preferFreshWizard, setPreferFreshWizard] = useState(false)
+  const [serverLaunch, setServerLaunch] = useState<{
+    mint: string
+    name: string
+    symbol: string
+    created_at: number
+  } | null>(null)
+  const [serverLaunchLoading, setServerLaunchLoading] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('new') === '1') {
@@ -121,6 +129,50 @@ export default function LaunchStudio() {
     setLastBrowserLaunch(readBrowserLastLaunchMeta())
     setClientLaunchReady(true)
   }, [])
+
+  useEffect(() => {
+    if (!user?.id || !clientLaunchReady) {
+      setServerLaunch(null)
+      setServerLaunchLoading(false)
+      return
+    }
+    let cancelled = false
+    setServerLaunchLoading(true)
+    void (async () => {
+      try {
+        const cur = firebaseAuth?.currentUser
+        if (!cur || cur.uid !== user.id) {
+          if (!cancelled) {
+            setServerLaunch(null)
+            setServerLaunchLoading(false)
+          }
+          return
+        }
+        const token = await cur.getIdToken()
+        const res = await fetch('/api/me/latest-token-launch', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
+        if (cancelled) return
+        if (!res.ok) {
+          setServerLaunch(null)
+          return
+        }
+        const data = (await res.json()) as {
+          launch?: { mint: string; name: string; symbol: string; created_at: number } | null
+        }
+        if (data?.launch?.mint) setServerLaunch(data.launch)
+        else setServerLaunch(null)
+      } catch {
+        if (!cancelled) setServerLaunch(null)
+      } finally {
+        if (!cancelled) setServerLaunchLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, clientLaunchReady])
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) {
@@ -328,6 +380,8 @@ export default function LaunchStudio() {
     }
   }
 
+  const effectiveLaunch = pickBestLaunchMeta(lastBrowserLaunch, serverLaunch)
+
   return (
     <div className="min-h-screen bg-[#fafafa] text-[#111] font-sans">
       <header className="sticky top-0 z-50 flex h-16 flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-6">
@@ -352,25 +406,26 @@ export default function LaunchStudio() {
             snapshot={launchSnapshot ?? captureLaunchSnapshot(payload)}
           />
         ) : clientLaunchReady &&
-          lastBrowserLaunch &&
+          effectiveLaunch &&
           !preferFreshWizard ? (
           <div className="mx-auto max-w-lg text-center">
             <h1 className="mb-3 text-3xl font-black tracking-tight text-gray-900 md:text-4xl">
               You already launched a token
             </h1>
             <p className="mb-8 text-base leading-relaxed text-gray-500">
-              This browser remembers your last deployment. Open your token home, or start the launch flow again if you’re
-              deploying a new one.
+              {serverLaunch && !lastBrowserLaunch
+                ? 'Your Buildry account already has a launch on record (any browser or device). Open your token home, or start again if you’re deploying a new one.'
+                : 'This browser remembers your last deployment. Open your token home, or start the launch flow again if you’re deploying a new one.'}
             </p>
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Your token</p>
               <p className="mt-2 text-xl font-black text-gray-900">
-                ${lastBrowserLaunch.symbol} — {lastBrowserLaunch.name}
+                ${effectiveLaunch.symbol} — {effectiveLaunch.name}
               </p>
-              <p className="mt-1 break-all font-mono text-[11px] text-gray-400">{lastBrowserLaunch.mint}</p>
+              <p className="mt-1 break-all font-mono text-[11px] text-gray-400">{effectiveLaunch.mint}</p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <Link
-                  href={`${buildTokenPagePath(lastBrowserLaunch.mint, lastBrowserLaunch.name, lastBrowserLaunch.symbol)}#holders-chart`}
+                  href={`${buildTokenPagePath(effectiveLaunch.mint, effectiveLaunch.name, effectiveLaunch.symbol)}#holders-chart`}
                   className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-8 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-black active:scale-[0.98]"
                 >
                   Open token page →
@@ -391,7 +446,7 @@ export default function LaunchStudio() {
               </p>
             </div>
           </div>
-        ) : !clientLaunchReady ? (
+        ) : !clientLaunchReady || (user?.id && serverLaunchLoading) ? (
           <div className="py-20 text-center text-sm font-semibold text-gray-400">Loading…</div>
         ) : (
           <div>
@@ -606,4 +661,17 @@ export default function LaunchStudio() {
       </main>
     </div>
   )
+}
+
+function pickBestLaunchMeta(
+  local: BrowserLastLaunchMeta | null,
+  server: { mint: string; name: string; symbol: string; created_at: number } | null
+): { mint: string; name: string; symbol: string } | null {
+  if (!local && !server) return null
+  if (!local) return { mint: server!.mint, name: server!.name, symbol: server!.symbol }
+  if (!server) return { mint: local.mint, name: local.name, symbol: local.symbol }
+  if (server.created_at >= local.savedAt) {
+    return { mint: server.mint, name: server.name, symbol: server.symbol }
+  }
+  return { mint: local.mint, name: local.name, symbol: local.symbol }
 }
