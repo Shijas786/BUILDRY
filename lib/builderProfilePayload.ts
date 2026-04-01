@@ -33,6 +33,9 @@ import { allVerifiedWalletsFromProfile, primaryWalletsFromProfile } from '@/lib/
 import { looksLikeFirebaseAuthUid } from '@/lib/firebaseUid'
 import { enrichGithubReposWithReadmeSummaries } from '@/lib/repoReadmeSummary'
 
+/** README fetch + AI per repo dominates profile latency; remaining repos use `formatGithubRepoCardDescription`. */
+const MAX_GITHUB_REPOS_FOR_README_AI = 8
+
 function githubLoginFromStoredOAuth(gd: Record<string, unknown> | undefined): string | null {
   if (!gd || typeof gd !== 'object') return null
   return (
@@ -251,9 +254,15 @@ export async function loadBuilderProfilePayload(username: string) {
     new Set(githubRepos.map((r) => r.language).filter((lang): lang is string => Boolean(lang)))
   )
 
-  const readmeSummaryByRepoId =
+  const reposForReadmeAi =
     ghLogin && githubRepos.length
-      ? await enrichGithubReposWithReadmeSummaries(ghLogin, githubRepos)
+      ? [...githubRepos]
+          .sort((a, b) => (b.stars || 0) - (a.stars || 0))
+          .slice(0, MAX_GITHUB_REPOS_FOR_README_AI)
+      : []
+  const readmeSummaryByRepoId =
+    ghLogin && reposForReadmeAi.length > 0
+      ? await enrichGithubReposWithReadmeSummaries(ghLogin, reposForReadmeAi)
       : new Map<number, string>()
 
   const hiddenRaw = profile && typeof profile === 'object' ? (profile as { github_hidden_repo_ids?: unknown }).github_hidden_repo_ids : undefined

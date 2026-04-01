@@ -1,60 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
-
-async function getUserProjection(userId: string) {
-  if (!adminDb) return null
-  const db = adminDb
-  const [userDoc, profileDoc] = await Promise.all([
-    db.collection(FS.USERS).doc(userId).get(),
-    db.collection(FS.BUILDER_PROFILES).doc(userId).get(),
-  ])
-
-  if (!userDoc.exists) return null
-  const userData = userDoc.data() || {}
-  const profileData = profileDoc.exists ? profileDoc.data() : {}
-  return {
-    id: userId,
-    name: userData.name || 'Builder',
-    avatar_url: userData.avatar_url || null,
-    account_type: userData.account_type || null,
-    builder_profiles: { username: (profileData as any)?.username || null },
-  }
-}
+import { loadHydratedPosts } from '@/lib/loadHydratedPosts'
 
 export async function GET(req: NextRequest) {
   if (!isFirebaseAdminConfigured || !adminDb) {
     return NextResponse.json([], { status: 200 })
   }
-  const db = adminDb
 
   try {
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1')
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20')
-    const offset = Math.max(0, (page - 1) * limit)
     const userId = req.nextUrl.searchParams.get('userId') || ''
-    const allNeeded = offset + limit
 
-    const postsSnap = await db.collection(FS.POSTS).orderBy('created_at', 'desc').limit(allNeeded).get()
-    let postDocs = postsSnap.docs.slice(offset, offset + limit)
-
-    if (userId) {
-      const followingSnap = await db.collection(FS.BUILDER_FOLLOWERS).where('follower_id', '==', userId).get()
-      const followingSet = new Set(followingSnap.docs.map((d) => d.data().builder_id))
-      followingSet.add(userId)
-      postDocs = postDocs.filter((d) => followingSet.has(d.data().author_id))
-    }
-
-    const hydrated = await Promise.all(
-      postDocs.map(async (postDoc) => {
-        const post = { id: postDoc.id, ...postDoc.data() } as any
-        const userProjection = await getUserProjection(post.author_id)
-        return { ...post, users: userProjection }
-      })
-    )
+    const hydrated = await loadHydratedPosts({
+      page,
+      limit,
+      followerUserId: userId || undefined,
+    })
 
     return NextResponse.json(hydrated, {
-      headers: { 'Cache-Control': 's-maxage=15, stale-while-revalidate=10' },
+      headers: { 'Cache-Control': 'private, s-maxage=15, stale-while-revalidate=30' },
     })
   } catch (err) {
     console.error('Posts GET error:', err)
@@ -70,23 +36,51 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { authorId, content, postType, images, videos, milestoneTitle, milestoneCategory, projectId, linkUrl } =
-      body
+    const {
+      authorId,
+      content,
+      postType,
+      images,
+      videos,
+      milestoneTitle,
+      milestoneCategory,
+      projectId,
+      linkUrl,
+      pollOptions,
+      locationLabel,
+      locationLat,
+      locationLng,
+    } = body
 
-    if (!authorId || !content) {
+    if (!authorId || !content || typeof content !== 'string' || !content.trim()) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    const rawPoll =
+      Array.isArray(pollOptions) ? pollOptions.filter((o: unknown) => typeof o === 'string' && o.trim()) : []
+    const pollOpts = rawPoll.map((s: string) => s.trim()).filter(Boolean).slice(0, 4)
+    const isPoll = pollOpts.length >= 2
+
+    const locLabel =
+      typeof locationLabel === 'string' && locationLabel.trim() ? locationLabel.trim().slice(0, 200) : null
+    const lat = typeof locationLat === 'number' && Number.isFinite(locationLat) ? locationLat : null
+    const lng = typeof locationLng === 'number' && Number.isFinite(locationLng) ? locationLng : null
+
     const postRef = await db.collection(FS.POSTS).add({
       author_id: authorId,
-      content,
-      post_type: postType || 'update',
+      content: content.trim(),
+      post_type: isPoll ? 'poll' : postType || 'update',
       images: Array.isArray(images) ? images.filter((u: unknown) => typeof u === 'string') : [],
       videos: Array.isArray(videos) ? videos.filter((u: unknown) => typeof u === 'string') : [],
       milestone_title: milestoneTitle || null,
       milestone_category: milestoneCategory || null,
       project_id: projectId || null,
       link_url: linkUrl || null,
+      poll_options: isPoll ? pollOpts : null,
+      poll_responses: isPoll ? {} : null,
+      location_label: locLabel,
+      location_lat: lat,
+      location_lng: lng,
       likes_count: 0,
       comments_count: 0,
       created_at: Date.now(),

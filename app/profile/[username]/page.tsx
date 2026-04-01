@@ -407,7 +407,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/profile/${encodeURIComponent(username)}`, { cache: 'no-store' })
+    fetch(`/api/profile/${encodeURIComponent(username)}`)
       .then((r) => r.json())
       .then(setData)
       .catch(() => {})

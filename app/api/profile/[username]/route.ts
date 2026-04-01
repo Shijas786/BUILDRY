@@ -8,8 +8,8 @@ export async function GET(
   const body = await loadBuilderProfilePayload(params.username)
   return NextResponse.json(body, {
     headers: {
-      // Short CDN TTL so token/env fixes show up quickly; browsers should also skip cache (see profile page fetch).
-      'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=60',
+      // Private cache: browser may reuse for back/forward; profile page refresh still uses no-store.
+      'Cache-Control': 'private, max-age=30, s-maxage=60, stale-while-revalidate=120',
     },
   })
 }

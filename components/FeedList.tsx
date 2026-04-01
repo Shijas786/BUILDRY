@@ -2,33 +2,42 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import PostCard from './PostCard'
-import { useAuth } from '@/context/AuthProvider'
 
-export default function FeedList() {
-  const { user } = useAuth()
-  const [posts, setPosts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+type FeedListProps = {
+  /** When set (including `[]`), skips the first client fetch — data came from the server. */
+  initialPosts?: any[]
+}
+
+export default function FeedList({ initialPosts }: FeedListProps) {
+  const seededFromServer = initialPosts !== undefined
+  const [posts, setPosts] = useState<any[]>(initialPosts ?? [])
+  const [loading, setLoading] = useState(!seededFromServer)
   const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
+  const [hasMore, setHasMore] = useState(
+    seededFromServer ? (initialPosts?.length ?? 0) === 20 : true
+  )
 
   const fetchPosts = useCallback(async (p: number) => {
     try {
-      const url = `/api/posts?page=${p}&limit=20${user?.id ? `&userId=${user.id}` : ''}`
+      const url = `/api/posts?page=${p}&limit=20`
       const res = await fetch(url)
       const data = await res.json()
       if (p === 1) {
         setPosts(data)
       } else {
-        setPosts(prev => [...prev, ...data])
+        setPosts((prev) => [...prev, ...data])
       }
       setHasMore(data.length === 20)
-    } catch {}
+    } catch {
+      /* keep prior posts */
+    }
     setLoading(false)
-  }, [user?.id])
+  }, [])
 
   useEffect(() => {
+    if (seededFromServer) return
     fetchPosts(1)
-  }, [fetchPosts])
+  }, [seededFromServer, fetchPosts])
 
   useEffect(() => {
     if (loading || posts.length === 0) return
@@ -39,12 +48,6 @@ export default function FeedList() {
     })
   }, [loading, posts])
 
-  const refresh = () => {
-    setPage(1)
-    setLoading(true)
-    fetchPosts(1)
-  }
-
   const loadMore = () => {
     const nextPage = page + 1
     setPage(nextPage)
@@ -53,19 +56,14 @@ export default function FeedList() {
 
   if (loading && posts.length === 0) {
     return (
-      <div className="space-y-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white border border-slate-100 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl skeleton" />
-              <div className="space-y-2 flex-1">
-                <div className="w-32 h-3 skeleton rounded" />
-                <div className="w-20 h-2 skeleton rounded" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="w-full h-3 skeleton rounded" />
-              <div className="w-3/4 h-3 skeleton rounded" />
+      <div className="divide-y divide-neutral-200 border-t border-neutral-200">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex gap-3 py-4">
+            <div className="h-9 w-9 shrink-0 rounded-full bg-neutral-100 animate-pulse" />
+            <div className="flex-1 space-y-2 pt-0.5">
+              <div className="h-3 w-40 rounded-full bg-neutral-100 animate-pulse" />
+              <div className="h-3 w-full rounded-full bg-neutral-100 animate-pulse" />
+              <div className="h-3 w-4/5 rounded-full bg-neutral-100 animate-pulse" />
             </div>
           </div>
         ))}
@@ -75,22 +73,25 @@ export default function FeedList() {
 
   if (posts.length === 0) {
     return (
-      <div className="text-center py-20">
-        <h3 className="text-xl font-black text-slate-200 mb-2">No posts yet</h3>
-        <p className="text-sm text-slate-300 mb-6">Be the first to share an update with the community.</p>
+      <div className="border-t border-neutral-200 py-16 text-center">
+        <p className="text-[15px] font-semibold text-neutral-900">No threads yet</p>
+        <p className="mt-1 text-[13px] text-neutral-500">When people post, they&apos;ll show up here.</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {posts.map(post => (
-        <PostCard key={post.id} post={post} />
-      ))}
+    <div>
+      <div>
+        {posts.map((post) => (
+          <PostCard key={post.id} post={post} />
+        ))}
+      </div>
       {hasMore && (
         <button
+          type="button"
           onClick={loadMore}
-          className="w-full py-3 text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest"
+          className="w-full py-4 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
         >
           Load more
         </button>

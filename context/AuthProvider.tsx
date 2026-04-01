@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { isSupabaseConfigured, type AppUser } from '@/lib/auth'
 import { firebaseAuth, firebaseDb } from '@/lib/firebaseClient'
 import { FS } from '@/lib/firestoreCollections'
@@ -40,6 +41,7 @@ function optimisticAppUser(authUser: FirebaseUser): AppUser {
 }
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter()
   const [session, setSession] = useState<{ user: { id: string } } | null>(null)
   const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -109,12 +111,16 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUser])
 
   const handleSignOut = async () => {
-    if (firebaseAuth) {
-      const { signOut } = await import('@/lib/auth')
-      await signOut()
+    try {
+      if (firebaseAuth) {
+        const { signOut } = await import('@/lib/auth')
+        await signOut()
+      }
+    } finally {
+      setSession(null)
+      setUser(null)
+      router.replace('/')
     }
-    setSession(null)
-    setUser(null)
   }
 
   return (
