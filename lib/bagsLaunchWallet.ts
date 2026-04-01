@@ -101,16 +101,31 @@ export async function runBagsLaunchWalletFlow(
     }
   }
 
-  for (const b64 of prep.feeShareTransactionsBase64) {
-    const tx = VersionedTransaction.deserialize(Buffer.from(b64, 'base64'))
-    let signature: string
-    if (wallet.sendTransaction) {
-      signature = await wallet.sendTransaction(tx, connection, { maxRetries: 5 })
+  // Multiple fee-share txs used to mean N separate wallet popups. If the wallet supports
+  // signAllTransactions, sign them all at once, then submit + confirm in order (same as before on-chain).
+  const singles = prep.feeShareTransactionsBase64.map((b64) =>
+    VersionedTransaction.deserialize(Buffer.from(b64, 'base64'))
+  )
+  if (singles.length > 0) {
+    const batchSign = singles.length > 1 && typeof wallet.signAllTransactions === 'function'
+    if (batchSign) {
+      const signed = await wallet.signAllTransactions!(singles)
+      for (const stx of signed) {
+        const signature = await connection.sendRawTransaction(stx.serialize(), { maxRetries: 5 })
+        await confirmSignaturePolling(connection, signature, { commitment: COMMITMENT })
+      }
     } else {
-      const signed = await wallet.signTransaction(tx)
-      signature = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 5 })
+      for (const tx of singles) {
+        let signature: string
+        if (wallet.sendTransaction) {
+          signature = await wallet.sendTransaction(tx, connection, { maxRetries: 5 })
+        } else {
+          const signed = await wallet.signTransaction(tx)
+          signature = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 5 })
+        }
+        await confirmSignaturePolling(connection, signature, { commitment: COMMITMENT })
+      }
     }
-    await confirmSignaturePolling(connection, signature, { commitment: COMMITMENT })
   }
 
   const deploy = await server
