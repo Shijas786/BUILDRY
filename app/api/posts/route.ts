@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
       milestoneCategory,
       projectId,
       linkUrl,
+      tokenMint,
+      launchSymbol,
       pollOptions,
       locationLabel,
       locationLat,
@@ -66,6 +68,16 @@ export async function POST(req: NextRequest) {
     const lat = typeof locationLat === 'number' && Number.isFinite(locationLat) ? locationLat : null
     const lng = typeof locationLng === 'number' && Number.isFinite(locationLng) ? locationLng : null
 
+    const mintRaw = typeof tokenMint === 'string' ? tokenMint.trim() : ''
+    const token_mint = mintRaw.length > 0 ? mintRaw : null
+    let launch_symbol: string | null = null
+    if (typeof launchSymbol === 'string' && launchSymbol.trim()) {
+      launch_symbol = launchSymbol.trim().replace(/^\$/, '').toUpperCase().slice(0, 32)
+    } else if (typeof milestoneTitle === 'string') {
+      const m = milestoneTitle.match(/Launched\s+\$([A-Za-z0-9]+)/i)
+      if (m) launch_symbol = m[1].toUpperCase()
+    }
+
     const postRef = await db.collection(FS.POSTS).add({
       author_id: authorId,
       content: content.trim(),
@@ -76,6 +88,8 @@ export async function POST(req: NextRequest) {
       milestone_category: milestoneCategory || null,
       project_id: projectId || null,
       link_url: linkUrl || null,
+      token_mint,
+      launch_symbol: token_mint ? launch_symbol : null,
       poll_options: isPoll ? pollOpts : null,
       poll_responses: isPoll ? {} : null,
       location_label: locLabel,
@@ -85,6 +99,14 @@ export async function POST(req: NextRequest) {
       comments_count: 0,
       created_at: Date.now(),
     })
+
+    const effectiveType = isPoll ? 'poll' : postType || 'update'
+    if (token_mint && (effectiveType === 'launch' || milestoneCategory === 'launch')) {
+      await db
+        .collection(FS.BUILDER_PROFILES)
+        .doc(authorId)
+        .set({ has_launched_token: true }, { merge: true })
+    }
 
     const postDoc = await postRef.get()
     return NextResponse.json({ id: postRef.id, ...postDoc.data() }, { status: 201 })

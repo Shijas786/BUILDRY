@@ -1,4 +1,5 @@
-import type { DocumentReference, DocumentSnapshot } from 'firebase-admin/firestore'
+import type { DocumentReference, DocumentSnapshot, Firestore } from 'firebase-admin/firestore'
+import { enrichLaunchPostsWithResolvedMints } from '@/lib/enrichLaunchPostsTokenMint'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 
@@ -8,6 +9,8 @@ export type PostUserProjection = {
   avatar_url: string | null
   account_type: string | null
   builder_profiles: { username: string | null }
+  /** True if the builder has at least one on-chain token launch post, or `has_launched_token` on profile. */
+  is_launch_builder: boolean
 }
 
 function buildProjectionFromSnaps(
@@ -18,12 +21,14 @@ function buildProjectionFromSnaps(
   if (!userSnap.exists) return null
   const userData = userSnap.data() || {}
   const profileData = profileSnap.exists ? profileSnap.data() : {}
+  const prof = profileData as { username?: string | null; has_launched_token?: boolean }
   return {
     id: userId,
     name: (userData.name as string) || 'Builder',
     avatar_url: (userData.avatar_url as string | null) ?? null,
     account_type: (userData.account_type as string | null) ?? null,
-    builder_profiles: { username: (profileData as { username?: string | null })?.username ?? null },
+    builder_profiles: { username: prof?.username ?? null },
+    is_launch_builder: prof?.has_launched_token === true,
   }
 }
 
@@ -62,7 +67,44 @@ export async function loadAuthorProjectionsMap(
     }
   }
 
+  await markLaunchAuthorsFromPosts(db, unique, map)
+
   return map
+}
+
+/** Backs `is_launch_builder` for legacy profiles before `has_launched_token` existed. */
+async function markLaunchAuthorsFromPosts(
+  db: Firestore,
+  authorIds: string[],
+  projectionMap: Map<string, PostUserProjection | null>
+): Promise<void> {
+  const needQuery = authorIds.filter((id) => {
+    const p = projectionMap.get(id)
+    return p != null && !p.is_launch_builder
+  })
+  const launchers = new Set<string>()
+  for (let i = 0; i < needQuery.length; i += 10) {
+    const chunk = needQuery.slice(i, i + 10)
+    if (chunk.length === 0) continue
+    try {
+      const snap = await db
+        .collection(FS.POSTS)
+        .where('author_id', 'in', chunk)
+        .where('post_type', '==', 'launch')
+        .limit(40)
+        .get()
+      for (const doc of snap.docs) {
+        const aid = doc.data()?.author_id
+        if (typeof aid === 'string' && aid) launchers.add(aid)
+      }
+    } catch (err) {
+      console.warn('markLaunchAuthorsFromPosts:', err)
+    }
+  }
+  Array.from(launchers).forEach((id) => {
+    const p = projectionMap.get(id)
+    if (p) p.is_launch_builder = true
+  })
 }
 
 export type LoadHydratedPostsParams = {
@@ -104,12 +146,16 @@ export async function loadHydratedPosts(params: LoadHydratedPostsParams = {}): P
       .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
     const projectionMap = await loadAuthorProjectionsMap(authorIds)
 
-    return postDocs.map((postDoc) => {
+    const posts = postDocs.map((postDoc) => {
       const post = { id: postDoc.id, ...postDoc.data() } as Record<string, unknown> & { id: string; author_id?: string }
       const aid = typeof post.author_id === 'string' ? post.author_id : ''
       const users = aid ? projectionMap.get(aid) ?? null : null
       return { ...post, users }
     })
+
+    await enrichLaunchPostsWithResolvedMints(posts, db)
+
+    return posts
   } catch (err) {
     console.error('loadHydratedPosts error:', err)
     return []

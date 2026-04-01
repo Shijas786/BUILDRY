@@ -33,10 +33,9 @@ export default function ConfirmModal({ tokenName, wallet, onCancel, onConfirm }:
         </div>
 
         <p style={{ fontSize: 14, color: '#444', lineHeight: 1.6, marginBottom: 20 }}>
-          This creator has no verified identity. No Talent Protocol profile found.
-          No GitHub, no Farcaster/Twitter accounts.{' '}
+          This creator has little or no linked identity in our data (no Buildry match or weak social signals).{' '}
           <strong style={{ color: '#dc2626' }}>
-            This pattern is statistically associated with rug pulls.
+            Treat size and custody as high risk until you verify the team yourself.
           </strong>
         </p>
 

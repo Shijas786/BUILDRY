@@ -1,8 +1,15 @@
 'use client'
 
 import { Connection, LAMPORTS_PER_SOL, PublicKey, VersionedTransaction } from '@solana/web3.js'
+import bs58 from 'bs58'
 import { createTipTransaction } from '@bagsfm/bags-sdk'
 import { confirmSignaturePolling } from '@/lib/solanaConfirm'
+
+function firstSignerSignatureBase58(tx: VersionedTransaction): string | null {
+  const s = tx.signatures[0]
+  if (!s || s.every((b) => b === 0)) return null
+  return bs58.encode(s)
+}
 
 export type BagsFeeSharePrepSuccess = {
   success: true
@@ -57,16 +64,27 @@ export type BagsLaunchServerActions = {
 const COMMITMENT = 'confirmed' as const
 
 /**
- * Sign & submit fee-share setup (Jito bundles + optional single txs), then fetch the deploy transaction from Bags.
- * Matches https://docs.bags.fm/how-to-guides/launch-token (steps 2 → 3).
+ * Bags doc step 2 (fee-share): sign Jito bundle(s) = tip tx + bundle txs via `signAllTransactions`,
+ * submit through server `submitBagsSignedJitoBundle` (`sendBundleAndConfirm`), then sign & send each
+ * `feeShareTransactionsBase64` (batch-signed when possible). After all confirm, server builds step 3
+ * `createLaunchTransaction` — see `prepareBagsLaunchDeployTx`.
+ * https://docs.bags.fm/how-to-guides/launch-token
  */
+export type BagsLaunchWalletFlowResult = {
+  tokenMint: string
+  /** Jito bundle id from Bags `sendBundleAndConfirm` for the final tip + launch txs */
+  launchBundleId: string
+  /** Fee-payer signature of the launch `VersionedTransaction` (second tx in the bundle), for Solscan links */
+  launchSignature: string | null
+}
+
 export async function runBagsLaunchWalletFlow(
   prep: BagsFeeSharePrepSuccess,
   wallet: WalletLaunchMethods,
   connection: Connection,
   initialBuyLamports: number,
   server: BagsLaunchServerActions
-): Promise<{ transactionBase64: string; tokenMint: string }> {
+): Promise<BagsLaunchWalletFlowResult> {
   const hasNonEmptyBundle = prep.feeShareBundlesBase64.some((b) => b.length > 0)
   if (hasNonEmptyBundle && !wallet.signAllTransactions) {
     throw new Error(
@@ -143,5 +161,49 @@ export async function runBagsLaunchWalletFlow(
         'Failed to build launch transaction after fee-share setup (no response from server).'
     )
   }
-  return { transactionBase64: deploy.transactionBase64, tokenMint: deploy.tokenMint }
+
+  // Bags Token Launch v2 — final step: Jito bundle = tip tx + `createLaunchTransaction` (same as official guide).
+  if (!wallet.signAllTransactions) {
+    throw new Error(
+      'Final launch uses a Jito bundle (tip + launch transaction). Use a wallet that supports signAllTransactions (e.g. Phantom).'
+    )
+  }
+
+  const launchUnsigned = VersionedTransaction.deserialize(Buffer.from(deploy.transactionBase64, 'base64'))
+  const launchBlockhash = launchUnsigned.message.recentBlockhash
+  if (!launchBlockhash) {
+    throw new Error('Launch transaction is missing a blockhash; try preparing the launch again.')
+  }
+
+  const launchTipRes = await server.getBagsJitoTipLamports().catch(() => null)
+  const launchTipLamports =
+    launchTipRes && launchTipRes.success && launchTipRes.lamports > 0
+      ? launchTipRes.lamports
+      : Math.floor(0.015 * LAMPORTS_PER_SOL)
+
+  const launchTipTx = await createTipTransaction(
+    connection,
+    COMMITMENT,
+    wallet.publicKey,
+    launchTipLamports,
+    { blockhash: launchBlockhash }
+  )
+
+  const signedLaunchBundle = await wallet.signAllTransactions([launchTipTx, launchUnsigned])
+  const serializedLaunch = signedLaunchBundle.map((tx) => Buffer.from(tx.serialize()).toString('base64'))
+  const launchSubmit = await server.submitBagsSignedJitoBundle(serializedLaunch).catch(() => null)
+  if (!launchSubmit || typeof launchSubmit !== 'object' || !launchSubmit.success) {
+    throw new Error(
+      (launchSubmit && 'error' in launchSubmit && launchSubmit.error) ||
+        'Failed to submit launch Jito bundle to Bags (no response from server).'
+    )
+  }
+
+  const launchSignature = firstSignerSignatureBase58(signedLaunchBundle[1]) ?? null
+
+  return {
+    tokenMint: deploy.tokenMint,
+    launchBundleId: launchSubmit.bundleId,
+    launchSignature,
+  }
 }

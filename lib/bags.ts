@@ -51,11 +51,19 @@ export async function getTrendingTokens(): Promise<BagsToken[]> {
 }
 
 export async function getToken(mint: string): Promise<BagsToken | null> {
+  if (!mint?.trim()) return null
   try {
-    const { data } = await bagsClient.get(`/tokens/${mint}`)
-    return normalizeToken(data?.token || data?.data || data)
+    const { data } = await bagsClient.get(`/tokens/${encodeURIComponent(mint)}`)
+    const raw = data?.token ?? data?.data ?? data
+    if (raw == null || typeof raw !== 'object') return null
+    const token = normalizeToken(raw as Record<string, unknown>)
+    const requestedMint = mint.trim()
+    // GET /tokens/:mint — some responses omit mint on the nested object; path is canonical.
+    if (!token.mint) token.mint = requestedMint
+    if (!token.mint) return null
+    return token
   } catch {
-    return getMockToken(mint)
+    return null
   }
 }
 
@@ -91,10 +99,10 @@ function normalizeToken(t: Record<string, unknown>): BagsToken {
     mint: (t.mint || t.address || t.id || '') as string,
     name: (t.name || 'Unknown Token') as string,
     symbol: (t.symbol || 'UNK') as string,
-    price: Number(t.price || t.priceUsd || 0),
-    priceChange24h: Number(t.priceChange24h || t.change24h || 0),
-    marketCap: Number(t.marketCap || t.mcap || 0),
-    volume24h: Number(t.volume24h || t.volume || 0),
+    price: Number(t.price ?? t.priceUsd ?? t.usdPrice ?? t.spotPrice ?? 0),
+    priceChange24h: Number(t.priceChange24h ?? t.change24h ?? t.priceChange24H ?? 0),
+    marketCap: Number(t.marketCap ?? t.mcap ?? t.market_cap ?? t.fdv ?? 0),
+    volume24h: Number(t.volume24h ?? t.volume ?? t.volume24H ?? t.vol24h ?? 0),
     imageUrl: (t.imageUrl || t.image || t.logo || '') as string,
     creatorWallet: (t.creatorWallet || t.creator || t.deployer || '') as string,
     twitter: (t.twitter || t.twitterHandle || '') as string,
@@ -113,13 +121,6 @@ function getMockTokens(query?: string): BagsToken[] {
     t.name.toLowerCase().includes(query.toLowerCase()) ||
     t.symbol.toLowerCase().includes(query.toLowerCase())
   )
-}
-
-function getMockToken(mint: string): BagsToken {
-  return MOCK_TOKENS.find(t => t.mint === mint) || {
-    ...MOCK_TOKENS[0],
-    mint,
-  }
 }
 
 export const MOCK_TOKENS: BagsToken[] = [

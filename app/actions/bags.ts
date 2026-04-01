@@ -5,6 +5,20 @@ import { BagsSDK, sendBundleAndConfirm } from '@bagsfm/bags-sdk'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 
+/**
+ * Bags Token Launch v2 — aligned with https://docs.bags.fm/how-to-guides/launch-token
+ *
+ * Doc flow → code: (1) `createTokenInfoAndMetadata` + (2) `createBagsFeeShareConfig` in
+ * `prepareBagsLaunchFeeShare`; wallet signs Jito `bundles` (tip first) then `transactions[]`
+ * in `lib/bagsLaunchWallet.ts` (server submits bundle via `sendBundleAndConfirm`).
+ * (3) `createLaunchTransaction` in `prepareBagsLaunchDeployTx` — one unsigned tx for pool + mint + optional pre-buy.
+ * (4–5) Client builds Jito tip + that launch tx, `signAllTransactions`, then `submitBagsSignedJitoBundle`
+ * (`sendBundleAndConfirm`) — see `lib/bagsLaunchWallet.ts` (matches Bags guide: tip prepended, bundle via Jito).
+ *
+ * LUT path for >15 fee claimers (`getConfigCreationLookupTableTransactions`) is not implemented;
+ * we only use platform + creator (≤2 claimers). Optional `partner` / `partnerConfig` from the docs are not wired.
+ */
+
 /** Surface Bags/axios bodies; SDK often only sets message to "Request failed with status 400". */
 function formatBagsLaunchError(err: unknown): string {
   if (!err || typeof err !== 'object') {
@@ -251,26 +265,37 @@ export async function recordLaunchMilestonePost(
   userId: string,
   name: string,
   symbol: string,
-  description: string
+  description: string,
+  tokenMint: string
 ) {
   if (!isFirebaseAdminConfigured || !adminDb) {
     return { success: true as const, skipped: true as const }
   }
   try {
     const now = Date.now()
+    const mint = tokenMint.trim()
+    const sym = symbol.trim().toUpperCase()
     await adminDb.collection(FS.POSTS).add({
       author_id: userId,
-      content: `Just launched $${symbol} — ${name}! ${description}`,
+      content: `Just launched $${sym} — ${name}! ${description}`,
       post_type: 'launch',
       images: [],
-      milestone_title: `Launched $${symbol}`,
+      milestone_title: `Launched $${sym}`,
       milestone_category: 'launch',
       project_id: null,
       link_url: null,
+      token_mint: mint || null,
+      launch_symbol: mint ? sym : null,
       likes_count: 0,
       comments_count: 0,
       created_at: now,
     })
+    if (mint) {
+      await adminDb
+        .collection(FS.BUILDER_PROFILES)
+        .doc(userId)
+        .set({ has_launched_token: true }, { merge: true })
+    }
     return { success: true as const, skipped: false as const }
   } catch (postErr) {
     console.error('recordLaunchMilestonePost:', postErr)

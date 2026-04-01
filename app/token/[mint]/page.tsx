@@ -1,46 +1,166 @@
 'use client'
 
-import React from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useWallet } from '@solana/wallet-adapter-react'
+
+const WalletMultiButton = dynamic(
+  async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="h-10 min-w-[9.5rem] animate-pulse rounded-xl bg-slate-200/90"
+        aria-hidden
+      />
+    ),
+  }
+)
 import TrustCard from '@/components/TrustCard'
 import TrustBadge from '@/components/TrustBadge'
 import TradePanel from '@/components/TradePanel'
 import ClaimFeesCard from '@/components/ClaimFeesCard'
-import AiRiskBrief from '@/components/AiRiskBrief'
-import PriceChart from '@/components/PriceChart'
+import TokenHoldersSection from '@/components/TokenHoldersSection'
 import { SkeletonTokenCard } from '@/components/SkeletonCard'
 import { useTokenData } from '@/hooks/useTokenData'
 import { useTrustScore } from '@/hooks/useTrustScore'
-import { fmtAddr, fmtPrice, fmtChange, fmtNum } from '@/lib/format'
+import { fmtAddr, fmtPrice, fmtChange, fmtNum, fmtMcap } from '@/lib/format'
 
-export default function TokenPage({ params }: { params: { mint: string } }) {
-  const { mint } = params
-  const { token, loading: tokenLoading, error: tokenError } = useTokenData(mint)
-  const { trust, loading: trustLoading } = useTrustScore(token?.creatorWallet || null, token?.creatorImage)
+function TokenPageWalletBar() {
+  return (
+    <div className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:px-4">
+      <div className="mx-auto flex max-w-[1020px] items-center justify-between gap-3">
+        <Link
+          href="/"
+          className="shrink-0 text-[11px] font-black uppercase tracking-widest text-slate-600 transition-colors hover:text-slate-900"
+        >
+          ← Buildry
+        </Link>
+        <div className="wallet-adapter-button-trigger shrink-0 [&_.wallet-adapter-button]:h-10 [&_.wallet-adapter-button]:rounded-xl [&_.wallet-adapter-button]:!bg-slate-900 [&_.wallet-adapter-button]:!px-4 [&_.wallet-adapter-button]:!text-[11px] [&_.wallet-adapter-button]:!font-black [&_.wallet-adapter-button]:!uppercase [&_.wallet-adapter-button]:!tracking-widest [&_.wallet-adapter-button]:!text-white">
+          <WalletMultiButton />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TokenPageSkeleton() {
+  return (
+    <div style={{ minHeight: '100vh', background: '#fff' }}>
+      <TokenPageWalletBar />
+      <div style={{ maxWidth: 1020, margin: '0 auto', padding: 16, display: 'flex', gap: 16 }}>
+        <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1, 2, 3].map(i => (
+            <SkeletonTokenCard key={i} />
+          ))}
+        </div>
+        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1, 2].map(i => (
+            <SkeletonTokenCard key={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TokenPageContent({ mint }: { mint: string }) {
+  const searchParams = useSearchParams()
+  const qs = searchParams.toString()
+  const queryDraft = useMemo(() => {
+    const p = new URLSearchParams(qs)
+    const dn = p.get('dn')?.trim()
+    const ds = p.get('ds')?.trim()
+    if (!dn || !ds) return null
+    return { name: dn, symbol: ds }
+  }, [qs])
+
+  const m = (mint || '').trim()
+  const { publicKey } = useWallet()
+  const { token, loading: tokenLoading, error: tokenError, provisional } = useTokenData(m, queryDraft)
+
+  /** Bags sometimes omits creator wallet while indexing; fall back to connected wallet on provisional token pages. */
+  const trustLookupWallet =
+    token?.creatorWallet?.trim() ||
+    (provisional && publicKey ? publicKey.toBase58() : null) ||
+    null
+
+  const { trust, loading: trustLoading } = useTrustScore(
+    trustLookupWallet,
+    token?.creatorImage,
+    token?.twitter ?? null
+  )
+
+  const creatorFeeWallet =
+    token?.creatorWallet?.trim() ||
+    (provisional && publicKey ? publicKey.toBase58() : null) ||
+    null
+
+  const [claimableSol, setClaimableSol] = useState<number | null>(null)
+  const [claimableLoading, setClaimableLoading] = useState(true)
+
+  const refreshClaimable = useCallback(() => {
+    if (!creatorFeeWallet || !token?.mint) {
+      setClaimableSol(null)
+      setClaimableLoading(false)
+      return
+    }
+    setClaimableLoading(true)
+    fetch(
+      `/api/bags/claimable?wallet=${encodeURIComponent(creatorFeeWallet)}&mint=${encodeURIComponent(token.mint)}`,
+      { cache: 'no-store' }
+    )
+      .then((r) => r.json())
+      .then((j) => {
+        if (typeof j.sol === 'number' && Number.isFinite(j.sol)) setClaimableSol(j.sol)
+        else setClaimableSol(null)
+      })
+      .catch(() => setClaimableSol(null))
+      .finally(() => setClaimableLoading(false))
+  }, [creatorFeeWallet, token?.mint])
+
+  useEffect(() => {
+    if (!token) return
+    refreshClaimable()
+    const id = setInterval(refreshClaimable, 25_000)
+    return () => clearInterval(id)
+  }, [token, refreshClaimable])
+
   const isUp = (token?.priceChange24h ?? 0) >= 0
 
   if (tokenLoading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#fff' }}>
-        <div style={{ maxWidth: 1020, margin: '0 auto', padding: 16, display: 'flex', gap: 16 }}>
-          <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[1, 2, 3].map(i => <SkeletonTokenCard key={i} />)}
-          </div>
-          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[1, 2].map(i => <SkeletonTokenCard key={i} />)}
-          </div>
-        </div>
-      </div>
-    )
+    return <TokenPageSkeleton />
   }
 
   if (tokenError || !token) {
     return (
       <div style={{ minHeight: '100vh', background: '#fff' }}>
+        <TokenPageWalletBar />
         <div style={{ maxWidth: 480, margin: '80px auto', padding: '0 16px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Token not found</div>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 24 }}>Check the mint address and try again.</div>
+          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Token not indexed yet</div>
+          <div style={{ fontSize: 13, color: '#888', marginBottom: 8, lineHeight: 1.5 }}>
+            Bags hasn&apos;t returned this mint yet. Check{' '}
+            <a
+              href={`https://solscan.io/token/${encodeURIComponent(m)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#0a0a0a', fontWeight: 600 }}
+            >
+              Solscan
+            </a>{' '}
+            for the chain.
+          </div>
+          <div style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.5 }}>
+            If you launched on Buildry, use{' '}
+            <strong>Open token page</strong> on the success screen (that link carries your name and symbol until Bags
+            catches up). Plain mint-only URLs can&apos;t recover that metadata.
+          </div>
+          <div className="mb-6 break-all font-mono text-[11px] text-gray-400" title={m}>
+            {m}
+          </div>
           <Link href="/" style={{ color: '#0a0a0a', fontSize: 13, fontWeight: 600, textDecoration: 'underline' }}>
             ← Back to Feed
           </Link>
@@ -51,8 +171,30 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
 
   return (
     <div className="min-h-screen bg-white">
+      <TokenPageWalletBar />
+      <div className="mx-auto max-w-[1020px] px-3 pt-3 sm:px-4 sm:pt-4">
+        <div className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 sm:grid-cols-3 sm:gap-4 sm:px-6">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Mcap</div>
+            <div className="mt-1 font-mono text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">{fmtMcap(token.marketCap)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">24h vol</div>
+            <div className="mt-1 font-mono text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">
+              ${fmtNum(token.volume24h)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Price</div>
+            <div className="mt-1 font-mono text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">{fmtPrice(token.price)}</div>
+            <div className={`mt-0.5 font-mono text-xs font-semibold ${isUp ? 'text-green-600' : 'text-red-600'}`}>
+              {isUp ? '↑' : '↓'} {fmtChange(token.priceChange24h)}
+            </div>
+          </div>
+        </div>
+      </div>
       <main
-        className="mx-auto grid max-w-[1020px] grid-cols-1 gap-4 px-3 pb-16 pt-3 sm:gap-4 sm:px-4 sm:pb-20 sm:pt-5 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-4"
+        className="mx-auto grid max-w-[1020px] grid-cols-1 gap-4 px-3 pb-16 pt-4 sm:gap-4 sm:px-4 sm:pb-20 sm:pt-5 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-4"
       >
         {/* ── LEFT ── */}
         <div className="flex min-w-0 flex-col gap-3 sm:gap-4 md:order-none">
@@ -91,29 +233,12 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
                 <div className="font-mono break-all" style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
                   ${token.symbol} · {fmtAddr(token.mint)}
                 </div>
-              </div>
-
-              <div className="ml-auto text-right sm:ml-0">
-                <div className="font-mono" style={{ fontSize: 20, fontWeight: 800, color: '#0a0a0a' }}>
-                  {fmtPrice(token.price)}
-                </div>
-                <div className="font-mono" style={{ fontSize: 12, color: isUp ? '#16a34a' : '#dc2626', marginTop: 2 }}>
-                  {isUp ? '↑' : '↓'} {fmtChange(token.priceChange24h)}
-                </div>
+                <div className="mt-1 text-[11px] text-gray-400">~{fmtNum(token.holders || 0)} holders (Bags)</div>
               </div>
             </div>
           </div>
 
-          {/* 1. Live chart & holders (first after launch) */}
-          <section
-            id="holders-chart"
-            style={{ scrollMarginTop: 16, border: '1px solid #e8e8e8', borderRadius: 12, padding: '14px 16px', background: '#fff' }}
-          >
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, marginBottom: 10 }}>
-              Live chart · {fmtNum(token.holders || 0)} holders
-            </div>
-            <PriceChart mint={token.mint} price={token.price} priceChange={token.priceChange24h} />
-          </section>
+          <TokenHoldersSection mint={token.mint} symbol={token.symbol} />
 
           {/* 2. Dashboard stats */}
           <section
@@ -125,8 +250,6 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
             </div>
             <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
               {[
-                { label: 'Market Cap', val: fmtNum(token.marketCap) },
-                { label: 'Volume 24h', val: fmtNum(token.volume24h) },
                 { label: 'Fee APY', val: `${token.feeApy ?? 0}%` },
                 { label: 'Holders', val: fmtNum(token.holders || 0) },
                 { label: 'Liquidity', val: fmtNum(token.liquidity || 0) },
@@ -170,47 +293,34 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
               </div>
               <ClaimFeesCard
                 tokens={[{ mint: token.mint, name: token.name, symbol: token.symbol }]}
-                profileSolWallet={token.creatorWallet ?? null}
+                profileSolWallet={creatorFeeWallet}
                 expectedFeeWallet="creator"
                 hideTitle
+                liveClaimableSol={claimableSol}
+                liveClaimableLoading={claimableLoading}
+                onClaimComplete={refreshClaimable}
                 className="!mb-0 !shadow-none rounded-xl border-[#e8e8e8] bg-[#fafafa]"
               />
             </div>
           </section>
 
-          {/* 3. Analyst */}
-          <section
-            id="analyst"
-            style={{ scrollMarginTop: 16, border: '1px solid #e8e8e8', borderRadius: 12, padding: '14px 16px', background: '#fff' }}
-          >
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, marginBottom: 10 }}>
-              Analyst
-            </div>
-            {trust ? (
-              <AiRiskBrief
-                mint={token.mint} name={token.name} symbol={token.symbol}
-                wallet={token.creatorWallet || ''} tier={trust.tier}
-                builderScore={trust.builderScore} reliabilityScore={trust.reliabilityScore}
-              />
-            ) : (
-              <p style={{ fontSize: 12, color: '#888', lineHeight: 1.6, margin: 0 }}>
-                {trustLoading ? 'Loading creator signals…' : 'Risk and builder signals appear here when creator data is available.'}
-              </p>
-            )}
-          </section>
-
-          {/* 4. Token launch & trade (last) */}
+          {/* 3. Token launch & trade (last) */}
           <section id="token-launch" style={{ scrollMarginTop: 16 }}>
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, margin: '0 0 8px 4px' }}>
-              Launch &amp; trade
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#aaa', fontWeight: 600, margin: '0 0 4px 4px' }}>
+              Swap
             </div>
-            <TradePanel token={token} trust={trust} trustLoading={trustLoading} />
+            <p className="mb-3 text-[12px] leading-snug text-gray-500">Quotes and settlement via Bags.</p>
+            <TradePanel token={token} trust={trust} trustLoading={trustLoading} hideChart />
           </section>
         </div>
 
         {/* ── RIGHT ── */}
         <div className="flex min-w-0 flex-col gap-3 sm:gap-2.5 md:order-none">
-          <TrustCard trust={trust} loading={trustLoading} wallet={token.creatorWallet} />
+          <TrustCard
+            trust={trust}
+            loading={trustLoading}
+            wallet={token.creatorWallet ?? trustLookupWallet ?? undefined}
+          />
 
           {token.creatorWallet && (
             <div style={{ border: '1px solid #e8e8e8', borderRadius: 10, padding: '12px 14px' }}>
@@ -240,5 +350,14 @@ export default function TokenPage({ params }: { params: { mint: string } }) {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function TokenPage({ params }: { params: { mint: string } }) {
+  const mint = (params?.mint || '').trim()
+  return (
+    <Suspense fallback={<TokenPageSkeleton />}>
+      <TokenPageContent mint={mint} />
+    </Suspense>
   )
 }

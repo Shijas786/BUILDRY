@@ -9,6 +9,8 @@ interface TickerToken {
   symbol: string
   tier: 'VERIFIED' | 'PARTIAL' | 'ANONYMOUS'
   builderRank?: number | null
+  /** 24h change when Bags has a quote; omitted for fresh launches with no market data yet. */
+  pricePct24h?: number | null
 }
 
 export default function DeploymentTicker() {
@@ -70,7 +72,18 @@ export default function DeploymentTicker() {
           Anon
         </span>
       )}
-      <span className="text-[10px] font-bold text-[var(--accent-green)]">+{(Math.random() * 5).toFixed(2)}%</span>
+      {t.pricePct24h != null && Number.isFinite(t.pricePct24h) ? (
+        <span
+          className={`text-[10px] font-bold tabular-nums ${
+            t.pricePct24h >= 0 ? 'text-[var(--accent-green)]' : 'text-red-500'
+          }`}
+        >
+          {t.pricePct24h >= 0 ? '+' : ''}
+          {t.pricePct24h.toFixed(2)}%
+        </span>
+      ) : (
+        <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent-primary)]">New</span>
+      )}
     </Link>
   )
 

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { TrustData } from '@/lib/trust'
 import { fmtAddr } from '@/lib/format'
 import { SkeletonTrustCard } from './SkeletonCard'
@@ -51,9 +52,13 @@ export default function TrustCard({ trust, loading, wallet }: TrustCardProps) {
           <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             ● Verified Protocol Identity
           </span>
-          <a href={`https://talent.app/profile/${profile?.username}`} target="_blank" rel="noreferrer"
-            style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 900, textTransform: 'uppercase' }}>
-            Proofs ↗
+          <a
+            href={`https://talent.app/profile/${profile?.username}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 10, color: 'var(--accent-green)', fontWeight: 900, textTransform: 'uppercase' }}
+          >
+            Reputation profile ↗
           </a>
         </div>
 
@@ -173,7 +178,122 @@ export default function TrustCard({ trust, loading, wallet }: TrustCardProps) {
     )
   }
 
-  // ── PARTIAL ────────────────────────────────────
+  // ── PARTIAL (Buildry-linked creator wallet) ────────────────────────────────────
+  if (tier === 'PARTIAL' && trust.buildry) {
+    const b = trust.buildry
+    const tw = twitterHandle || twitterFromBags
+
+    return (
+      <div className="bg-[var(--bg-secondary)] border border-[var(--accent-amber)]/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--accent-amber)] opacity-50" />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--accent-amber)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            ◆ Buildry builder
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          {trust.profilePicture ? (
+            <img
+              src={trust.profilePicture}
+              alt=""
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '2px solid var(--bg-tertiary)',
+                boxShadow: '0 0 15px rgba(0,0,0,0.3)',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: '50%',
+                background: 'var(--bg-tertiary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20,
+                fontWeight: 900,
+                color: 'var(--accent-amber)',
+                border: '2px solid var(--border)',
+              }}
+            >
+              {b.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 900,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.03em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {b.displayName}
+            </div>
+            <Link
+              href={b.profileHref}
+              className="text-[13px] font-semibold text-[var(--accent-amber)] hover:underline"
+            >
+              @{b.username} · profile
+            </Link>
+          </div>
+        </div>
+
+        {farcaster && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '6px 12px',
+              marginBottom: 16,
+              fontSize: 11,
+              color: 'var(--accent-amber)',
+              fontWeight: 900,
+              textTransform: 'uppercase',
+            }}
+          >
+            ⬡ FID !{farcaster.fid}
+            {farcaster.powerBadge ? ' ⚡' : ''}
+          </div>
+        )}
+
+        {tw && !farcaster && (
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 16 }}>
+            𝕏 @{tw.replace(/^@/, '')}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
+          <SocialChip platform="github" active={trust.hasGithub} />
+          <SocialChip platform="twitter" active={trust.hasTwitter} />
+          <SocialChip platform="farcaster" active={trust.hasFarcaster} />
+          <SocialChip platform="wallet" active={trust.hasWallet} />
+        </div>
+
+        <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px' }}>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, fontWeight: 500, margin: 0 }}>
+            This wallet matches a Buildry account with verified sign-in. That helps authenticity but is not a trading
+            recommendation—always DYOR.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── PARTIAL (social signal only) ────────────────────────────────────
   if (tier === 'PARTIAL') {
     const handle = farcaster?.username || twitterHandle
     const displayName = farcaster?.displayName || handle
@@ -252,21 +372,24 @@ export default function TrustCard({ trust, loading, wallet }: TrustCardProps) {
         )}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 }}>
-          <SocialChip platform="github" active={false} />
+          <SocialChip platform="github" active={trust.hasGithub} />
           <SocialChip platform="twitter" active={!!twitterHandle} />
           <SocialChip platform="farcaster" active={!!farcaster} />
+          <SocialChip platform="wallet" active={trust.hasWallet} />
         </div>
 
         <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px' }}>
           <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, fontWeight: 500 }}>
             {farcaster
-              ? 'Farcaster identity found but no verified protocol-level builder proofs on Talent Protocol.'
-              : 'Social identity found but no verified builder credentials on Talent Protocol.'}
+              ? 'Farcaster identity found. Link the same wallet on Buildry to connect GitHub and strengthen your public card.'
+              : 'Social handle found. Link and verify your wallet on Buildry so holders see your full builder profile.'}
           </p>
-          <a href="https://talent.app" target="_blank" rel="noreferrer"
-            style={{ display: 'block', marginTop: 10, fontSize: 11, color: 'var(--accent-amber)', fontWeight: 900, textTransform: 'uppercase', textDecoration: 'none' }}>
-            → Link Protocol Identity
-          </a>
+          <Link
+            href="/settings"
+            style={{ display: 'block', marginTop: 10, fontSize: 11, color: 'var(--accent-amber)', fontWeight: 900, textTransform: 'uppercase', textDecoration: 'none' }}
+          >
+            → Buildry settings
+          </Link>
         </div>
       </div>
     )
@@ -278,7 +401,7 @@ export default function TrustCard({ trust, loading, wallet }: TrustCardProps) {
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--accent-red)] opacity-50"></div>
       <div style={{ marginBottom: 20 }}>
         <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--accent-red)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          ✕ NO PROTOCOL REPUTATION
+          ✕ NO BUILDRY MATCH
         </span>
       </div>
 
@@ -291,7 +414,7 @@ export default function TrustCard({ trust, loading, wallet }: TrustCardProps) {
           ?
         </div>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 15, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Anonymous Entity</div>
+          <div style={{ fontWeight: 900, fontSize: 15, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Unknown creator</div>
           {wallet && <div className="font-mono" style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>{fmtAddr(wallet)}</div>}
         </div>
       </div>
@@ -304,9 +427,12 @@ export default function TrustCard({ trust, loading, wallet }: TrustCardProps) {
       </div>
 
       <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px' }}>
-        <div style={{ fontSize: 10, fontWeight: 900, color: 'var(--accent-red)', marginBottom: 8, textTransform: 'uppercase' }}>⚠ Verification Failure</div>
+        <div style={{ fontSize: 10, fontWeight: 900, color: 'var(--accent-red)', marginBottom: 8, textTransform: 'uppercase' }}>
+          ⚠ Limited public signal
+        </div>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, fontWeight: 500 }}>
-          Zero verifiable history on Talent Protocol or social graphs. Extreme caution advised for unverified builders with no onchain footprint.
+          We couldn&apos;t match this wallet to a Buildry profile or linked socials in our data. If you&apos;re the
+          creator, connect the same Solana wallet in Buildry settings so your GitHub and profile show here.
         </p>
       </div>
     </div>

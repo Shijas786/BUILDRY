@@ -8,6 +8,7 @@ import {
   shortMintAddress,
   type LaunchCelebrationSnapshot,
 } from '@/lib/launchSnapshot'
+import { buildTokenPagePath, saveTokenDraft } from '@/lib/tokenDraft'
 
 type Props = {
   mint: string
@@ -70,6 +71,10 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
   const origin = useOrigin()
   const explorerUrl = `https://solscan.io/token/${encodeURIComponent(mint)}`
 
+  useEffect(() => {
+    saveTokenDraft(mint, { name: tokenName, symbol: tokenSymbol })
+  }, [mint, tokenName, tokenSymbol])
+
   const [copied, setCopied] = useState<'mint' | 'link' | null>(null)
   const [feedPosting, setFeedPosting] = useState(false)
   const [feedPosted, setFeedPosted] = useState(false)
@@ -84,7 +89,8 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
   }
   const onCopyLink = async () => {
     const base = origin || (typeof window !== 'undefined' ? window.location.origin : '')
-    const full = base ? `${base}/token/${encodeURIComponent(mint)}` : `/token/${encodeURIComponent(mint)}`
+    const path = buildTokenPagePath(mint, tokenName, tokenSymbol)
+    const full = base ? `${base}${path}` : path
     if (await copyText(full)) flash('link')
   }
 
@@ -92,16 +98,16 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
     const score = snapshot.builderScore ?? '—'
     const commitLine = formatCommitsForTweet(snapshot)
     const sym = tokenSymbol.trim() || 'TOKEN'
-    const link = origin ? `${origin}/token/${encodeURIComponent(mint)}` : ''
+    const link = origin ? `${origin}${buildTokenPagePath(mint, tokenName, tokenSymbol)}` : ''
     return `Just deployed $${sym} on Buildry. Builder score: ${score}. ${commitLine} Still shipping.${link ? `\n\n${link}` : ''}`
-  }, [mint, origin, snapshot, tokenSymbol])
+  }, [mint, origin, snapshot, tokenName, tokenSymbol])
 
   const tweetHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
 
   const feedContent = useMemo(() => {
     const sym = tokenSymbol.trim() || 'TOKEN'
     const nm = tokenName.trim() || 'My token'
-    const base = origin ? `${origin}/token/${encodeURIComponent(mint)}` : ''
+    const base = origin ? `${origin}${buildTokenPagePath(mint, tokenName, tokenSymbol)}` : ''
     return `Just launched $${sym} — ${nm}!${base ? `\n\n${base}` : ''}`
   }, [mint, origin, tokenName, tokenSymbol])
 
@@ -111,7 +117,9 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
     setFeedError(null)
     try {
       const linkUrl =
-        typeof window !== 'undefined' ? `${window.location.origin}/token/${encodeURIComponent(mint)}` : null
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${buildTokenPagePath(mint, tokenName, tokenSymbol)}`
+          : null
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,6 +130,8 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
           milestoneTitle: `Launched $${tokenSymbol.trim() || 'TOKEN'}`,
           milestoneCategory: 'launch',
           linkUrl,
+          tokenMint: mint,
+          launchSymbol: tokenSymbol.trim() || 'TOKEN',
         }),
       })
       if (!res.ok) {
@@ -144,6 +154,11 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
         ? `${snapshot.activity365d.toLocaleString()} (365d activity)`
         : '—'
 
+  const tokenPath = useMemo(
+    () => buildTokenPagePath(mint, tokenName, tokenSymbol),
+    [mint, tokenName, tokenSymbol]
+  )
+
   return (
     <div className="relative">
       <LaunchConfetti />
@@ -163,7 +178,7 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
         </h1>
 
         <p className="mx-auto mt-5 max-w-md text-base font-medium leading-relaxed text-gray-600">
-          Your token home opens with live chart and holders, dashboard stats, and analyst signals first — launch and trading tools are at the end of the page.
+          Your token home opens with holders (on-chain balances + Buildry-linked wallets), dashboard stats, and creator tools — in-app swap (Bags) is at the end of the page.
         </p>
 
         <nav
@@ -171,34 +186,28 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
           className="mx-auto mt-6 flex max-w-lg flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center"
         >
           <a
-            href={`/token/${encodeURIComponent(mint)}#holders-chart`}
+            href={`${tokenPath}#holders-chart`}
             className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
           >
-            Live chart &amp; holders
+            Holders
           </a>
           <a
-            href={`/token/${encodeURIComponent(mint)}#dashboard`}
+            href={`${tokenPath}#dashboard`}
             className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
           >
             Dashboard
           </a>
           <a
-            href={`/token/${encodeURIComponent(mint)}#claim-fees`}
+            href={`${tokenPath}#claim-fees`}
             className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
           >
             Claim fees
           </a>
           <a
-            href={`/token/${encodeURIComponent(mint)}#analyst`}
+            href={`${tokenPath}#token-launch`}
             className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
           >
-            Analyst
-          </a>
-          <a
-            href={`/token/${encodeURIComponent(mint)}#token-launch`}
-            className="rounded-xl border border-gray-200 bg-gray-50/90 px-4 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-white"
-          >
-            Launch &amp; trade
+            Swap
           </a>
         </nav>
 
@@ -350,40 +359,9 @@ export default function LaunchSuccessScreen({ mint, tokenName, tokenSymbol, snap
           </p>
         </div>
 
-        {/* What happens next */}
-        <div className="mx-auto mt-8 max-w-lg rounded-2xl border border-gray-100 bg-white p-5 text-left">
-          <p className="mb-4 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">What happens next</p>
-          <ul className="space-y-3 text-sm font-semibold text-gray-700">
-            <li className="flex items-start gap-3">
-              <span className="mt-0.5 text-emerald-500" aria-hidden>
-                ✓
-              </span>
-              <span>Token deployed</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="mt-0.5 text-amber-500" aria-hidden>
-                ⏳
-              </span>
-              <span>Token page going live (~2 mins)</span>
-            </li>
-            <li className="flex items-start gap-3 text-gray-500">
-              <span className="mt-0.5 w-4 text-center text-gray-300" aria-hidden>
-                ○
-              </span>
-              <span>Share with your first holders</span>
-            </li>
-            <li className="flex items-start gap-3 text-gray-500">
-              <span className="mt-0.5 w-4 text-center text-gray-300" aria-hidden>
-                ○
-              </span>
-              <span>Keep building — your score updates live</span>
-            </li>
-          </ul>
-        </div>
-
         <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
-            href={`/token/${encodeURIComponent(mint)}#holders-chart`}
+            href={`${tokenPath}#holders-chart`}
             className="inline-flex items-center justify-center rounded-xl bg-slate-800 px-8 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-slate-900/15 transition-all hover:bg-slate-900 active:scale-[0.98]"
           >
             Open token page →

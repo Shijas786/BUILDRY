@@ -2,8 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { buildTokenPagePath } from '@/lib/tokenDraft'
 import { useAuth } from '@/context/AuthProvider'
 import QuickFollowAvatarBadge from '@/components/QuickFollowAvatarBadge'
+import { BagsFmIcon } from '@/components/BagsLaunchBadge'
 
 interface Post {
   id: string
@@ -13,6 +15,9 @@ interface Post {
   videos?: string[]
   milestone_title?: string
   milestone_category?: string
+  token_mint?: string | null
+  launch_symbol?: string | null
+  link_url?: string | null
   poll_options?: string[] | null
   poll_responses?: Record<string, number> | null
   location_label?: string | null
@@ -27,7 +32,14 @@ interface Post {
     avatar_url?: string
     account_type?: string
     builder_profiles?: { username?: string }[] | { username?: string }
+    is_launch_builder?: boolean
   }
+}
+
+function firstNameFromDisplayName(name: string | undefined | null): string {
+  const t = name?.trim()
+  if (!t) return ''
+  return t.split(/\s+/)[0] ?? ''
 }
 
 const TYPE_STYLES: Record<string, string> = {
@@ -58,8 +70,23 @@ export default function PostCard({ post }: { post: Post }) {
   const authorUsername = Array.isArray(author?.builder_profiles)
     ? author?.builder_profiles?.[0]?.username
     : author?.builder_profiles?.username
+  const authorFirstName = firstNameFromDisplayName(author?.name)
+  const authorLinkLabel =
+    authorFirstName ||
+    (authorUsername ? `@${authorUsername}` : author?.name?.trim() || 'Anonymous')
   const authorPath = `/profile/${authorUsername || author?.id || post.id}`
   const timeAgo = getTimeAgo(post.created_at)
+  const tokenMintForLinks = resolveTokenMint(post)
+  const launchSymbolForLinks = resolveLaunchSymbol(post)
+  const tokenHref =
+    tokenMintForLinks != null ? buildTokenHref(post, tokenMintForLinks) : null
+  const looksLikeTokenLaunchPost =
+    post.post_type === 'launch' ||
+    post.milestone_category === 'launch' ||
+    /\blaunched\s+\$/i.test(post.milestone_title || '') ||
+    /\bjust\s+launched\b/i.test(post.content || '')
+
+  const linkCashtagsAsLaunch = tokenHref != null && looksLikeTokenLaunchPost
 
   useEffect(() => {
     if (!menuOpen) return
@@ -179,9 +206,17 @@ export default function PostCard({ post }: { post: Post }) {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-[15px] leading-tight">
               <Link href={authorPath} className="font-semibold text-neutral-900 hover:underline">
-                {author?.name || 'Anonymous'}
+                {authorLinkLabel}
               </Link>
-              {authorUsername ? <span className="text-neutral-500">@{authorUsername}</span> : null}
+              {author?.is_launch_builder ? (
+                <span
+                  className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-white ring-1 ring-emerald-100"
+                  title="Launched on Bags"
+                  aria-label="Launched on Bags"
+                >
+                  <BagsFmIcon className="object-cover" width={15} height={15} />
+                </span>
+              ) : null}
               <span className="text-neutral-400">·</span>
               <span className="text-[13px] text-neutral-400">{timeAgo}</span>
               <span className={`ml-0.5 text-[11px] font-medium ${TYPE_STYLES[post.post_type] || TYPE_STYLES.update}`}>
@@ -227,11 +262,27 @@ export default function PostCard({ post }: { post: Post }) {
           {post.milestone_title && (
             <div className="mt-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2">
               <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">Milestone</p>
-              <p className="text-[14px] font-medium text-neutral-900">{post.milestone_title}</p>
+              <p className="text-[14px] font-medium text-neutral-900">
+                {tokenHref && post.milestone_title
+                  ? linkCashtagsAsLaunch
+                    ? renderAllCashtagsToMint(post.milestone_title, tokenHref)
+                    : launchSymbolForLinks
+                      ? renderTickerRichText(post.milestone_title, tokenHref, launchSymbolForLinks)
+                      : post.milestone_title
+                  : post.milestone_title}
+              </p>
             </div>
           )}
 
-          <p className="mt-2 whitespace-pre-wrap text-[15px] leading-snug text-neutral-900">{post.content}</p>
+          <p className="mt-2 whitespace-pre-wrap text-[15px] leading-snug text-neutral-900">
+            {tokenHref
+              ? linkCashtagsAsLaunch
+                ? renderAllCashtagsToMint(post.content, tokenHref)
+                : launchSymbolForLinks
+                  ? renderTickerRichText(post.content, tokenHref, launchSymbolForLinks)
+                  : post.content
+              : post.content}
+          </p>
 
           {(post.location_label || (post.location_lat != null && post.location_lng != null)) && (
             <div className="mt-2">
@@ -439,6 +490,205 @@ function pollVoteCounts(options: string[], responses: Record<string, number>): n
     if (typeof idx === 'number' && idx >= 0 && idx < c.length) c[idx] += 1
   }
   return c
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** First absolute or relative `/token/...` link in a string (legacy posts put the URL only in body). */
+function extractTokenLinkFromText(text: string): { mint: string; relativeHref: string } | null {
+  if (!text || !text.includes('/token/')) return null
+
+  const absolutes = text.match(/\bhttps?:\/\/[^\s<>"')]+/gi) ?? []
+  for (let raw of absolutes) {
+    raw = raw.replace(/[),.};]+$/g, '')
+    if (!raw.includes('/token/')) continue
+    try {
+      const u = new URL(raw)
+      if (!u.pathname.startsWith('/token/')) continue
+      const seg = u.pathname.slice('/token/'.length).split('/')[0] ?? ''
+      const mint = decodeURIComponent(seg).trim()
+      if (!mint) continue
+      return {
+        mint,
+        relativeHref: `${u.pathname}${u.search}${u.hash}`,
+      }
+    } catch {
+      continue
+    }
+  }
+
+  const rel = text.match(/\/token\/([^/?#\s<>"')]+)(\?[^?\s<>"')]+)?/)
+  if (rel) {
+    const mint = decodeURIComponent(rel[1]).trim()
+    if (!mint) return null
+    const qs = rel[2] || ''
+    return {
+      mint,
+      relativeHref: `/token/${encodeURIComponent(mint)}${qs}`,
+    }
+  }
+
+  return null
+}
+
+function scanPostForTokenLink(post: Post): { mint: string; relativeHref: string } | null {
+  for (const block of [post.link_url, post.content, post.milestone_title]) {
+    if (typeof block !== 'string' || !block.includes('/token/')) continue
+    const hit = extractTokenLinkFromText(block)
+    if (hit) return hit
+  }
+  return null
+}
+
+function symbolFromDsInTokenUrls(text: string | null | undefined): string | null {
+  if (!text || !text.includes('/token/')) return null
+  for (let raw of text.match(/\bhttps?:\/\/[^\s<>"')]+/gi) ?? []) {
+    raw = raw.replace(/[),.};]+$/g, '')
+    if (!raw.includes('/token/')) continue
+    try {
+      const u = new URL(raw)
+      const ds = u.searchParams.get('ds')
+      if (ds?.trim()) return ds.trim().replace(/^\$/, '').toUpperCase()
+    } catch {
+      continue
+    }
+  }
+  const q = text.match(/[?&]ds=([^&\s<>"')]+)/i)
+  if (q) {
+    try {
+      return decodeURIComponent(q[1]).trim().replace(/^\$/, '').toUpperCase()
+    } catch {
+      return q[1].trim().replace(/^\$/, '').toUpperCase()
+    }
+  }
+  return null
+}
+
+function resolveTokenMint(post: Post): string | null {
+  const m = typeof post.token_mint === 'string' ? post.token_mint.trim() : ''
+  if (m) return m
+  const scanned = scanPostForTokenLink(post)
+  return scanned?.mint ?? null
+}
+
+function resolveLaunchSymbol(post: Post): string | null {
+  const raw = post.launch_symbol
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim().replace(/^\$/, '').toUpperCase()
+  }
+  const t = post.milestone_title?.match(/Launched\s+\$([A-Za-z0-9]+)/i)
+  if (t) return t[1].toUpperCase()
+
+  const fromDs =
+    symbolFromDsInTokenUrls(post.link_url) ||
+    symbolFromDsInTokenUrls(post.content) ||
+    symbolFromDsInTokenUrls(post.milestone_title)
+  if (fromDs) return fromDs
+
+  const url = post.link_url
+  if (typeof url === 'string' && url.includes('ds=')) {
+    try {
+      const u = new URL(url, 'https://buildry.app')
+      const ds = u.searchParams.get('ds')
+      if (ds?.trim()) return ds.trim().replace(/^\$/, '').toUpperCase()
+    } catch {
+      const q = url.match(/[?&]ds=([^&]+)/)
+      if (q)
+        try {
+          return decodeURIComponent(q[1]).trim().replace(/^\$/, '').toUpperCase()
+        } catch {
+          return q[1].trim().replace(/^\$/, '').toUpperCase()
+        }
+    }
+  }
+
+  const fromBody = post.content?.match(/\$([A-Za-z][A-Za-z0-9]{0,31})\b/i)
+  if (fromBody) return fromBody[1].toUpperCase()
+
+  return null
+}
+
+/** Prefer stored token URL (carries dn/ds for fresh mints); else URL embedded in body; else build path with draft params. */
+function buildTokenHref(post: Post, mint: string): string {
+  const raw = post.link_url
+  if (typeof raw === 'string' && raw.includes('/token/')) {
+    try {
+      const u = new URL(raw, 'https://buildry.app')
+      if (u.pathname.startsWith('/token/')) {
+        return `${u.pathname}${u.search}${u.hash}`
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const scanned = scanPostForTokenLink(post)
+  if (scanned && scanned.mint === mint) {
+    return scanned.relativeHref
+  }
+
+  const sym = resolveLaunchSymbol(post) || '—'
+  const nameGuess =
+    (() => {
+      const em = post.content?.match(/—\s*([^!]+?)(?:\s*!|\s*$)/)
+      return em?.[1]?.trim()
+    })() || sym
+  return buildTokenPagePath(mint, nameGuess, sym)
+}
+
+const tickerLinkClass =
+  'font-semibold text-sky-700 underline decoration-sky-300 underline-offset-2 hover:text-sky-900 hover:decoration-sky-600 relative z-[5] inline cursor-pointer pointer-events-auto'
+
+function renderAllCashtagsToMint(text: string, href: string): React.ReactNode {
+  const re = /\$[A-Za-z][A-Za-z0-9]{0,31}\b/g
+  const nodes: React.ReactNode[] = []
+  let last = 0
+  let match: RegExpExecArray | null
+  let key = 0
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) nodes.push(text.slice(last, match.index))
+    nodes.push(
+      <a
+        key={`c-${key++}`}
+        href={href}
+        className={tickerLinkClass}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {match[0]}
+      </a>
+    )
+    last = match.index + match[0].length
+    if (match.index === re.lastIndex) re.lastIndex += 1
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes.length ? <>{nodes}</> : text
+}
+
+function renderTickerRichText(text: string, href: string, symbol: string): React.ReactNode {
+  const pattern = new RegExp(`\\$${escapeRegExp(symbol)}\\b`, 'gi')
+  const nodes: React.ReactNode[] = []
+  let last = 0
+  let match: RegExpExecArray | null
+  let key = 0
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) nodes.push(text.slice(last, match.index))
+    nodes.push(
+      <a
+        key={`t-${key++}`}
+        href={href}
+        className={tickerLinkClass}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {match[0]}
+      </a>
+    )
+    last = match.index + match[0].length
+    if (match.index === pattern.lastIndex) pattern.lastIndex += 1
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes.length === 0 ? text : <>{nodes}</>
 }
 
 function getTimeAgo(dateStr: string | number): string {

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { Connection, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js'
+import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '@/context/AuthProvider'
 import {
   getBagsJitoTipLamports,
@@ -20,6 +20,12 @@ import LaunchBuilderIdentityCard from '@/components/launch/LaunchBuilderIdentity
 import LaunchSuccessScreen from '@/components/launch/LaunchSuccessScreen'
 import LaunchOwnershipPanel from '@/components/launch/LaunchOwnershipPanel'
 import { captureLaunchSnapshot, type LaunchCelebrationSnapshot } from '@/lib/launchSnapshot'
+import {
+  buildTokenPagePath,
+  readBrowserLastLaunchMeta,
+  saveTokenDraft,
+  type BrowserLastLaunchMeta,
+} from '@/lib/tokenDraft'
 import { fetchSolUsdForLaunch, usdToInitialBuyLamports } from '@/lib/launchInitialBuy'
 import type { BuilderContributionsSnapshot } from '@/lib/builderContributions'
 
@@ -102,6 +108,19 @@ export default function LaunchStudio() {
   const [payload, setPayload] = useState<ProfilePayload | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileRefreshing, setProfileRefreshing] = useState(false)
+
+  /** After deploy, `/launch` remounts without React state — use browser memory of last mint. */
+  const [clientLaunchReady, setClientLaunchReady] = useState(false)
+  const [lastBrowserLaunch, setLastBrowserLaunch] = useState<BrowserLastLaunchMeta | null>(null)
+  const [preferFreshWizard, setPreferFreshWizard] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('new') === '1') {
+      setPreferFreshWizard(true)
+    }
+    setLastBrowserLaunch(readBrowserLastLaunchMeta())
+    setClientLaunchReady(true)
+  }, [])
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) {
@@ -224,7 +243,8 @@ export default function LaunchStudio() {
           )
         }
         const bal = await connection.getBalance(publicKey, 'confirmed')
-        const reserveLamports = 35_000_000
+        // Two Jito tips (fee-share bundle + launch bundle) + headroom for fees / pre-buy path
+        const reserveLamports = 55_000_000
         if (bal < initialBuyLamports + reserveLamports) {
           const needSol = (initialBuyLamports + reserveLamports) / LAMPORTS_PER_SOL
           throw new Error(
@@ -254,7 +274,7 @@ export default function LaunchStudio() {
         )
       }
 
-      const { transactionBase64, tokenMint } = await runBagsLaunchWalletFlow(
+      const { tokenMint, launchBundleId, launchSignature } = await runBagsLaunchWalletFlow(
         feePrep,
         {
           publicKey,
@@ -276,23 +296,27 @@ export default function LaunchStudio() {
         }
       )
 
-      const vtx = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'))
-
-      let signature: string
-      if (sendTransaction) {
-        signature = await sendTransaction(vtx, connection, { maxRetries: 5 })
-      } else {
-        const signed = await signTransaction(vtx)
-        signature = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 5 })
+      if (launchSignature) {
+        void confirmSignaturePolling(connection, launchSignature).catch(() => {
+          /* bundle already finalized via Jito; RPC poll is best-effort for UI */
+        })
+      }
+      if (process.env.NODE_ENV === 'development') {
+        console.info('[launch] Jito bundle:', launchBundleId, launchSignature ? `tx ${launchSignature}` : '')
       }
 
-      await confirmSignaturePolling(connection, signature)
-
       if (user?.id) {
-        void recordLaunchMilestonePost(user.id, name.trim(), symbol.trim().toUpperCase(), description.trim())
+        void recordLaunchMilestonePost(
+          user.id,
+          name.trim(),
+          symbol.trim().toUpperCase(),
+          description.trim(),
+          tokenMint
+        )
       }
 
       setLaunchSnapshot(captureLaunchSnapshot(payload))
+      saveTokenDraft(tokenMint, { name: name.trim(), symbol: symbol.trim().toUpperCase() })
       setContractAddress(tokenMint)
       setDeployed(true)
     } catch (err: unknown) {
@@ -327,6 +351,48 @@ export default function LaunchStudio() {
             tokenSymbol={symbol}
             snapshot={launchSnapshot ?? captureLaunchSnapshot(payload)}
           />
+        ) : clientLaunchReady &&
+          lastBrowserLaunch &&
+          !preferFreshWizard ? (
+          <div className="mx-auto max-w-lg text-center">
+            <h1 className="mb-3 text-3xl font-black tracking-tight text-gray-900 md:text-4xl">
+              You already launched a token
+            </h1>
+            <p className="mb-8 text-base leading-relaxed text-gray-500">
+              This browser remembers your last deployment. Open your token home, or start the launch flow again if you’re
+              deploying a new one.
+            </p>
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Your token</p>
+              <p className="mt-2 text-xl font-black text-gray-900">
+                ${lastBrowserLaunch.symbol} — {lastBrowserLaunch.name}
+              </p>
+              <p className="mt-1 break-all font-mono text-[11px] text-gray-400">{lastBrowserLaunch.mint}</p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <Link
+                  href={`${buildTokenPagePath(lastBrowserLaunch.mint, lastBrowserLaunch.name, lastBrowserLaunch.symbol)}#holders-chart`}
+                  className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-8 py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-black active:scale-[0.98]"
+                >
+                  Open token page →
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setPreferFreshWizard(true)}
+                  className="inline-flex items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-8 py-4 text-sm font-black uppercase tracking-widest text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                >
+                  Launch another token
+                </button>
+              </div>
+              <p className="mt-4 text-center text-[11px] text-gray-400">
+                Need the wizard anyway? Use{' '}
+                <Link href="/launch?new=1" className="font-bold text-gray-600 underline underline-offset-2">
+                  /launch?new=1
+                </Link>
+              </p>
+            </div>
+          </div>
+        ) : !clientLaunchReady ? (
+          <div className="py-20 text-center text-sm font-semibold text-gray-400">Loading…</div>
         ) : (
           <div>
             <div className="mb-10 text-center">
@@ -501,14 +567,36 @@ export default function LaunchStudio() {
                       onLaunch={(detail) => void handleDeploy(detail)}
                     />
 
-                    <p className="text-center text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      Launch sends real <strong className="font-bold text-gray-600">Solana mainnet</strong> transactions via Bags.
-                      The USD amount is converted to SOL using a live <strong className="font-bold text-gray-600">SOL/USD</strong>{' '}
-                      price (CoinGecko) and sent as <strong className="font-bold text-gray-600">creator pre-buy</strong> in the
-                      final launch transaction. Leave $0 to skip pre-buy. Fee split uses{' '}
-                      <span className="font-mono text-[10px]">PLATFORM_TREASURY_WALLET</span> +{' '}
-                      <span className="font-mono text-[10px]">PLATFORM_FEE_BPS</span> on the server.
-                    </p>
+                    <div className="space-y-3 rounded-2xl border border-gray-200/90 bg-gray-50/80 px-4 py-3 text-left text-[12px] leading-relaxed text-gray-600">
+                      <p>
+                        <span className="font-bold text-gray-800">Matches Bags Token Launch v2:</span> the{' '}
+                        <strong className="text-gray-800">last</strong> wallet step signs a{' '}
+                        <strong className="text-gray-800">Jito bundle</strong> — Jito tip transaction plus the single{' '}
+                        <code className="text-[11px]">createLaunchTransaction</code> that creates the Meteora DBC pool, mints supply,
+                        and runs your optional creator pre-buy (one on-chain signature for that launch tx; explorers show pool +
+                        mint + swap together).
+                      </p>
+                      <p>
+                        <span className="font-bold text-gray-800">Earlier steps</span> set up Bags fee-sharing on-chain (Jito
+                        bundle + tip where Bags returns bundles, then any extra fee txs). That must confirm before the launch
+                        bundle — same flow as the official Bags guide (link below).
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        USD pre-buy uses live <strong className="text-gray-700">SOL/USD</strong> (CoinGecko). Leave $0 to skip
+                        pre-buy. Server fee split:{' '}
+                        <span className="font-mono text-[10px] text-gray-600">PLATFORM_TREASURY_WALLET</span> +{' '}
+                        <span className="font-mono text-[10px] text-gray-600">PLATFORM_FEE_BPS</span>.
+                        {' '}
+                        <a
+                          href="https://docs.bags.fm/how-to-guides/launch-token"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-gray-700 underline decoration-gray-400 underline-offset-2 hover:text-gray-900"
+                        >
+                          Bags launch guide (Token Launch v2)
+                        </a>
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

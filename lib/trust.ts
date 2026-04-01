@@ -3,6 +3,7 @@ import { getAlchemyMultiChainEvmStats } from './alchemyMultichainEvm'
 import { fetchZerionWalletDeployStats, mergeZerionDeployIntoByChain } from './zerionWallet'
 import { TalentProfile } from './talent'
 import { FarcasterProfile } from './farcaster'
+import type { BuildryTrustSnapshot } from './buildryTrustEnrichment'
 
 export type TrustTier = 'VERIFIED' | 'PARTIAL' | 'ANONYMOUS'
 
@@ -26,6 +27,13 @@ export interface TrustData {
   previousBagsProjects: { name: string; symbol: string; mint: string }[]
   reliabilityScore: number | null
   profilePicture: string | null
+  /** Linked Buildry builder (verified Solana wallet on platform). */
+  buildry?: {
+    username: string
+    displayName: string
+    profileHref: string
+    githubLogin?: string
+  }
 }
 
 export function resolveTrustTier(data: {
@@ -33,9 +41,11 @@ export function resolveTrustTier(data: {
   builderScore: number | null
   twitterFromBags: string | null
   farcasterProfile?: FarcasterProfile | null
+  /** Firebase builder_profiles with this wallet in verified_wallets / sol_wallet */
+  buildryLinked?: boolean
 }): TrustTier {
   if (data.talentProfile && data.builderScore !== null) return 'VERIFIED'
-  if (data.twitterFromBags || data.farcasterProfile) return 'PARTIAL'
+  if (data.twitterFromBags || data.farcasterProfile || data.buildryLinked) return 'PARTIAL'
   return 'ANONYMOUS'
 }
 
@@ -321,21 +331,43 @@ export function buildTrustData(
   farcaster: FarcasterProfile | null = null,
   previousBagsProjects: { name: string; symbol: string; mint: string }[] = [],
   bagsAvatar: string | null = null,
-  heliusTransactions: number | null = null
+  heliusTransactions: number | null = null,
+  buildry: BuildryTrustSnapshot | null = null
 ): TrustData {
   const tier = resolveTrustTier({
     talentProfile: profile,
     builderScore: profile?.score ?? null,
     twitterFromBags,
     farcasterProfile: farcaster,
+    buildryLinked: !!buildry,
   })
 
-  const hasTwitter = !!twitterFromBags
+  const hasGithub =
+    (profile?.githubScore !== undefined && profile?.githubScore !== null) ||
+    !!(buildry?.githubVerified && buildry.githubLogin)
+  const hasTwitter = !!twitterFromBags || !!(buildry?.twitterHandle)
   const hasFarcaster = !!farcaster
+  const hasWallet = !!buildry
 
-  const rawReliability = previousBagsProjects.length > 0 
-    ? ((previousBagsProjects.length * 15) + (profile?.score ? profile.score / 2 : 0) + ((heliusTransactions || 0) * 0.1))
-    : profile?.score ? (profile.score + ((heliusTransactions || 0) * 0.1)) : null
+  let rawReliability =
+    previousBagsProjects.length > 0
+      ? previousBagsProjects.length * 15 + (profile?.score ? profile.score / 2 : 0) + (heliusTransactions || 0) * 0.1
+      : profile?.score
+        ? profile.score + (heliusTransactions || 0) * 0.1
+        : null
+
+  if (buildry) {
+    const bump = (buildry.githubVerified ? 22 : 0) + 12
+    rawReliability = (rawReliability ?? 0) + bump
+  }
+
+  const profilePicture =
+    bagsAvatar ||
+    farcaster?.avatar ||
+    profile?.avatar ||
+    buildry?.avatarUrl ||
+    (twitterFromBags ? `https://unavatar.io/twitter/${twitterFromBags}` : null) ||
+    (buildry?.twitterHandle ? `https://unavatar.io/twitter/${buildry.twitterHandle}` : null)
 
   return {
     tier,
@@ -348,13 +380,23 @@ export function buildTrustData(
     twitterFromBags,
     githubCommits: null,
     heliusTransactions,
-    hasGithub: false,
+    hasGithub,
     hasTwitter,
     hasFarcaster,
-    hasWallet: false,
+    hasWallet,
     farcaster,
     previousBagsProjects,
-    reliabilityScore: rawReliability ? Math.min(100, rawReliability) : null,
-    profilePicture: bagsAvatar || farcaster?.avatar || profile?.avatar || (twitterFromBags ? `https://unavatar.io/twitter/${twitterFromBags}` : null),
+    reliabilityScore: rawReliability != null ? Math.min(100, rawReliability) : null,
+    profilePicture,
+    ...(buildry
+      ? {
+          buildry: {
+            username: buildry.username,
+            displayName: buildry.displayName,
+            profileHref: buildry.profileHref,
+            ...(buildry.githubLogin ? { githubLogin: buildry.githubLogin } : {}),
+          },
+        }
+      : {}),
   }
 }

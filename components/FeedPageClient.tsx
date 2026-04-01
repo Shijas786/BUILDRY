@@ -19,12 +19,7 @@ export default function FeedPageClient({ initialPosts }: FeedPageClientProps) {
     <div className="min-h-screen bg-[#f4f4f5]">
       <div className="mx-auto flex max-w-[600px] justify-center">
         <main className="relative w-full flex-1 border-x-0 bg-white min-h-screen xl:border-x xl:border-neutral-200/90">
-          <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/85 backdrop-blur-md px-4 py-3 sm:px-5">
-            <h1 className="text-center text-[15px] font-semibold tracking-tight text-neutral-900">For you</h1>
-            <p className="mt-0.5 text-center text-[11px] text-neutral-400">Builders &amp; founders you follow</p>
-          </header>
-
-          <div className={`px-4 pt-3 sm:px-5 ${user ? 'pb-24 sm:pb-20' : 'pb-8'}`}>
+          <div className={`px-4 pt-4 sm:px-5 sm:pt-5 ${user ? 'pb-24 sm:pb-20' : 'pb-8'}`}>
             {user ? (
               <PostComposer onPostCreated={() => setRefreshKey((k) => k + 1)} />
             ) : null}

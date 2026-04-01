@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { VersionedTransaction, Connection } from '@solana/web3.js'
+import { Connection } from '@solana/web3.js'
 import {
   getBagsJitoTipLamports,
   prepareBagsLaunchDeployTx,
@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/bags'
 import { runBagsLaunchWalletFlow } from '@/lib/bagsLaunchWallet'
 import { confirmSignaturePolling, SOLANA_LAUNCH_CONNECTION_CONFIG } from '@/lib/solanaConfirm'
+import { saveTokenDraft } from '@/lib/tokenDraft'
 
 interface LaunchTokenModalProps {
   isOpen: boolean
@@ -67,7 +68,7 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
         SOLANA_LAUNCH_CONNECTION_CONFIG
       )
 
-      const { transactionBase64, tokenMint } = await runBagsLaunchWalletFlow(
+      const { tokenMint, launchBundleId, launchSignature } = await runBagsLaunchWalletFlow(
         feePrep,
         {
           publicKey,
@@ -89,19 +90,11 @@ export default function LaunchTokenModal({ isOpen, onClose, builderName }: Launc
         }
       )
 
-      const versionedTx = VersionedTransaction.deserialize(Buffer.from(transactionBase64, 'base64'))
-
-      let signature: string
-      if (sendTransaction) {
-        signature = await sendTransaction(versionedTx, connection, { maxRetries: 5 })
-      } else {
-        const signedTx = await signTransaction(versionedTx)
-        signature = await connection.sendRawTransaction(signedTx.serialize(), { maxRetries: 5 })
+      if (launchSignature) {
+        void confirmSignaturePolling(connection, launchSignature).catch(() => {})
       }
-
-      await confirmSignaturePolling(connection, signature)
-
-      console.log('Token Deployed! Mint:', tokenMint, 'Signature:', signature)
+      saveTokenDraft(tokenMint, { name: formData.name, symbol: formData.symbol })
+      console.log('Token deployed. Mint:', tokenMint, 'Jito bundle:', launchBundleId, 'Launch sig:', launchSignature)
       alert(`Token successfully deployed on Solana! Mint: ${tokenMint}`)
       onClose()
     } catch (err: any) {

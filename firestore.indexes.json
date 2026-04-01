@@ -9,6 +9,14 @@
       ]
     },
     {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "author_id", "order": "ASCENDING" },
+        { "fieldPath": "post_type", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "post_comments",
       "queryScope": "COLLECTION",
       "fields": [

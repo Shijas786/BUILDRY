@@ -113,6 +113,22 @@ export default function ClaimFeesCard({
   const shell =
     `rounded-2xl border border-gray-200 bg-white/90 p-6 shadow-sm ${onLaunchPage ? '' : 'mb-8'} ${className}`.trim()
 
+  const showClaimableLine =
+    liveClaimableLoading !== undefined || liveClaimableSol !== undefined
+
+  const claimableLine = !showClaimableLine ? null : liveClaimableLoading ? (
+    <span className="text-gray-400">Checking accrued fees…</span>
+  ) : liveClaimableSol != null ? (
+    <span className="text-gray-700">
+      Available to claim:{' '}
+      <span className="font-mono font-bold text-emerald-800">
+        {liveClaimableSol.toFixed(4)} SOL
+      </span>
+    </span>
+  ) : (
+    <span className="text-gray-400">Fee balance unavailable</span>
+  )
+
   if (tokens.length === 0) {
     return (
       <div className={shell}>
@@ -166,21 +182,33 @@ export default function ClaimFeesCard({
             Token
           </span>
           {tokens.length === 1 ? (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-900">
-              {tokens[0].symbol} — {tokens[0].name}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <div className="text-sm font-bold text-gray-900">
+                {tokens[0].symbol} — {tokens[0].name}
+              </div>
+              {showClaimableLine ? (
+                <div className="mt-1.5 text-[11px] font-semibold text-gray-500">{claimableLine}</div>
+              ) : null}
             </div>
           ) : (
-            <select
-              value={selectedMint}
-              onChange={(e) => setSelectedMint(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-900"
-            >
-              {tokens.map((t) => (
-                <option key={t.mint} value={t.mint}>
-                  {t.symbol} — {t.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-1.5">
+              <select
+                value={selectedMint}
+                onChange={(e) => setSelectedMint(e.target.value)}
+                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-900"
+              >
+                {tokens.map((t) => (
+                  <option key={t.mint} value={t.mint}>
+                    {t.symbol} — {t.name}
+                  </option>
+                ))}
+              </select>
+              {showClaimableLine ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-[11px] font-semibold text-gray-500">
+                  {claimableLine}
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
         <button

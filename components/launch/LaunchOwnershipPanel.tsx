@@ -7,10 +7,10 @@ import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
 /**
- * Mainnet Bags launch: Jito bundle tip (~0.015 SOL) + several signatures + rent.
- * Pre-buy is extra on top. Aligns ~with server reserve checks in app/launch.
+ * Mainnet Bags launch: two Jito tips (fee-share bundle + launch bundle, ~0.015 SOL each)
+ * plus signatures and rent. Pre-buy is extra. Aligns with reserve checks in app/launch.
  */
-const MIN_SOL_LAUNCH_FEES_AND_TIP = 0.05
+const MIN_SOL_LAUNCH_FEES_AND_TIP = 0.08
 
 /** Preset rows: suggested USD for creator pre-buy (converted to SOL at launch via CoinGecko). */
 const OWNERSHIP_PRESETS: { pct: number; usd: number }[] = [
@@ -284,9 +284,9 @@ export default function LaunchOwnershipPanel({ disabled, loading, onLaunch }: Pr
             SOL needed for fees
           </p>
           <p className="mt-2 text-xs font-medium leading-relaxed text-gray-800">
-            Even with <span className="font-bold">$0</span> creator pre-buy, mainnet launch still costs SOL: multiple
-            transactions plus a <span className="font-bold">Jito bundle tip</span> (often about{' '}
-            <span className="font-bold tabular-nums">0.015 SOL</span>). Plan for at least{' '}
+            Even with <span className="font-bold">$0</span> creator pre-buy, mainnet launch still costs SOL: Bags uses{' '}
+            <span className="font-bold">two Jito bundles</span> (fee-share setup + final launch), each with a tip (often
+            ~<span className="font-bold tabular-nums">0.015 SOL</span> each). Plan for at least{' '}
             <span className="font-bold tabular-nums">~{MIN_SOL_LAUNCH_FEES_AND_TIP} SOL</span> in this wallet before you
             start; add your pre-buy on top if you enter a USD amount above.
           </p>

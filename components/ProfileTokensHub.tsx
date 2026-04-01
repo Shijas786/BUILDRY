@@ -47,7 +47,8 @@ export default function ProfileTokensHub({ tokens, profileSolWallet }: Props) {
 
   const { trust, loading: trustLoading } = useTrustScore(
     selected?.creatorWallet || null,
-    selected?.creatorImage
+    selected?.creatorImage,
+    selected?.twitter ?? null
   )
 
   const [claimableSol, setClaimableSol] = useState<number | null>(null)

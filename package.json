@@ -36,6 +36,7 @@
     "@solana/wallet-adapter-wallets": "^0.19.32",
     "@solana/web3.js": "^1.95.3",
     "@tanstack/react-query": "^5.95.2",
+    "bs58": "^4.0.1",
     "@wagmi/connectors": "^5.1.7",
     "@wagmi/core": "^2.22.1",
     "axios": "^1.7.2",
@@ -54,6 +55,7 @@
   },
   "devDependencies": {
     "@noble/ed25519": "^3.0.1",
+    "@types/bs58": "^4.0.4",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
