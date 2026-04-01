@@ -11,6 +11,12 @@ export type LatestLaunchForUser = {
   created_at: number
 }
 
+export type LatestLaunchResolution = {
+  launch: LatestLaunchForUser | null
+  /** Non-secret reasons `launch` is null — shown in API JSON for debugging prod. */
+  hints: readonly string[]
+}
+
 function mintFromPostData(d: DocumentData): string | null {
   const tm = typeof d.token_mint === 'string' ? d.token_mint.trim() : ''
   if (tm) return tm
@@ -82,11 +88,18 @@ function sortDocsByCreatedDesc(docs: QueryDocumentSnapshot[]): QueryDocumentSnap
 }
 
 /**
- * Most recent Firestore launch post for this user (any device / domain).
- * Uses only `author_id` equality (auto index) and sorts in memory — avoids composite index gaps on prod.
+ * Resolve latest launch for a Firebase uid: Firestore posts + Bags creator tokens.
+ * `hints` explain a null `launch` (safe to return to the client).
  */
-export async function loadLatestLaunchPostForUser(userId: string): Promise<LatestLaunchForUser | null> {
-  if (!isFirebaseAdminConfigured || !adminDb || !userId.trim()) return null
+export async function resolveLatestLaunchForUser(userId: string): Promise<LatestLaunchResolution> {
+  const hints: string[] = []
+
+  if (!isFirebaseAdminConfigured || !adminDb || !userId.trim()) {
+    if (!userId.trim()) hints.push('empty_uid')
+    else hints.push('firebase_admin_unconfigured')
+    return { launch: null, hints }
+  }
+
   const db = adminDb
   const uid = userId.trim()
 
@@ -125,9 +138,13 @@ export async function loadLatestLaunchPostForUser(userId: string): Promise<Lates
 
   try {
     const snap = await db.collection(FS.POSTS).where('author_id', '==', uid).limit(120).get()
-
     const sortedDocs = sortDocsByCreatedDesc(snap.docs)
 
+    if (sortedDocs.length === 0) {
+      hints.push('no_firestore_posts_for_this_uid')
+    }
+
+    let launchLikeNoMint = 0
     for (const doc of sortedDocs) {
       const d = doc.data()
       if (!isLaunchLikePost(d)) continue
@@ -138,23 +155,34 @@ export async function loadLatestLaunchPostForUser(userId: string): Promise<Lates
         const hit = list.find((t) => (t.symbol || '').toUpperCase() === symbol)
         mint = hit?.mint?.trim() || null
       }
-      if (!mint) continue
+      if (!mint) {
+        launchLikeNoMint += 1
+        continue
+      }
       const content = typeof d.content === 'string' ? d.content : ''
       const name = nameFromLaunchContent(content, symbol)
       const created = createdAtMs(d) || Date.now()
-      return { mint, name, symbol, created_at: created }
+      return { launch: { mint, name, symbol, created_at: created }, hints: [] }
     }
 
-    /** Strong signal when feed post / flags are missing but Bags lists exactly one creator token. */
+    if (launchLikeNoMint > 0) {
+      hints.push('launch_like_posts_found_but_mint_unresolved')
+    } else if (sortedDocs.length > 0) {
+      hints.push('firestore_posts_found_but_none_match_launch_patterns')
+    }
+
     const list = await tokensForCreator()
     if (list.length === 1) {
       const t = list[0]
       if (t?.mint?.trim()) {
         return {
-          mint: t.mint.trim(),
-          name: (t.name || t.symbol || 'Token').trim(),
-          symbol: (t.symbol || 'TKN').toUpperCase(),
-          created_at: Date.now(),
+          launch: {
+            mint: t.mint.trim(),
+            name: (t.name || t.symbol || 'Token').trim(),
+            symbol: (t.symbol || 'TKN').toUpperCase(),
+            created_at: Date.now(),
+          },
+          hints: [],
         }
       }
     }
@@ -164,16 +192,36 @@ export async function loadLatestLaunchPostForUser(userId: string): Promise<Lates
       (profSnap.data() as { has_launched_token?: boolean } | undefined)?.has_launched_token === true
     const sawLaunchLike = sortedDocs.some((doc) => isLaunchLikePost(doc.data()))
 
+    const wallet = await walletForUser()
+    if (!wallet) {
+      hints.push('add_verified_sol_wallet_in_settings')
+    } else if (list.length === 0) {
+      hints.push('bags_returned_zero_creator_tokens_check_bags_api_key_and_wallet_match')
+    } else if (list.length > 1) {
+      hints.push(`bags_creator_token_count_${list.length}_need_profile_flag_or_feed_post`)
+    }
+
     if (hasLaunchedFlag || sawLaunchLike) {
-      return (await fromBagsPrimaryToken()) ?? null
+      const bags = await fromBagsPrimaryToken()
+      if (bags) return { launch: bags, hints: [] }
     }
-    return null
+
+    return { launch: null, hints }
   } catch (e) {
-    console.error('loadLatestLaunchPostForUser:', e)
+    console.error('resolveLatestLaunchForUser:', e)
+    hints.push('firestore_query_error_check_rules_and_indexes')
     try {
-      return await fromBagsPrimaryToken()
+      const bags = await fromBagsPrimaryToken()
+      if (bags) return { launch: bags, hints: [] }
     } catch {
-      return null
+      hints.push('bags_lookup_failed')
     }
+    return { launch: null, hints }
   }
+}
+
+/** @deprecated use resolveLatestLaunchForUser — kept for any import sites */
+export async function loadLatestLaunchPostForUser(userId: string): Promise<LatestLaunchForUser | null> {
+  const { launch } = await resolveLatestLaunchForUser(userId)
+  return launch
 }
