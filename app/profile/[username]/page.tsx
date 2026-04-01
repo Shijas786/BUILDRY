@@ -700,6 +700,7 @@ export default function ProfilePage() {
             <ProfileTokensHub
               tokens={(data?.tokens || []) as Record<string, unknown>[]}
               profileSolWallet={primaryWalletsFromProfile(p as Record<string, unknown>).sol_wallet}
+              isProfileOwner={Boolean(user?.id && p.id && user.id === p.id)}
             />
           )}
           {activeTab === 'activity' && (

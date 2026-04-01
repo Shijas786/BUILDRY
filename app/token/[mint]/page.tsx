@@ -27,6 +27,7 @@ import { SkeletonTokenCard } from '@/components/SkeletonCard'
 import { useTokenData } from '@/hooks/useTokenData'
 import { useTrustScore } from '@/hooks/useTrustScore'
 import { fmtAddr, fmtPrice, fmtChange, fmtNum, fmtMcap } from '@/lib/format'
+import { readTokenDraft } from '@/lib/tokenDraft'
 
 function TokenPageWalletBar() {
   return (
@@ -94,8 +95,18 @@ function TokenPageContent({ mint }: { mint: string }) {
     token?.buildry_launcher_uid ?? null
   )
 
+  const creatorAddr = token?.creatorWallet?.trim() || null
+  const hasLaunchContext = Boolean(queryDraft || readTokenDraft(m))
+  /** Only the on-chain creator (or provisional launcher with this device/session context) should see fees UI or hit claimable APIs. */
+  const isViewerCreator = Boolean(
+    publicKey &&
+      (creatorAddr
+        ? publicKey.toBase58() === creatorAddr
+        : provisional && hasLaunchContext)
+  )
+
   const creatorFeeWallet =
-    token?.creatorWallet?.trim() ||
+    creatorAddr ||
     (provisional && publicKey ? publicKey.toBase58() : null) ||
     null
 
@@ -103,7 +114,7 @@ function TokenPageContent({ mint }: { mint: string }) {
   const [claimableLoading, setClaimableLoading] = useState(true)
 
   const refreshClaimable = useCallback(() => {
-    if (!creatorFeeWallet || !token?.mint) {
+    if (!isViewerCreator || !creatorFeeWallet || !token?.mint) {
       setClaimableSol(null)
       setClaimableLoading(false)
       return
@@ -120,14 +131,18 @@ function TokenPageContent({ mint }: { mint: string }) {
       })
       .catch(() => setClaimableSol(null))
       .finally(() => setClaimableLoading(false))
-  }, [creatorFeeWallet, token?.mint])
+  }, [isViewerCreator, creatorFeeWallet, token?.mint])
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !isViewerCreator) {
+      setClaimableSol(null)
+      setClaimableLoading(false)
+      return
+    }
     refreshClaimable()
     const id = setInterval(refreshClaimable, 25_000)
     return () => clearInterval(id)
-  }, [token, refreshClaimable])
+  }, [token, isViewerCreator, refreshClaimable])
 
   const isUp = (token?.priceChange24h ?? 0) >= 0
 
@@ -271,38 +286,40 @@ function TokenPageContent({ mint }: { mint: string }) {
               ))}
             </div>
 
-            <div
-              id="claim-fees"
-              style={{
-                scrollMarginTop: 16,
-                marginTop: 16,
-                paddingTop: 16,
-                borderTop: '1px solid #f0f0f0',
-              }}
-            >
+            {isViewerCreator ? (
               <div
+                id="claim-fees"
                 style={{
-                  fontSize: 10,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.6px',
-                  color: '#aaa',
-                  fontWeight: 600,
-                  marginBottom: 10,
+                  scrollMarginTop: 16,
+                  marginTop: 16,
+                  paddingTop: 16,
+                  borderTop: '1px solid #f0f0f0',
                 }}
               >
-                Creator fees
+                <div
+                  style={{
+                    fontSize: 10,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.6px',
+                    color: '#aaa',
+                    fontWeight: 600,
+                    marginBottom: 10,
+                  }}
+                >
+                  Creator fees
+                </div>
+                <ClaimFeesCard
+                  tokens={[{ mint: token.mint, name: token.name, symbol: token.symbol }]}
+                  profileSolWallet={creatorFeeWallet}
+                  expectedFeeWallet="creator"
+                  hideTitle
+                  liveClaimableSol={claimableSol}
+                  liveClaimableLoading={claimableLoading}
+                  onClaimComplete={refreshClaimable}
+                  className="!mb-0 !shadow-none rounded-xl border-[#e8e8e8] bg-[#fafafa]"
+                />
               </div>
-              <ClaimFeesCard
-                tokens={[{ mint: token.mint, name: token.name, symbol: token.symbol }]}
-                profileSolWallet={creatorFeeWallet}
-                expectedFeeWallet="creator"
-                hideTitle
-                liveClaimableSol={claimableSol}
-                liveClaimableLoading={claimableLoading}
-                onClaimComplete={refreshClaimable}
-                className="!mb-0 !shadow-none rounded-xl border-[#e8e8e8] bg-[#fafafa]"
-              />
-            </div>
+            ) : null}
           </section>
 
           {/* 3. Token launch & trade (last) */}

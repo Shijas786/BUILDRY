@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useWallet } from '@solana/wallet-adapter-react'
 import PriceChart from '@/components/PriceChart'
 import TradePanel from '@/components/TradePanel'
 import ClaimFeesCard from '@/components/ClaimFeesCard'
@@ -37,13 +38,21 @@ function toBagsToken(raw: Record<string, unknown>): BagsToken {
 type Props = {
   tokens: Record<string, unknown>[]
   profileSolWallet: string | null
+  /** Only the profile owner should see claim UI and trigger claimable balance fetches. */
+  isProfileOwner: boolean
 }
 
-export default function ProfileTokensHub({ tokens, profileSolWallet }: Props) {
+export default function ProfileTokensHub({ tokens, profileSolWallet, isProfileOwner }: Props) {
+  const { publicKey } = useWallet()
   const bagsTokens = useMemo(() => tokens.map(toBagsToken).filter((t) => t.mint), [tokens])
   const [ix, setIx] = useState(0)
   const selected = bagsTokens[Math.min(ix, bagsTokens.length - 1)]
   const creatorWallet = selected?.creatorWallet || profileSolWallet
+  const canShowClaimFees =
+    isProfileOwner &&
+    !!publicKey &&
+    !!creatorWallet &&
+    publicKey.toBase58() === creatorWallet.trim()
 
   const { trust, loading: trustLoading } = useTrustScore(
     selected?.creatorWallet || null,
@@ -55,7 +64,7 @@ export default function ProfileTokensHub({ tokens, profileSolWallet }: Props) {
   const [claimableLoading, setClaimableLoading] = useState(true)
 
   const refreshClaimable = useCallback(() => {
-    if (!creatorWallet || !selected?.mint) {
+    if (!canShowClaimFees || !creatorWallet || !selected?.mint) {
       setClaimableSol(null)
       setClaimableLoading(false)
       return
@@ -72,13 +81,18 @@ export default function ProfileTokensHub({ tokens, profileSolWallet }: Props) {
       })
       .catch(() => setClaimableSol(null))
       .finally(() => setClaimableLoading(false))
-  }, [creatorWallet, selected?.mint])
+  }, [canShowClaimFees, creatorWallet, selected?.mint])
 
   useEffect(() => {
+    if (!canShowClaimFees) {
+      setClaimableSol(null)
+      setClaimableLoading(false)
+      return
+    }
     refreshClaimable()
     const id = setInterval(refreshClaimable, 25_000)
     return () => clearInterval(id)
-  }, [refreshClaimable])
+  }, [canShowClaimFees, refreshClaimable])
 
   const [dex24, setDex24] = useState<{ buys: number; sells: number } | null>(null)
   useEffect(() => {
@@ -185,19 +199,21 @@ export default function ProfileTokensHub({ tokens, profileSolWallet }: Props) {
         </div>
       </section>
 
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Claim creator fees</p>
-        <ClaimFeesCard
-          tokens={[{ mint: selected.mint, name: selected.name, symbol: selected.symbol }]}
-          profileSolWallet={creatorWallet || profileSolWallet}
-          expectedFeeWallet="creator"
-          hideTitle
-          className="!mb-0 border-slate-200 bg-slate-50/50"
-          liveClaimableSol={claimableSol}
-          liveClaimableLoading={claimableLoading}
-          onClaimComplete={refreshClaimable}
-        />
-      </div>
+      {canShowClaimFees ? (
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Claim creator fees</p>
+          <ClaimFeesCard
+            tokens={[{ mint: selected.mint, name: selected.name, symbol: selected.symbol }]}
+            profileSolWallet={creatorWallet || profileSolWallet}
+            expectedFeeWallet="creator"
+            hideTitle
+            className="!mb-0 border-slate-200 bg-slate-50/50"
+            liveClaimableSol={claimableSol}
+            liveClaimableLoading={claimableLoading}
+            onClaimComplete={refreshClaimable}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
