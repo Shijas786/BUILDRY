@@ -126,6 +126,8 @@ function TokenPageContent({ mint }: { mint: string }) {
 
   const [claimableSol, setClaimableSol] = useState<number | null>(null)
   const [claimableLoading, setClaimableLoading] = useState(true)
+  /** Distinct owners in RPC largest-accounts sample; Bags `holders` often lags or stays 0. */
+  const [holderSampleCount, setHolderSampleCount] = useState<number | null>(null)
 
   const refreshClaimable = useCallback(() => {
     if (!isViewerCreator || !creatorFeeWallet || !token?.mint) {
@@ -157,6 +159,26 @@ function TokenPageContent({ mint }: { mint: string }) {
     const id = setInterval(refreshClaimable, 25_000)
     return () => clearInterval(id)
   }, [token, isViewerCreator, refreshClaimable])
+
+  useEffect(() => {
+    if (!token?.mint) return
+    let cancelled = false
+    fetch(`/api/tokens/${encodeURIComponent(token.mint)}/holders`)
+      .then(async (r) => {
+        const j = (await r.json()) as { holders?: unknown[] }
+        if (!r.ok) return null
+        return Array.isArray(j.holders) ? j.holders.length : 0
+      })
+      .then((n) => {
+        if (!cancelled && typeof n === 'number') setHolderSampleCount(n)
+      })
+      .catch(() => {
+        if (!cancelled) setHolderSampleCount(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token?.mint])
 
   const isUp = (token?.priceChange24h ?? 0) >= 0
 
@@ -198,6 +220,8 @@ function TokenPageContent({ mint }: { mint: string }) {
       </div>
     )
   }
+
+  const holdersShown = Math.max(token.holders || 0, holderSampleCount ?? 0)
 
   return (
     <div className="min-h-screen bg-white">
@@ -263,7 +287,10 @@ function TokenPageContent({ mint }: { mint: string }) {
                 <div className="font-mono break-all" style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
                   ${token.symbol} · {fmtAddr(token.mint)}
                 </div>
-                <div className="mt-1 text-[11px] text-gray-400">~{fmtNum(token.holders || 0)} holders (Bags)</div>
+                <div className="mt-1 text-[11px] text-gray-400">
+                  ~{fmtNum(holdersShown)} holders
+                  <span className="text-gray-400/90"> · Bags &amp; on-chain sample</span>
+                </div>
               </div>
             </div>
           </div>
@@ -281,7 +308,7 @@ function TokenPageContent({ mint }: { mint: string }) {
             <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
               {[
                 { label: 'Fee APY', val: `${token.feeApy ?? 0}%` },
-                { label: 'Holders', val: fmtNum(token.holders || 0) },
+                { label: 'Holders', val: fmtNum(holdersShown) },
                 { label: 'Liquidity', val: fmtNum(token.liquidity || 0) },
               ].map((s, i) => (
                 <div key={s.label} style={{

@@ -14,11 +14,13 @@ export async function GET(req: NextRequest) {
     const page = parseInt(req.nextUrl.searchParams.get('page') || '1')
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '20')
     const userId = req.nextUrl.searchParams.get('userId') || ''
+    const viewerUserId = (req.nextUrl.searchParams.get('viewerUserId') || '').trim()
 
     const hydrated = await loadHydratedPosts({
       page,
       limit,
       followerUserId: userId || undefined,
+      viewerUserId: viewerUserId || undefined,
     })
 
     return NextResponse.json(hydrated, {
@@ -99,6 +101,7 @@ export async function POST(req: NextRequest) {
       location_lng: lng,
       likes_count: 0,
       comments_count: 0,
+      reposts_count: 0,
       created_at: Date.now(),
     })
 

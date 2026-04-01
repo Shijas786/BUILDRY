@@ -25,6 +25,8 @@ interface Post {
   location_lng?: number | null
   likes_count: number
   comments_count: number
+  reposts_count?: number
+  user_reposted?: boolean
   created_at: string | number
   users?: {
     id: string
@@ -58,7 +60,12 @@ export default function PostCard({ post }: { post: Post }) {
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<any[]>([])
   const [commentText, setCommentText] = useState('')
-  const [reposted, setReposted] = useState(false)
+  const [reposted, setReposted] = useState(Boolean(post.user_reposted))
+  const [repostsCount, setRepostsCount] = useState(post.reposts_count || 0)
+  /** Bumps on each repost so the flip animation replays. */
+  const [repostFlipKey, setRepostFlipKey] = useState(0)
+  /** Bumps on each like tap so the heart pop animation replays. */
+  const [likePopKey, setLikePopKey] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const [pollResponses, setPollResponses] = useState<Record<string, number>>(() =>
@@ -97,8 +104,14 @@ export default function PostCard({ post }: { post: Post }) {
     return () => document.removeEventListener('mousedown', close)
   }, [menuOpen])
 
+  useEffect(() => {
+    setReposted(Boolean(post.user_reposted))
+    setRepostsCount(post.reposts_count || 0)
+  }, [post.id, post.user_reposted, post.reposts_count])
+
   const handleLike = async () => {
     if (!user?.id) return
+    setLikePopKey((k) => k + 1)
     setLiked((prev) => !prev)
     setLikesCount((prev) => (liked ? prev - 1 : prev + 1))
     try {
@@ -110,6 +123,24 @@ export default function PostCard({ post }: { post: Post }) {
     } catch {
       setLiked((prev) => !prev)
       setLikesCount(post.likes_count || 0)
+    }
+  }
+
+  const handleRepost = async () => {
+    if (!user?.id) return
+    const was = reposted
+    if (!was) setRepostFlipKey((k) => k + 1)
+    setReposted(!was)
+    setRepostsCount((prev) => (was ? Math.max(0, prev - 1) : prev + 1))
+    try {
+      await fetch(`/api/posts/${post.id}/repost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      })
+    } catch {
+      setReposted(was)
+      setRepostsCount(post.reposts_count || 0)
     }
   }
 
@@ -373,29 +404,35 @@ export default function PostCard({ post }: { post: Post }) {
             </div>
           )}
 
-          <div className="mt-3 flex max-w-[280px] flex-wrap items-center gap-1 text-neutral-500 sm:max-w-none sm:justify-between sm:gap-0">
+          <div className="mt-3 flex max-w-[280px] flex-wrap items-center gap-1 sm:max-w-none sm:justify-between sm:gap-0">
             <button
               type="button"
               onClick={handleLike}
-              className={`flex items-center gap-1.5 rounded-full p-1.5 text-[13px] transition-colors hover:bg-neutral-100 hover:text-neutral-900 ${
-                liked ? 'text-neutral-900' : ''
+              className={`group/like flex items-center gap-1.5 rounded-full p-1.5 text-[13px] font-medium transition-colors duration-150 active:scale-[0.96] ${
+                liked ? 'text-red-500' : 'text-neutral-500 hover:text-neutral-800'
               }`}
               aria-label="Like"
             >
-              <svg className="h-[18px] w-[18px]" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.75"
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
+              <span className="inline-block origin-center transition-transform duration-200 ease-out group-hover/like:scale-110">
+                <span key={likePopKey} className="inline-flex like-icon-pop-once">
+                  <svg className="h-[18px] w-[18px]" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.75"
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                  </svg>
+                </span>
+              </span>
               {likesCount > 0 && <span className="tabular-nums">{likesCount}</span>}
             </button>
             <button
               type="button"
               onClick={loadComments}
-              className="flex items-center gap-1.5 rounded-full p-1.5 text-[13px] transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              className={`flex items-center gap-1.5 rounded-full p-1.5 text-[13px] font-medium transition-colors ${
+                showComments ? 'text-sky-700' : 'text-sky-600/90 hover:text-sky-700'
+              }`}
               aria-label="Comments"
             >
               <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -410,26 +447,57 @@ export default function PostCard({ post }: { post: Post }) {
             </button>
             <button
               type="button"
-              onClick={() => setReposted((r) => !r)}
-              className={`flex items-center gap-1.5 rounded-full p-1.5 text-[13px] transition-colors hover:bg-neutral-100 hover:text-neutral-900 ${
-                reposted ? 'text-neutral-900' : ''
+              onClick={() => void handleRepost()}
+              disabled={!user}
+              className={`group/repost flex items-center gap-1.5 rounded-full p-1.5 text-[13px] font-medium transition-colors duration-150 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 ${
+                reposted ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
               }`}
-              title="Repost (local for now)"
+              title={user ? 'Repost' : 'Sign in to repost'}
               aria-label="Repost"
             >
-              <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.75"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              <span className="inline-flex origin-center [transform-style:preserve-3d] transition-transform duration-200 ease-out group-hover/repost:scale-110">
+                <span key={repostFlipKey} className="inline-flex repost-icon-flip-once">
+                  {/* Classic retweet / repeat arrows (two-way) */}
+                  <svg
+                    className="h-[18px] w-[18px] shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.75"
+                      d="m17 1 4 4-4 4"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.75"
+                      d="M3 11V9a4 4 0 0 1 4-4h14"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.75"
+                      d="m7 23-4-4 4-4"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.75"
+                      d="M21 13v2a4 4 0 0 1-4 4H3"
+                    />
+                  </svg>
+                </span>
+              </span>
+              {repostsCount > 0 && <span className="tabular-nums">{repostsCount}</span>}
             </button>
             <button
               type="button"
               onClick={handleShare}
-              className="flex items-center gap-1.5 rounded-full p-1.5 text-[13px] transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+              className="flex items-center gap-1.5 rounded-full p-1.5 text-[13px] font-medium text-violet-600/90 transition-colors hover:text-violet-700"
               aria-label="Share"
             >
               <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

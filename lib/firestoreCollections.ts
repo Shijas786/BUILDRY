@@ -17,6 +17,7 @@ export const FS = {
   POSTS: 'posts',
   POST_COMMENTS: 'post_comments',
   POST_LIKES: 'post_likes',
+  POST_REPOSTS: 'post_reposts',
   BUILDER_FOLLOWERS: 'builder_followers',
 
   /* ─── Profile projects (live; client + future API) ─── */
@@ -71,5 +72,6 @@ export const FS_DOC_IDS = {
   SCHEMA_REGISTRY: 'schema_registry',
   FOLLOW: (builderId: string, followerId: string) => `${builderId}_${followerId}`,
   POST_LIKE: (postId: string, userId: string) => `${postId}_${userId}`,
+  POST_REPOST: (postId: string, userId: string) => `${postId}_${userId}`,
   WALLET_CLAIM: (chain: 'sol' | 'evm', address: string) => `${chain}_${address}`,
 } as const

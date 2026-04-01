@@ -44,6 +44,7 @@ function notifLabel(n: NotifRow): string {
   const who = n.actor.name || 'Someone'
   if (n.type === 'follow') return `${who} started following you`
   if (n.type === 'post_like') return `${who} liked your post`
+  if (n.type === 'post_repost') return `${who} reposted your post`
   if (n.type === 'post_comment') return `${who} commented on your post`
   return `${who} interacted with you`
 }

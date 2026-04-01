@@ -1,7 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore'
 import { FS } from '@/lib/firestoreCollections'
 
-export type SocialNotificationType = 'post_like' | 'post_comment' | 'follow'
+export type SocialNotificationType = 'post_like' | 'post_repost' | 'post_comment' | 'follow'
 
 /**
  * In-app notification for the recipient (`user_id` matches existing Firestore index).

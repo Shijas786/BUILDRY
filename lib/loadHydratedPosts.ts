@@ -1,7 +1,7 @@
 import type { DocumentReference, DocumentSnapshot, Firestore } from 'firebase-admin/firestore'
 import { enrichLaunchPostsWithResolvedMints } from '@/lib/enrichLaunchPostsTokenMint'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
-import { FS } from '@/lib/firestoreCollections'
+import { FS, FS_DOC_IDS } from '@/lib/firestoreCollections'
 
 export type PostUserProjection = {
   id: string
@@ -112,6 +112,30 @@ export type LoadHydratedPostsParams = {
   limit?: number
   /** When set, only posts from these authors (plus self) are returned (same behavior as API `userId`). */
   followerUserId?: string
+  /** When set, each post includes `user_reposted` for this viewer. */
+  viewerUserId?: string
+}
+
+const GETALL_CHUNK = 10
+
+async function attachViewerRepostFlags(
+  db: Firestore,
+  posts: Record<string, unknown>[],
+  viewerUserId: string | undefined
+): Promise<void> {
+  const v = viewerUserId?.trim()
+  if (!v || posts.length === 0) return
+
+  for (let i = 0; i < posts.length; i += GETALL_CHUNK) {
+    const slice = posts.slice(i, i + GETALL_CHUNK)
+    const refs = slice.map((p) =>
+      db.collection(FS.POST_REPOSTS).doc(FS_DOC_IDS.POST_REPOST(String(p.id), v))
+    )
+    const snaps = await db.getAll(...refs)
+    for (let j = 0; j < slice.length; j++) {
+      slice[j].user_reposted = snaps[j]?.exists === true
+    }
+  }
 }
 
 /**
@@ -125,6 +149,7 @@ export async function loadHydratedPosts(params: LoadHydratedPostsParams = {}): P
   const limit = Math.min(50, Math.max(1, params.limit ?? 20))
   const offset = (page - 1) * limit
   const followerUserId = params.followerUserId?.trim() || ''
+  const viewerUserId = params.viewerUserId?.trim() || ''
 
   try {
     const allNeeded = offset + limit
@@ -154,6 +179,7 @@ export async function loadHydratedPosts(params: LoadHydratedPostsParams = {}): P
     })
 
     await enrichLaunchPostsWithResolvedMints(posts, db)
+    await attachViewerRepostFlags(db, posts, viewerUserId || undefined)
 
     return posts
   } catch (err) {

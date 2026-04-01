@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { useAuth } from '@/context/AuthProvider'
 import PostCard from './PostCard'
 
 type FeedListProps = {
@@ -9,6 +10,7 @@ type FeedListProps = {
 }
 
 export default function FeedList({ initialPosts }: FeedListProps) {
+  const { user } = useAuth()
   const seededFromServer = initialPosts !== undefined
   const [posts, setPosts] = useState<any[]>(initialPosts ?? [])
   const [loading, setLoading] = useState(!seededFromServer)
@@ -19,7 +21,8 @@ export default function FeedList({ initialPosts }: FeedListProps) {
 
   const fetchPosts = useCallback(async (p: number) => {
     try {
-      const url = `/api/posts?page=${p}&limit=20`
+      const viewer = user?.id ? `&viewerUserId=${encodeURIComponent(user.id)}` : ''
+      const url = `/api/posts?page=${p}&limit=20${viewer}`
       const res = await fetch(url)
       const data = await res.json()
       if (p === 1) {
@@ -32,12 +35,19 @@ export default function FeedList({ initialPosts }: FeedListProps) {
       /* keep prior posts */
     }
     setLoading(false)
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
     if (seededFromServer) return
     fetchPosts(1)
   }, [seededFromServer, fetchPosts])
+
+  /** SSR initial posts omit `user_reposted`; refetch page 1 when viewer is known. */
+  useEffect(() => {
+    if (!seededFromServer || !user?.id) return
+    fetchPosts(1)
+    setPage(1)
+  }, [seededFromServer, user?.id, fetchPosts])
 
   useEffect(() => {
     if (loading || posts.length === 0) return
