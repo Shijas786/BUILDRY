@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { onAuthStateChanged } from 'firebase/auth'
 import { useAuth } from '@/context/AuthProvider'
 import { firebaseAuth } from '@/lib/firebaseClient'
 import {
@@ -131,24 +132,26 @@ export default function LaunchStudio() {
   }, [])
 
   useEffect(() => {
-    if (!user?.id || !clientLaunchReady) {
+    if (!clientLaunchReady) return
+    if (!user?.id) {
       setServerLaunch(null)
       setServerLaunchLoading(false)
       return
     }
+    if (!firebaseAuth) {
+      setServerLaunch(null)
+      setServerLaunchLoading(false)
+      return
+    }
+
+    const expectedUid = user.id
     let cancelled = false
-    setServerLaunchLoading(true)
-    void (async () => {
+
+    const runFetch = async (fbUser: { getIdToken: () => Promise<string>; uid: string }) => {
+      if (cancelled || fbUser.uid !== expectedUid) return
+      setServerLaunchLoading(true)
       try {
-        const cur = firebaseAuth?.currentUser
-        if (!cur || cur.uid !== user.id) {
-          if (!cancelled) {
-            setServerLaunch(null)
-            setServerLaunchLoading(false)
-          }
-          return
-        }
-        const token = await cur.getIdToken()
+        const token = await fbUser.getIdToken()
         const res = await fetch('/api/me/latest-token-launch', {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
@@ -168,9 +171,21 @@ export default function LaunchStudio() {
       } finally {
         if (!cancelled) setServerLaunchLoading(false)
       }
-    })()
+    }
+
+    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
+      if (cancelled) return
+      if (!fbUser || fbUser.uid !== expectedUid) {
+        setServerLaunch(null)
+        setServerLaunchLoading(false)
+        return
+      }
+      void runFetch(fbUser)
+    })
+
     return () => {
       cancelled = true
+      unsub()
     }
   }, [user?.id, clientLaunchReady])
 
