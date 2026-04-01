@@ -16,6 +16,8 @@ export interface BagsToken {
   mint: string
   name: string
   symbol: string
+  /** Set by `/api/tokens/[mint]` when this mint is linked in `user_token_launches`. */
+  buildry_launcher_uid?: string
   price: number
   priceChange24h: number
   marketCap: number

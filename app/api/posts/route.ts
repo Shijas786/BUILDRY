@@ -3,6 +3,7 @@ import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 import { loadHydratedPosts } from '@/lib/loadHydratedPosts'
 import { buildProfileLaunchUpdate } from '@/lib/profileLaunchLink'
+import { writeUserTokenLaunch } from '@/lib/userTokenLaunchRecord'
 
 export async function GET(req: NextRequest) {
   if (!isFirebaseAdminConfigured || !adminDb) {
@@ -114,6 +115,12 @@ export async function POST(req: NextRequest) {
       }
       const profileLaunch = buildProfileLaunchUpdate(token_mint, displayName, sym)
       if (profileLaunch) {
+        await writeUserTokenLaunch(db, authorId, {
+          mint: token_mint,
+          name: displayName,
+          symbol: sym,
+          launchedAt: Date.now(),
+        })
         await db.collection(FS.BUILDER_PROFILES).doc(authorId).set(profileLaunch, { merge: true })
       }
     }

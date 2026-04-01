@@ -86,3 +86,17 @@ export async function getBuildryTrustSnapshotForSolWallet(
   }
   return null
 }
+
+/** Load Buildry profile card data by Firebase uid (no wallet match required). */
+export async function getBuildryTrustSnapshotForUid(userId: string): Promise<BuildryTrustSnapshot | null> {
+  const uid = userId.trim()
+  if (!uid || !isFirebaseAdminConfigured || !adminDb) return null
+  try {
+    const profSnap = await adminDb.collection(FS.BUILDER_PROFILES).doc(uid).get()
+    if (!profSnap.exists) return null
+    return snapshotFromProfileData(profSnap.data() as Record<string, unknown>)
+  } catch (e) {
+    console.error('getBuildryTrustSnapshotForUid:', e)
+  }
+  return null
+}

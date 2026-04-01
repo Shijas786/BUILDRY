@@ -10,6 +10,9 @@ export const FS = {
   USERS: 'users',
   BUILDER_PROFILES: 'builder_profiles',
 
+  /* ─── Token launch registry: doc id = Firebase uid; written on every Bags launch ─── */
+  USER_TOKEN_LAUNCHES: 'user_token_launches',
+
   /* ─── Social graph & feed (live) ─── */
   POSTS: 'posts',
   POST_COMMENTS: 'post_comments',

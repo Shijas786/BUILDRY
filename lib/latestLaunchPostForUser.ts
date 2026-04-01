@@ -2,6 +2,7 @@ import type { DocumentData, QueryDocumentSnapshot } from 'firebase-admin/firesto
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 import { launchFromProfileData } from '@/lib/profileLaunchLink'
+import { readUserTokenLaunch } from '@/lib/userTokenLaunchRecord'
 
 export type LatestLaunchForUser = {
   mint: string
@@ -87,8 +88,10 @@ function sortDocsByCreatedDesc(docs: QueryDocumentSnapshot[]): QueryDocumentSnap
 }
 
 /**
- * Latest launch for a uid: read linked fields on `builder_profiles` (set when you launch on Buildry),
- * then fall back to the newest launch-like post that already carries a mint.
+ * Latest launch for a uid:
+ * 1) `user_token_launches/{uid}` (written on every successful in-app launch)
+ * 2) `builder_profiles` last_launch_* / bags_primary_mint
+ * 3) Newest launch-like post with a mint (legacy)
  */
 export async function resolveLatestLaunchForUser(userId: string): Promise<LatestLaunchResolution> {
   const hints: string[] = []
@@ -103,6 +106,11 @@ export async function resolveLatestLaunchForUser(userId: string): Promise<Latest
   const uid = userId.trim()
 
   try {
+    const fromRegistry = await readUserTokenLaunch(db, uid)
+    if (fromRegistry) {
+      return { launch: fromRegistry, hints: [] }
+    }
+
     const profSnap = await db.collection(FS.BUILDER_PROFILES).doc(uid).get()
     const fromProf = launchFromProfileData((profSnap.data() || {}) as Record<string, unknown>)
     if (fromProf) {
@@ -128,7 +136,7 @@ export async function resolveLatestLaunchForUser(userId: string): Promise<Latest
       return { launch: { mint, name, symbol, created_at: created }, hints: [] }
     }
 
-    hints.push('no_platform_launch_on_profile_and_no_launch_post_with_mint')
+    hints.push('no_user_token_launch_doc_profile_or_post_with_mint')
     return { launch: null, hints }
   } catch (e) {
     console.error('resolveLatestLaunchForUser:', e)

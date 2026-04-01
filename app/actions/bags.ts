@@ -5,6 +5,7 @@ import { BagsSDK, sendBundleAndConfirm } from '@bagsfm/bags-sdk'
 import { adminDb, isFirebaseAdminConfigured } from '@/lib/firebaseAdmin'
 import { FS } from '@/lib/firestoreCollections'
 import { buildProfileLaunchUpdate } from '@/lib/profileLaunchLink'
+import { writeUserTokenLaunch } from '@/lib/userTokenLaunchRecord'
 
 /**
  * Bags Token Launch v2 — aligned with https://docs.bags.fm/how-to-guides/launch-token
@@ -276,6 +277,14 @@ export async function recordLaunchMilestonePost(
     const now = Date.now()
     const mint = tokenMint.trim()
     const sym = symbol.trim().toUpperCase()
+    if (mint) {
+      await writeUserTokenLaunch(adminDb, userId, {
+        mint,
+        name: name.trim(),
+        symbol: sym,
+        launchedAt: now,
+      })
+    }
     await adminDb.collection(FS.POSTS).add({
       author_id: userId,
       content: `Just launched $${sym} — ${name}! ${description}`,

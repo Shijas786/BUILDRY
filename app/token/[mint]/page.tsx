@@ -90,7 +90,8 @@ function TokenPageContent({ mint }: { mint: string }) {
   const { trust, loading: trustLoading } = useTrustScore(
     trustLookupWallet,
     token?.creatorImage,
-    token?.twitter ?? null
+    token?.twitter ?? null,
+    token?.buildry_launcher_uid ?? null
   )
 
   const creatorFeeWallet =

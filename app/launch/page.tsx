@@ -373,13 +373,20 @@ export default function LaunchStudio() {
       }
 
       if (user?.id) {
-        void recordLaunchMilestonePost(
+        const recorded = await recordLaunchMilestonePost(
           user.id,
           name.trim(),
           symbol.trim().toUpperCase(),
           description.trim(),
           tokenMint
         )
+        if (!recorded.success) {
+          console.error('recordLaunchMilestonePost failed:', recorded)
+          alert(
+            recorded.error ||
+              'Your token launched on-chain, but saving to your Buildry account failed. Refresh in a moment; if this persists, check Firebase Admin env on the server.'
+          )
+        }
       }
 
       setLaunchSnapshot(captureLaunchSnapshot(payload))
